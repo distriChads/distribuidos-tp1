@@ -5,8 +5,11 @@ import (
 	"errors"
 	"time"
 
+	"github.com/op/go-logging"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
+
+var log = logging.MustGetLogger("worker")
 
 type sender struct {
 	conn *amqp.Connection
@@ -20,11 +23,16 @@ type receiver struct {
 	messages <-chan amqp.Delivery
 }
 
-type Worker struct {
-	InputExchange  *string
-	OutputExchange *string
+type WorkerConfig struct {
+	InputExchange  string
+	OutputExchange string
 	MessageBroker  string
-	Stop           bool
+}
+
+type Worker struct {
+	InputExchange  string
+	OutputExchange string
+	MessageBroker  string
 	sender         *sender
 	receiver       *receiver
 }
@@ -38,7 +46,7 @@ func initConnection(broker string) (*amqp.Connection, error) {
 	return conn, nil
 }
 
-func InitSender(worker Worker) error {
+func InitSender(worker *Worker) error {
 	conn, err := initConnection(worker.MessageBroker)
 	if err != nil {
 		return err
@@ -54,10 +62,11 @@ func InitSender(worker Worker) error {
 		ch:   ch,
 	}
 
+	log.Info("Sender initialized")
 	return nil
 }
 
-func InitReceiver(worker Worker) error {
+func InitReceiver(worker *Worker) error {
 	conn, err := initConnection(worker.MessageBroker)
 	if err != nil {
 		return err
@@ -69,21 +78,21 @@ func InitReceiver(worker Worker) error {
 	}
 
 	q, err := ch.QueueDeclare(
-		"",    // name
-		false, // durable
-		false, // delete when unused
-		true,  // exclusive
-		false, // no-wait
-		nil,   // arguments
+		worker.InputExchange, // name
+		false,                // durable
+		false,                // delete when unused
+		true,                 // exclusive
+		false,                // no-wait
+		nil,                  // arguments
 	)
 	if err != nil {
 		return err
 	}
 
 	err = ch.QueueBind(
-		q.Name, // queue name
-		"",     // routing key
-		"logs", // exchange
+		q.Name,               // queue name
+		"",                   // routing key
+		worker.InputExchange, // exchange
 		false,
 		nil,
 	)
@@ -110,6 +119,8 @@ func InitReceiver(worker Worker) error {
 		queue:    q,
 		messages: msgs,
 	}
+
+	log.Info("Receiver initialized")
 	return nil
 }
 
@@ -122,16 +133,21 @@ func SendMessage(worker Worker, message []byte) error {
 	defer cancel()
 
 	err := worker.sender.ch.PublishWithContext(ctx,
-		"logs", // exchange
-		"",     // routing key
-		false,  // mandatory
-		false,  // immediate
+		worker.OutputExchange, // exchange
+		"",                    // routing key
+		false,                 // mandatory
+		false,                 // immediate
 		amqp.Publishing{
 			ContentType: "text/plain",
 			Body:        message,
 		})
 
-	return err
+	if err != nil {
+		return err
+	}
+
+	log.Infof("Message sent: %s", string(message))
+	return nil
 }
 
 func ReceivedMessages(worker Worker) (<-chan amqp.Delivery, error) {
@@ -144,4 +160,46 @@ func ReceivedMessages(worker Worker) (<-chan amqp.Delivery, error) {
 
 func RunWorker(worker Worker) error {
 	return errors.New("not implemented")
+}
+
+func CloseWorker(worker *Worker) error {
+	return errors.New("not implemented")
+}
+
+func CloseSender(worker *Worker) error {
+	if worker.sender == nil {
+		return errors.New("sender not initialized")
+	}
+
+	err := worker.sender.ch.Close()
+	if err != nil {
+		return err
+	}
+
+	err = worker.sender.conn.Close()
+	if err != nil {
+		return err
+	}
+
+	worker.sender = nil
+	return nil
+}
+
+func CloseReceiver(worker *Worker) error {
+	if worker.receiver == nil {
+		return errors.New("receiver not initialized")
+	}
+
+	err := worker.receiver.ch.Close()
+	if err != nil {
+		return err
+	}
+
+	err = worker.receiver.conn.Close()
+	if err != nil {
+		return err
+	}
+
+	worker.receiver = nil
+	return nil
 }
