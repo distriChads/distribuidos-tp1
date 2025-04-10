@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	filters "distribuidos-tp1/fiters"
+	filters "distribuidos-tp1/filters"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
