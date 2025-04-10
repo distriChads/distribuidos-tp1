@@ -5,13 +5,13 @@ import (
 	"strings"
 )
 
-func FilterByCountry(lines []string, country_to_filter string) []string {
+func FilterByCountryArgentina(lines []string) []string {
 	var result []string
 	for _, line := range lines {
 		parts := strings.Split(line, ",")
 		countries := strings.Split(parts[0], "|")
 		for _, country := range countries {
-			if strings.TrimSpace(country) == country_to_filter {
+			if strings.TrimSpace(country) == "ARG" {
 				result = append(result, strings.TrimSpace(line))
 				break
 			}
@@ -31,7 +31,7 @@ func main() {
 
 	lineas := strings.Split(strings.TrimSpace(line), "\n")
 
-	resultado := FilterByCountry(lineas, "ARG")
+	resultado := FilterByCountryArgentina(lineas)
 	for _, r := range resultado {
 		// cambiar por simplemente enviar el paquete a ambas colas, este filtro recibe, filtra y envia como le llego
 		fmt.Println(r)
