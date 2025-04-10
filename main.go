@@ -54,15 +54,33 @@ func main() {
 		return
 	}
 
-	filter := filters.NewFilterByYear(filters.FilterByYearConfig{
+	filterAfterYear2000 := filters.NewFilterByAfterYear2000(filters.FilterByAfterYear2000Config{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange:  "input_exchange",
 			OutputExchange: "output_exchange",
 			MessageBroker:  "amqp://guest:guest@localhost:5672/",
 		},
-		Year: 2020,
 	})
-	defer filter.CloseWorker()
+
+	/*filterArgentina := filters.NewFilterByArgentina(filters.FilterByArgentinaConfig{
+		WorkerConfig: worker.WorkerConfig{
+			InputExchange:  "input_exchange",
+			OutputExchange: "output_exchange",
+			MessageBroker:  "amqp://guest:guest@localhost:5672/",
+		},
+	})*/
+
+	/*filterSpainAndOf2000 := filters.NewFilterBySpainAndOf2000(filters.FilterBySpainAndOf2000Config{
+		WorkerConfig: worker.WorkerConfig{
+			InputExchange:  "input_exchange",
+			OutputExchange: "output_exchange",
+			MessageBroker:  "amqp://guest:guest@localhost:5672/",
+		},
+	})*/
+
+	defer filterAfterYear2000.CloseWorker()
+	//defer filterArgentina.CloseWorker()
+	//defer filterSpainAndOf2000.CloseWorker()
 
 	// Set up a consumer for the output exchange
 	outputQueue, err := ch.QueueDeclare(
@@ -104,16 +122,28 @@ func main() {
 		return
 	}
 
-	go filter.RunWorker()
+	go filterAfterYear2000.RunWorker()
 	time.Sleep(2 * time.Second)
+	//go filterArgentina.RunWorker()
+	//time.Sleep(2 * time.Second)
+	//go filterSpainAndOf2000.RunWorker()
+	//time.Sleep(2 * time.Second)
 
 	// Produce 3 messages to input_exchange
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	// Send 3 sample messages to the input exchange
+
+	line := `
+	USA|ARG|CHI,2002-10-30,Comedy|Family|Action,toy story,id1
+	CAN|ARG|BRA,1996-10-30,Comedy|Family|Action,megamente,id2
+	ARG|CHI|SPAIN,2009-10-30,Comedy|Family|Action,shrek,id3
+	USA,1992-10-30,Comedy|Family|Action,cars,id4
+	`
+
 	for i := 1; i <= 3; i++ {
-		message := fmt.Sprintf("Test message %d", i)
+		message := fmt.Sprintf("%v", line)
 		err = ch.PublishWithContext(ctx,
 			"input_exchange", // exchange
 			"",               // routing key
