@@ -5,32 +5,29 @@ import (
 	"strings"
 )
 
-type FilterByArgentinaConfig struct {
+type FilterByOnlyOneCountryConfig struct {
 	worker.WorkerConfig
 }
 
-type FilterByArgentina struct {
+type FilterByOnlyOneCountry struct {
 	worker.Worker
 }
 
-func filterByArgentina(lines []string) []string {
+func filterByOnlyOneCountry(lines []string) []string {
 	var result []string
 	for _, line := range lines {
 		parts := strings.Split(line, ",")
 		countries := strings.Split(parts[0], "|")
-		for _, country := range countries {
-			if strings.TrimSpace(country) == "ARG" {
-				result = append(result, strings.TrimSpace(line))
-				break
-			}
+		if len(countries) == 1 {
+			result = append(result, strings.TrimSpace(line))
 		}
 	}
 	return result
 }
 
-func NewFilterByArgentina(config FilterByArgentinaConfig) *FilterByArgentina {
+func NewFilterByOnlyOneCountry(config FilterByOnlyOneCountryConfig) *FilterByOnlyOneCountry {
 	log.Infof("NewFilterByYear: %+v", config)
-	return &FilterByArgentina{
+	return &FilterByOnlyOneCountry{
 		Worker: worker.Worker{
 			InputExchange:  config.InputExchange,
 			OutputExchange: config.OutputExchange,
@@ -39,7 +36,7 @@ func NewFilterByArgentina(config FilterByArgentinaConfig) *FilterByArgentina {
 	}
 }
 
-func (f *FilterByArgentina) RunWorker() error {
+func (f *FilterByOnlyOneCountry) RunWorker() error {
 	log.Info("Starting FilterByYear worker")
 	worker.InitSender(&f.Worker)
 	worker.InitReceiver(&f.Worker)
@@ -54,7 +51,7 @@ func (f *FilterByArgentina) RunWorker() error {
 		log.Infof("Received message: %s", string(message.Body))
 		message := string(message.Body)
 		lines := strings.Split(strings.TrimSpace(message), "\n")
-		result := filterByArgentina(lines)
+		result := filterByOnlyOneCountry(lines)
 		err := worker.SendMessage(f.Worker, []byte(strings.Join(result, "\n")))
 		if err != nil {
 			log.Infof("Error sending message: %s", err.Error())
@@ -64,7 +61,7 @@ func (f *FilterByArgentina) RunWorker() error {
 	return nil
 }
 
-func (f *FilterByArgentina) CloseWorker() error {
+func (f *FilterByOnlyOneCountry) CloseWorker() error {
 	err := worker.CloseSender(&f.Worker)
 	if err != nil {
 		return err

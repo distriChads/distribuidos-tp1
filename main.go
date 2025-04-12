@@ -2,11 +2,10 @@ package main
 
 import (
 	"context"
-	worker "distribuidos-tp1/common/worker"
+	"distribuidos-tp1/common/worker"
+	"distribuidos-tp1/filters"
 	"fmt"
 	"time"
-
-	filters "distribuidos-tp1/filters"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -68,9 +67,17 @@ func main() {
 			OutputExchange: "output_exchange",
 			MessageBroker:  "amqp://guest:guest@localhost:5672/",
 		},
-	})*/
+	})
 
-	/*filterSpainAndOf2000 := filters.NewFilterBySpainAndOf2000(filters.FilterBySpainAndOf2000Config{
+	filterSpainAndOf2000 := filters.NewFilterBySpainAndOf2000(filters.FilterBySpainAndOf2000Config{
+		WorkerConfig: worker.WorkerConfig{
+			InputExchange:  "input_exchange",
+			OutputExchange: "output_exchange",
+			MessageBroker:  "amqp://guest:guest@localhost:5672/",
+		},
+	})
+
+	filterOnlyOneCountry := filters.NewFilterByOnlyOneCountry(filters.FilterByOnlyOneCountryConfig{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange:  "input_exchange",
 			OutputExchange: "output_exchange",
@@ -81,6 +88,7 @@ func main() {
 	defer filterAfterYear2000.CloseWorker()
 	//defer filterArgentina.CloseWorker()
 	//defer filterSpainAndOf2000.CloseWorker()
+	//defer filterOnlyOneCountry.CloseWorker()
 
 	// Set up a consumer for the output exchange
 	outputQueue, err := ch.QueueDeclare(
@@ -127,6 +135,8 @@ func main() {
 	//go filterArgentina.RunWorker()
 	//time.Sleep(2 * time.Second)
 	//go filterSpainAndOf2000.RunWorker()
+	//time.Sleep(2 * time.Second)
+	//go filterOnlyOneCountry.RunWorker()
 	//time.Sleep(2 * time.Second)
 
 	// Produce 3 messages to input_exchange

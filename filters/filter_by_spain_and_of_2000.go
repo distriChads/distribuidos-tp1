@@ -14,7 +14,7 @@ type FilterBySpainAndOf2000 struct {
 	worker.Worker
 }
 
-func FilterByCountrySpainAndOf2000(lines []string) []string {
+func filterByCountrySpainAndOf2000(lines []string) []string {
 	var result []string
 	for _, line := range lines {
 		parts := strings.Split(line, ",")
@@ -64,7 +64,7 @@ func (f *FilterBySpainAndOf2000) RunWorker() error {
 		log.Infof("Received message: %s", string(message.Body))
 		message := string(message.Body)
 		lines := strings.Split(strings.TrimSpace(message), "\n")
-		result := FilterByCountrySpainAndOf2000(lines)
+		result := filterByCountrySpainAndOf2000(lines)
 		var message_to_send []string
 		for _, r := range result {
 			parts := strings.Split(r, ",")
