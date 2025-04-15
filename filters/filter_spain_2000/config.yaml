@@ -1,0 +1,7 @@
+log:
+  level: info
+worker:
+  exchange:
+    input: input_exchange
+    output: output_exchange
+  broker: amqp://guest:guest@localhost:5672/
