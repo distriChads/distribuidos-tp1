@@ -1,9 +1,13 @@
-package filters
+package filter_argentina
 
 import (
 	worker "distribuidos-tp1/common/worker"
 	"strings"
+
+	"github.com/op/go-logging"
 )
+
+var log = logging.MustGetLogger("filter_argentina")
 
 type FilterByArgentinaConfig struct {
 	worker.WorkerConfig

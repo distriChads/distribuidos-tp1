@@ -1,4 +1,4 @@
-package filters
+package filter_after_2000
 
 import (
 	worker "distribuidos-tp1/common/worker"
@@ -8,17 +8,17 @@ import (
 	"github.com/op/go-logging"
 )
 
-type FilterBySpainAndOf2000Config struct {
+var log = logging.MustGetLogger("filter_after_2000")
+
+type FilterByAfterYear2000Config struct {
 	worker.WorkerConfig
 }
 
-type FilterBySpainAndOf2000 struct {
+type FilterByAfterYear2000 struct {
 	worker.Worker
 }
 
-var log = logging.MustGetLogger("filter_by_year")
-
-func filterByCountrySpainAndOf2000(lines []string) []string {
+func filterByYearAfter2000(lines []string) []string {
 	var result []string
 	for _, line := range lines {
 		parts := strings.Split(line, ",")
@@ -27,24 +27,16 @@ func filterByCountrySpainAndOf2000(lines []string) []string {
 		if err != nil {
 			continue
 		}
-		if !(year >= 2000 && year < 2010) {
-			continue
+		if year > 2000 {
+			result = append(result, strings.TrimSpace(line))
 		}
-		countries := strings.Split(parts[0], "|")
-		for _, country := range countries {
-			if strings.TrimSpace(country) == "SPAIN" {
-				result = append(result, strings.TrimSpace(line))
-				break
-			}
-		}
-
 	}
 	return result
 }
 
-func NewFilterBySpainAndOf2000(config FilterBySpainAndOf2000Config) *FilterBySpainAndOf2000 {
-	log.Infof("FilterBySpainAndOf2000: %+v", config)
-	return &FilterBySpainAndOf2000{
+func NewFilterByAfterYear2000(config FilterByAfterYear2000Config) *FilterByAfterYear2000 {
+	log.Infof("FilterByAfterYear2000: %+v", config)
+	return &FilterByAfterYear2000{
 		Worker: worker.Worker{
 			InputExchange:  config.InputExchange,
 			OutputExchange: config.OutputExchange,
@@ -53,8 +45,8 @@ func NewFilterBySpainAndOf2000(config FilterBySpainAndOf2000Config) *FilterBySpa
 	}
 }
 
-func (f *FilterBySpainAndOf2000) RunWorker() error {
-	log.Info("Starting FilterByYear worker")
+func (f *FilterByAfterYear2000) RunWorker() error {
+	log.Info("Starting FilterByAfterYear2000 worker")
 	worker.InitSender(&f.Worker)
 	worker.InitReceiver(&f.Worker)
 
@@ -68,11 +60,11 @@ func (f *FilterBySpainAndOf2000) RunWorker() error {
 		log.Infof("Received message: %s", string(message.Body))
 		message := string(message.Body)
 		lines := strings.Split(strings.TrimSpace(message), "\n")
-		result := filterByCountrySpainAndOf2000(lines)
+		result := filterByYearAfter2000(lines)
 		var message_to_send []string
 		for _, r := range result {
 			parts := strings.Split(r, ",")
-			title_and_id := strings.TrimSpace(parts[len(parts)-3]) + "," + strings.TrimSpace(parts[len(parts)-2])
+			title_and_id := strings.TrimSpace(parts[len(parts)-2]) + "," + strings.TrimSpace(parts[len(parts)-1])
 			message_to_send = append(message_to_send, title_and_id)
 		}
 		err := worker.SendMessage(f.Worker, []byte(strings.Join(message_to_send, "\n")))
@@ -84,7 +76,7 @@ func (f *FilterBySpainAndOf2000) RunWorker() error {
 	return nil
 }
 
-func (f *FilterBySpainAndOf2000) CloseWorker() error {
+func (f *FilterByAfterYear2000) CloseWorker() error {
 	err := worker.CloseSender(&f.Worker)
 	if err != nil {
 		return err

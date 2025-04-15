@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"distribuidos-tp1/common/worker"
-	"distribuidos-tp1/filters"
+	"distribuidos-tp1/filters/filter_after_2000"
 	"fmt"
 	"time"
 
@@ -53,7 +53,7 @@ func main() {
 		return
 	}
 
-	filterAfterYear2000 := filters.NewFilterByAfterYear2000(filters.FilterByAfterYear2000Config{
+	filterAfterYear2000 := filter_after_2000.NewFilterByAfterYear2000(filter_after_2000.FilterByAfterYear2000Config{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange:  "input_exchange",
 			OutputExchange: "output_exchange",
