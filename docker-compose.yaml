@@ -1,0 +1,76 @@
+name: tp1
+services:
+  rabbitmq:
+    image: rabbitmq:4.0-management
+    ports:
+      - 5672:5672
+      - 15672:15672
+    networks:
+      - movies_net
+
+  filter-after-2000:
+    build:
+      context: .
+      dockerfile: filters/filter_after_2000/Dockerfile
+    volumes:
+      - ./filters/filter_after_2000/config.ini:/config.ini
+    container_name: filter-after-2000
+    image: filter-after-2000:latest
+    entrypoint: ./filter_after_2000
+    environment:
+    networks:
+      - movies_net
+    depends_on:
+      - rabbitmq
+
+  filter-argentina:
+    build:
+      context: .
+      dockerfile: filters/filter_argentina/Dockerfile
+    volumes:
+      - ./filters/filter_argentina/config.ini:/config.ini
+    container_name: filter-argentina
+    image: filter-argentina:latest
+    entrypoint: ./filter_argentina
+    environment:
+    networks:
+      - movies_net
+    depends_on:
+      - rabbitmq
+
+  filter-spain-2000:
+    build:
+      context: .
+      dockerfile: filters/filter_spain_2000/Dockerfile
+    volumes:
+      - ./filters/filter_spain_2000/config.ini:/config.ini
+    container_name: filter-spain-2000
+    image: filter-spain-2000:latest
+    entrypoint: ./filter_spain_2000
+    environment:
+    networks:
+      - movies_net
+    depends_on:
+      - rabbitmq
+
+  filter-only-one-country:
+    build:
+      context: .
+      dockerfile: filters/filter_only_one_country/Dockerfile
+    volumes:
+      - ./filters/filter_only_one_country/config.ini:/config.ini
+    container_name: filter-only-one-country
+    image: filter-only-one-country:latest
+    entrypoint: ./filter_only_one_country
+    environment:
+    networks:
+      - movies_net
+    depends_on:
+      - rabbitmq
+
+networks:
+  movies_net:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.25.125.0/24
