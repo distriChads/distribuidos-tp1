@@ -25,25 +25,27 @@ class Processor:
         self.data_buffer: str = ""
         self.overflow_buffer: str = ""
 
-    def process_first_batch(self, chunck_received: str) -> int:
+        self.bytes_read = 0
+        self.read_until = 0
+
+    def process_first_batch(self, bytes_received: int, chunck_received: str):
+        self.bytes_read = bytes_received
         index_delimiter = chunck_received.find('|')
 
         file_size = int(chunck_received[:index_delimiter])
-        print(f"File size: {chunck_received[:index_delimiter+3]}")
-        print(f"File size: {file_size}")
+        self.read_until = file_size
         chunck_received = chunck_received[index_delimiter+1:]
 
         chunck_received = self.remove_header(chunck_received)
-        self.process_batch(chunck_received)
+        self.process_batch(bytes_received, chunck_received)
 
-        return file_size
-
-    def process_batch(self, csv_data: str):
+    def process_batch(self, bytes_received: int, chunck_received: str):
+        self.bytes_read += bytes_received
         self.data_buffer += self.overflow_buffer
         self.overflow_buffer = ""
         successful_lines_count = 0
         error_count = 0
-        reader = csv.reader(io.StringIO(csv_data))
+        reader = csv.reader(io.StringIO(chunck_received))
 
         for row in reader:
             try:
@@ -64,6 +66,9 @@ class Processor:
                 continue
         logging.info(
             f"Processed {successful_lines_count} lines, {error_count} errors")
+
+    def received_all_data(self) -> bool:
+        return self.bytes_read >= self.read_until
 
     def remove_header(self, csv_data: str) -> str:
         return csv_data[self.header_length:]

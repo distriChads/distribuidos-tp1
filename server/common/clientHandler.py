@@ -23,7 +23,7 @@ class ClientHandler:
         signal.signal(signal.SIGINT, self.__graceful_shutdown_handler)
         signal.signal(signal.SIGTERM, self.__graceful_shutdown_handler)
 
-        self.batch_processor = RatingsProcessor()
+        self.batch_processor = MoviesProcessor()
 
     def __graceful_shutdown_handler(self, signum: Optional[int] = None, frame: Optional[FrameType] = None):
         self._running = False
@@ -37,33 +37,32 @@ class ClientHandler:
 
     def __receive_datasets(self):
         for i in range(FILES_TO_RECEIVE):
-            received_data_size, file_size = self.__receive_first_chunck(
-                self.batch_processor)
-            logging.debug("Receiving file %d of size %d", i, file_size)
+            self.__receive_first_chunck(self.batch_processor)
+            logging.debug("Receiving file %d of size %d", i,
+                          self.batch_processor.read_until)
             logging.info("Received %d bytes out of %d --- file %d",
-                         received_data_size, file_size, i)
+                         self.batch_processor.bytes_read, self.batch_processor.read_until, i)
 
-            while self._running and self._client_socket and received_data_size < file_size:
+            while self._running and self._client_socket:
+                if self.batch_processor.received_all_data():
+                    self.__send_data(self.batch_processor.get_all_data())
+                    break
                 try:
+                    self._send_batch_if_threshold_reached()
                     bytes_received, chunck_received = read_from_socket(
                         self._client_socket)
 
-                    received_data_size += bytes_received
                     logging.info("Received %d bytes out of %d --- file %d",
-                                 received_data_size, file_size, i)
+                                 self.batch_processor.bytes_read, self.batch_processor.read_until, i)
 
-                    self.batch_processor.process_batch(chunck_received)
-                    if received_data_size >= file_size:
-                        self.__send_data(self.batch_processor.get_all_data())
-                        break
-
-                    self._send_batch_if_threshold_reached()
+                    self.batch_processor.process_batch(
+                        bytes_received, chunck_received)
                 except socket.error as e:
                     logging.error(f'action: receive_datasets | error: {e}')
                     return
 
             logging.info(
-                f'\n--- received file: {i} | file_size: {file_size} | received: {received_data_size} ---\n')
+                f'\n--- received file: {i} | file_size: {self.batch_processor.read_until} | received: {self.batch_processor.bytes_read} ---\n')
 
             self.__set_next_processor()
 
@@ -79,12 +78,12 @@ class ClientHandler:
         with open(f'file_{type(self.batch_processor).__name__}.csv', 'a') as f:
             f.write(data_send)
 
-    def __receive_first_chunck(self, processor_chunck: MoviesProcessor | CreditsProcessor | RatingsProcessor) -> tuple[int, int]:
+    def __receive_first_chunck(self, processor_chunck: MoviesProcessor | CreditsProcessor | RatingsProcessor):
         if self._client_socket is None:
             raise ValueError("Client socket is not connected.")
         bytes_read, chunck_received = read_from_socket(self._client_socket)
 
-        return bytes_read, processor_chunck.process_first_batch(chunck_received)
+        return processor_chunck.process_first_batch(bytes_read, chunck_received)
 
     def __set_next_processor(self):
         if type(self.batch_processor) == CreditsProcessor:

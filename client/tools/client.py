@@ -8,9 +8,9 @@ from typing import Optional
 from communication import write_to_socket
 
 
-# MOVIES_PATH = "../datasets/movies_metadata.csv"
+MOVIES_PATH = "../datasets/movies_metadata.csv"
 # CREDITS_PATH = "../datasets/credits1.csv"
-RATINGS_PATH = "../datasets/ratings.csv"
+# RATINGS_PATH = "../datasets/ratings.csv"
 
 BATCH_SIZE = 8000 - 4  # 4 bytes for the length of the message
 
@@ -38,9 +38,9 @@ class Client:
         self.__connect()
 
         try:
-            # self.__send_file_in_chunks(MOVIES_PATH)
+            self.__send_file_in_chunks(MOVIES_PATH)
             # self.__send_file_in_chunks(CREDITS_PATH)
-            self.__send_file_in_chunks(RATINGS_PATH)
+            # self.__send_file_in_chunks(RATINGS_PATH)
 
         except Exception as e:
             logging.error(f"Error: {e}")
