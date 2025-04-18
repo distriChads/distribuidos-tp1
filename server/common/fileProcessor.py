@@ -22,14 +22,13 @@ class Processor:
     def __init__(self):
         self.header_length = 0
         self.fields_count = 0
-        self.data_buffer: str = ""
-        self.overflow_buffer: str = ""
+        self.data_buffer: list[str] = []
+        self.overflow_buffer: list[str] = []
 
         self.bytes_read = 0
         self.read_until = 0
 
     def process_first_batch(self, bytes_received: int, chunck_received: str):
-        self.bytes_read = bytes_received
         index_delimiter = chunck_received.find('|')
 
         file_size = int(chunck_received[:index_delimiter])
@@ -41,8 +40,8 @@ class Processor:
 
     def process_batch(self, bytes_received: int, chunck_received: str):
         self.bytes_read += bytes_received
-        self.data_buffer += self.overflow_buffer
-        self.overflow_buffer = ""
+        self.data_buffer.append("".join(self.overflow_buffer))
+        self.overflow_buffer.clear()
         successful_lines_count = 0
         error_count = 0
         reader = csv.reader(io.StringIO(chunck_received))
@@ -57,9 +56,9 @@ class Processor:
                 line_processed = self._process_line(row)
                 successful_lines_count += 1
                 if len(self.data_buffer) + len(line_processed) + 1 <= MAX_BATCH_SIZE:
-                    self.data_buffer += line_processed + "\n"
+                    self.data_buffer.append(line_processed + "\n")
                 else:
-                    self.overflow_buffer += line_processed + "\n"
+                    self.overflow_buffer.append(line_processed + "\n")
             except Exception as e:
                 error_count += 1
                 logging.error(f"Error processing line, Error: {e}")
@@ -75,18 +74,27 @@ class Processor:
 
     def ready_to_send(self) -> bool:
         # -1 for the \n
-        return len(self.data_buffer) + len(self.overflow_buffer) - 1 >= MAX_BATCH_SIZE
+        data_buffer = "".join(self.data_buffer)
+        overflow_buffer = "".join(self.overflow_buffer)
+
+        self.data_buffer.clear()
+        self.overflow_buffer.clear()
+
+        self.data_buffer.append(data_buffer)
+        self.overflow_buffer.append(overflow_buffer)
+
+        return len(data_buffer) + len(overflow_buffer) - 1 >= MAX_BATCH_SIZE
 
     def get_processed_batch(self) -> str:
-        result = self.data_buffer
-        self.data_buffer = ""
+        result = "".join(self.data_buffer)
+        self.data_buffer.clear()
         return result
 
     def get_all_data(self) -> str:
         result = self.data_buffer + self.overflow_buffer
-        self.data_buffer = ""
-        self.overflow_buffer = ""
-        return result
+        self.data_buffer.clear()
+        self.overflow_buffer.clear()
+        return "".join(result)
 
     def _process_line(self, line: list[str]) -> str:
         raise NotImplementedError(
@@ -138,6 +146,28 @@ class CreditsProcessor(Processor):
         super().__init__()
         self.header_length = len(CREDITS_HEADER) + 1  # +1 for the \n
         self.fields_count = FIELDS_COUNT_CREDITS
+        self.row_length = 0
+        self.row_buffer = ""
+
+    def process_batch(self, bytes_received: int, chunck_received: str):
+        if len(chunck_received) == 0:
+            self.bytes_read += bytes_received
+            # was the header - skip it
+            return
+        if self.row_length == 0:
+            index_delimiter = chunck_received.find("|")
+            str_length = chunck_received[:index_delimiter]
+            self.row_length = int(str_length)
+            chunck_received = chunck_received[index_delimiter+1:]
+            # 4 bytes for the row size + 1 byte for the delimiter
+            bytes_received -= len(str_length) + 1
+        self.row_buffer += chunck_received
+        if len(self.row_buffer) == self.row_length:
+            super().process_batch(bytes_received, self.row_buffer)
+            self.row_buffer = ""
+            self.row_length = 0
+        else:
+            self.bytes_read += bytes_received
 
     def _process_line(self, line: list[str]) -> str:
         id = line[2]
