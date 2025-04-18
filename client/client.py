@@ -86,9 +86,11 @@ class Client:
                 lenght_sent += len(chunk)
                 write_to_socket(self.client_socket, chunk)
 
-                logging.info(
-                    f"Sent {lenght_sent} bytes of {file_name} to server")
-
+                percent_bytes_sent = (lenght_sent / file_size) * 100
+                percent_bytes_sent = f"{percent_bytes_sent:05.2f}"
+                print(
+                    f"\rSent {percent_bytes_sent}% of {file_name} to server", end="")
+        print()
         logging.info(f"Sent {file_name} to server")
 
     def find_nearest_line_break(self, chunk: bytes) -> int:
@@ -126,7 +128,11 @@ class Client:
 
                     write_to_socket(self.client_socket, chunk)
                     chunk = b""
-                    logging.info(
-                        f"Sent {total_bytes_sent} bytes of {file_name} to server")
 
+                    percent_bytes_sent = round(
+                        (total_bytes_sent / file_size) * 100, 2)
+                    percent_bytes_sent = f"{percent_bytes_sent:05.2f}"
+                    print(
+                        f"\rSent {percent_bytes_sent}% of {file_name} to server", end="")
+        print()
         logging.info(f"Sent {file_name} to server")

@@ -1,6 +1,7 @@
 import logging
 import signal
 import socket
+import sys
 from types import FrameType
 from typing import Optional
 
@@ -48,6 +49,7 @@ class ClientHandler:
             logging.info("Received %d bytes out of %d --- file %d",
                          self.batch_processor.bytes_read, self.batch_processor.read_until, i)
 
+            j = 0
             while self._running and self._client_socket:
                 if self.batch_processor.received_all_data():
                     self.__send_data(self.batch_processor.get_all_data())
@@ -59,12 +61,23 @@ class ClientHandler:
                     self.batch_processor.process_batch(
                         bytes_received, chunck_received)
 
-                    logging.info("Received %d bytes out of %d --- file %d",
-                                 self.batch_processor.bytes_read, self.batch_processor.read_until, i)
+                    if j > 0:
+                        sys.stdout.write("\033[F" * 2)
+                    percent_bytes_received = (
+                        self.batch_processor.bytes_read / self.batch_processor.read_until) * 100
+                    percent_bytes_received = f"{percent_bytes_received:05.2f}"
+                    print(
+                        f"\rReceived {percent_bytes_received}% of File {i}\n"
+                        f"Lines with errors: {self.batch_processor.errors_per_file}\n"
+                        f"Lines processed: {self.batch_processor.successful_lines_count}",
+                        end=""
+                    )
+                    j = 1
                 except socket.error as e:
                     logging.error(f'action: receive_datasets | error: {e}')
                     return
 
+            print()
             logging.info(
                 f'\n--- received file: {i} | file_size: {self.batch_processor.read_until} | received: {self.batch_processor.bytes_read} ---\n')
 

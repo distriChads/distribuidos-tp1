@@ -27,6 +27,8 @@ class Processor:
 
         self.bytes_read = 0
         self.read_until = 0
+        self.errors_per_file = 0
+        self.successful_lines_count = 0
 
     def process_first_batch(self, bytes_received: int, chunck_received: str):
         index_delimiter = chunck_received.find('|')
@@ -50,7 +52,7 @@ class Processor:
             try:
                 if len(row) == 0 or len(row) != self.fields_count:
                     error_count += 1
-                    logging.error(
+                    logging.debug(
                         f"Error processing line, Expected {self.fields_count} fields, got {len(row)}")
                     continue
                 line_processed = self._process_line(row)
@@ -61,10 +63,12 @@ class Processor:
                     self.overflow_buffer.append(line_processed + "\n")
             except Exception as e:
                 error_count += 1
-                logging.error(f"Error processing line, Error: {e}")
+                logging.debug(f"Error processing line, Error: {e}")
                 continue
-        logging.info(
-            f"Processed {successful_lines_count} lines, {error_count} errors")
+        # logging.debug(
+        #     f"Processed {successful_lines_count} lines, {error_count} errors")
+        self.successful_lines_count += successful_lines_count
+        self.errors_per_file += error_count
 
     def received_all_data(self) -> bool:
         return self.bytes_read >= self.read_until

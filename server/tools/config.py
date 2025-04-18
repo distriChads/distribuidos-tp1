@@ -19,7 +19,7 @@ def init_config():
         #     'LOGGING_LEVEL', config["DEFAULT"]["LOGGING_LEVEL"])
         config_params["port"] = 3000
         config_params["listen_backlog"] = 1
-        config_params["logging_level"] = "debug"
+        config_params["logging_level"] = "info"
     except KeyError as e:
         raise KeyError(
             "Key was not found. Error: {} .Aborting server".format(e))
