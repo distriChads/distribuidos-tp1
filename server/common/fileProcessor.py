@@ -123,6 +123,7 @@ class MoviesProcessor(Processor):
         releaseDate = line[14]
         prodCountries = line[13]
         genres = line[3]
+        budget = line[2]
 
         prodCountries = self._try_parse_python_structure(prodCountries)
         genres = self._try_parse_python_structure(genres)
@@ -142,7 +143,7 @@ class MoviesProcessor(Processor):
             [c["iso_3166_1"] for c in prodCountries])
         genres = VALUE_SEPARATOR.join([g["name"] for g in genres])
 
-        return f"{id}{FIELD_SEPARATOR}{title}{FIELD_SEPARATOR}{releaseDate}{FIELD_SEPARATOR}{countries}{FIELD_SEPARATOR}{genres}"
+        return f"{id}{FIELD_SEPARATOR}{title}{FIELD_SEPARATOR}{releaseDate}{FIELD_SEPARATOR}{countries}{FIELD_SEPARATOR}{genres}{FIELD_SEPARATOR}{budget}"
 
 
 class CreditsProcessor(Processor):
