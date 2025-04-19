@@ -1,7 +1,7 @@
 import logging
 
 
-def init_log(logging_level):
+def init_log(logging_level: str = "INFO") -> None:
     """
     Python custom logging initialization
 
