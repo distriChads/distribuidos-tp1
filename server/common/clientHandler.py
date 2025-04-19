@@ -5,19 +5,20 @@ import sys
 from types import FrameType
 from typing import Optional
 
-from common.communication import SocketReader
-from common.fileProcessor import MoviesProcessor, CreditsProcessor, RatingsProcessor
+from server.common.communication import Socket
+from server.common.fileProcessor import MoviesProcessor, CreditsProcessor, RatingsProcessor
+from common.worker.worker import RabbitWorker
 
 FILES_TO_RECEIVE = 3
 MAX_BATCH_SIZE = 8000 - 4  # 4 bytes for the file size
 
 
 class ClientHandler:
-    def __init__(self, port: int):
+    def __init__(self, port: int, rabbitmq_host: str):
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(1)  # TODO: change to .env
-        self._client_socket: Optional[SocketReader] = None
+        self._client_socket: Optional[Socket] = None
 
         self._running = True
         # Handle SIGINT (Ctrl+C) and SIGTERM (docker stop)
@@ -25,20 +26,23 @@ class ClientHandler:
         signal.signal(signal.SIGTERM, self.__graceful_shutdown_handler)
 
         self.batch_processor = MoviesProcessor()
-        self.file = open(
-            # TODO: remove it
-            f'file_{type(self.batch_processor).__name__}.csv', 'w')
+        self.rabbit_worker = RabbitWorker(
+            rabbitmq_host=rabbitmq_host,
+            queues_send={"movies", "credits", "ratings"},
+            queue_callbacks={"client_results": self.__send_result_to_client}
+        )
 
     def __graceful_shutdown_handler(self, signum: Optional[int] = None, frame: Optional[FrameType] = None):
         self._running = False
         if self._client_socket:
             self._client_socket.sock.close()
         self._server_socket.close()
+        self.rabbit_worker.close()
 
     def run(self):
         while self._running:
             client_socket = self.__accept_new_connection()
-            self._client_socket = SocketReader(client_socket)
+            self._client_socket = Socket(client_socket)
             self.__receive_datasets()
 
     def __receive_datasets(self):
@@ -81,7 +85,6 @@ class ClientHandler:
             logging.info(
                 f'\n--- received file: {i} | file_size: {self.batch_processor.read_until} | received: {self.batch_processor.bytes_read} ---\n')
 
-            self.file.close()
             self.__set_next_processor()
 
     def _send_batch_if_threshold_reached(self):
@@ -91,9 +94,18 @@ class ClientHandler:
             return ""
 
     def __send_data(self, data_send: str):
-        # TODO: Send the chunk to RabbitMQ
-        # We save the processed chunk to a file for now for testing purposes
-        self.file.write(data_send)
+        queue_name = ""
+        if type(self.batch_processor) == MoviesProcessor:
+            queue_name = "movies"
+        elif type(self.batch_processor) == CreditsProcessor:
+            queue_name = "credits"
+        elif type(self.batch_processor) == RatingsProcessor:
+            queue_name = "ratings"
+
+        self.rabbit_worker.send_message_to(
+            queue_name=queue_name,
+            message=data_send
+        )
 
     def __receive_first_chunck(self):
         if self._client_socket is None:
@@ -107,8 +119,18 @@ class ClientHandler:
             self.batch_processor = CreditsProcessor()
         elif type(self.batch_processor) == CreditsProcessor:
             self.batch_processor = RatingsProcessor()
-        self.file = open(
-            f'file_{type(self.batch_processor).__name__}.csv', 'w')
+
+    def __send_result_to_client(self, result: str):
+        try:
+            if not self._client_socket:
+                raise ValueError("Client socket is not connected.")
+            self._client_socket.send(result)
+        except socket.error as e:
+            logging.error(f'action: send_result_to_client | error: {e}')
+            return
+
+        logging.info(
+            f'action: send_result_to_client | result: success | data: {result}')
 
     def __accept_new_connection(self):
         logging.info('action: accept_connections | result: in_progress')

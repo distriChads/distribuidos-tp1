@@ -15,7 +15,10 @@ def main():
     logging.debug(
         f"action: config | port: {port} | "f"listen_backlog: {listen_backlog} | logging_level: {logging_level}")
 
-    ch = ClientHandler(config["port"])
+    ch = ClientHandler(
+        port=config["port"],
+        rabbitmq_host=config["rabbitmq_host"],
+    )
 
     try:
         ch.run()

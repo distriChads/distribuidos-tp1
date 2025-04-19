@@ -2,20 +2,21 @@ import codecs
 import socket
 
 
-def write_to_socket(socket: socket.socket, msg: bytes):
-    """
-    Write a message to a socket
-
-    :param socket: socket to write to
-    :param msg: message to write
-    """
-    socket.sendall(len(msg).to_bytes(4, 'big') + msg)
-
-
-class SocketReader:
+class Socket:
     def __init__(self, sock: socket.socket):
         self.sock = sock
         self.decoder = codecs.getincrementaldecoder('utf-8')()
+
+    def send(self, msg: str):
+        """
+        Write a message to a socket
+
+        :param socket: socket to write to
+        :param msg: message to write
+        """
+        # Encode the message to bytes
+        msg_encoded = msg.encode('utf-8')
+        self.sock.sendall(len(msg_encoded).to_bytes(4, 'big') + msg_encoded)
 
     def read(self) -> tuple[int, str]:
         """
