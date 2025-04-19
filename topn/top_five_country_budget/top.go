@@ -35,14 +35,18 @@ func updateTopFive(lines []string, top_five []TopFiveCountrByBudget) []TopFiveCo
 		}
 		if len(top_five) < 5 {
 			top_five = append(top_five, TopFiveCountrByBudget{Country: country, Budget: budget})
+			sort.Slice(top_five, func(i, j int) bool {
+				return top_five[i].Budget > top_five[j].Budget
+			})
 		} else {
 			if top_five[4].Budget < budget {
 				top_five[4] = TopFiveCountrByBudget{Country: country, Budget: budget}
+				sort.Slice(top_five, func(i, j int) bool {
+					return top_five[i].Budget > top_five[j].Budget
+				})
 			}
 		}
-		sort.Slice(top_five, func(i, j int) bool {
-			return top_five[i].Budget > top_five[j].Budget
-		})
+
 	}
 	return top_five
 }
