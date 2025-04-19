@@ -54,6 +54,13 @@ func (f *FilterByOnlyOneCountry) RunWorker() error {
 	for message := range msgs {
 		log.Infof("Received message: %s", string(message.Body))
 		message := string(message.Body)
+		if message == "EOF" {
+			err := worker.SendMessage(f.Worker, []byte("EOF"))
+			if err != nil {
+				log.Infof("Error sending message: %s", err.Error())
+			}
+			break
+		}
 		lines := strings.Split(strings.TrimSpace(message), "\n")
 		result := filterByOnlyOneCountry(lines)
 		err := worker.SendMessage(f.Worker, []byte(strings.Join(result, "\n")))

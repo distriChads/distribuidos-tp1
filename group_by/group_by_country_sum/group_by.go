@@ -22,12 +22,12 @@ var log = logging.MustGetLogger("filter_by_year")
 
 func groupByCountryAndSum(lines []string, grouped_elements map[string]int) {
 	for _, line := range lines {
-		parts := strings.Split(line, ",")
-		budget, err := strconv.Atoi(parts[1])
+		parts := strings.Split(line, "|")
+		budget, err := strconv.Atoi(parts[5])
 		if err != nil {
 			continue
 		}
-		grouped_elements[parts[0]] += budget
+		grouped_elements[parts[3]] += budget
 	}
 }
 

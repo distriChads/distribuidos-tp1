@@ -80,7 +80,7 @@ class ClientHandler:
                 except socket.error as e:
                     logging.error(f'action: receive_datasets | error: {e}')
                     return
-
+            self.__send_data("EOF")
             print()
             logging.info(
                 f'\n--- received file: {i} | file_size: {self.batch_processor.read_until} | received: {self.batch_processor.bytes_read} ---\n')

@@ -67,6 +67,9 @@ func (f *FilterBySpainAndOf2000) RunWorker() error {
 	for message := range msgs {
 		log.Infof("Received message: %s", string(message.Body))
 		message := string(message.Body)
+		if message == "EOF" {
+			break
+		}
 		lines := strings.Split(strings.TrimSpace(message), "\n")
 		result := filterByCountrySpainAndOf2000(lines)
 		var message_buffer []string
@@ -76,12 +79,7 @@ func (f *FilterBySpainAndOf2000) RunWorker() error {
 			message_buffer = append(message_buffer, title_and_id)
 		}
 		message_to_send := strings.Join(message_buffer, "\n")
-		for _, ms := range message_buffer {
-			log.Infof("EN BUFFER %s", ms)
-		}
-
 		if len(message_to_send) != 0 {
-			log.Infof("MENSAJE QUE SERIA ENVIADO PAPU %s", message_to_send)
 			err := worker.SendMessage(f.Worker, []byte(message_to_send))
 			if err != nil {
 				log.Infof("Error sending message: %s", err.Error())
