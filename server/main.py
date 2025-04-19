@@ -21,9 +21,6 @@ def main():
         ch.run()
     except Exception as e:
         logging.critical(f"Failed server: {e}")
-        return
-    finally:
-        ch.stop()
 
 
 if __name__ == "__main__":
