@@ -5,6 +5,7 @@ import (
 	"distribuidos-tp1/common/worker"
 	"distribuidos-tp1/filters/filter_only_one_country"
 	"distribuidos-tp1/group_by/group_by_country_sum"
+	"distribuidos-tp1/topn/top_five_country_budget"
 	"fmt"
 	"time"
 
@@ -68,6 +69,20 @@ func main() {
 		return
 	}
 
+	err = ch.ExchangeDeclare(
+		"top_five_output_exchange", // name
+		"fanout",                   // type
+		true,                       // durable
+		false,                      // auto-deleted
+		false,                      // internal
+		false,                      // no-wait
+		nil,                        // arguments
+	)
+	if err != nil {
+		println(err.Error())
+		return
+	}
+
 	/*filterArgentina := filter_argentina.NewFilterByArgentina(filter_argentina.FilterByArgentinaConfig{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange:  "argentina_input_exchange",
@@ -100,8 +115,17 @@ func main() {
 		},
 	}, 10)
 
+	topFiveByBudget := top_five_country_budget.NewTopFiveCountryBudget(top_five_country_budget.TopFiveCountryBudgetConfig{
+		WorkerConfig: worker.WorkerConfig{
+			InputExchange:  "result_group_by_output_exchange",
+			OutputExchange: "top_five_output_exchange",
+			MessageBroker:  "amqp://guest:guest@localhost:5672/",
+		},
+	})
+
 	defer filterOnlyOneCountry.CloseWorker()
 	defer groupByCountryAndSum.CloseWorker()
+	defer topFiveByBudget.CloseWorker()
 
 	// Set up a consumer for the output exchange
 	outputQueue, err := ch.QueueDeclare(
@@ -118,11 +142,11 @@ func main() {
 	}
 
 	err = ch.QueueBind(
-		outputQueue.Name,                  // queue name
-		"",                                // routing key
-		"result_group_by_output_exchange", // exchange
-		false,                             // no-wait
-		nil,                               // arguments
+		outputQueue.Name,           // queue name
+		"",                         // routing key
+		"top_five_output_exchange", // exchange
+		false,                      // no-wait
+		nil,                        // arguments
 	)
 	if err != nil {
 		println("Failed to bind output queue:", err.Error())
@@ -146,6 +170,8 @@ func main() {
 	go filterOnlyOneCountry.RunWorker()
 	time.Sleep(2 * time.Second)
 	go groupByCountryAndSum.RunWorker()
+	time.Sleep(2 * time.Second)
+	go topFiveByBudget.RunWorker()
 	time.Sleep(2 * time.Second)
 
 	// Produce 3 messages to input_exchange
@@ -171,6 +197,11 @@ func main() {
 	ARG,500
 	BRA|CHI,700
 	BRA,800
+	SPA,4000
+	UK,7000
+	URU,200
+	PER,850
+	BRA,9000
 	`
 
 	for i := 1; i <= 3; i++ {
@@ -226,5 +257,6 @@ func main() {
 	ch.ExchangeDelete("filter_only_one_input_exchange", false, false)
 	ch.ExchangeDelete("filter_only_one_output_exchange", false, false)
 	ch.ExchangeDelete("result_group_by_output_exchange", false, false)
+	ch.ExchangeDelete("top_five_output_exchange", false, false)
 	println("Exchanges deleted")
 }

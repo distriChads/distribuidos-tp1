@@ -93,6 +93,10 @@ func (f *GroupByCountryAndSum) RunWorker() error {
 	if err != nil {
 		log.Infof("Error sending message: %s", err.Error())
 	}
+	err = worker.SendMessage(f.Worker, []byte("EOF"))
+	if err != nil {
+		log.Infof("Error sending message: %s", err.Error())
+	}
 	return nil
 }
 
