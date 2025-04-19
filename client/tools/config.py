@@ -1,19 +1,20 @@
 from configparser import ConfigParser
 import os
 
+from dotenv import load_dotenv
 
-def init_config():
-    config = ConfigParser(os.environ)
-    config.read('config.ini')
 
-    config_params = {}
+def init_config() -> dict[str, str | int]:
+    load_dotenv()
+    config = ConfigParser()
+    config.read('./tools/config.ini')
+
+    config_params: dict[str, str | int] = {}
     try:
-        # config_params["server_port"] = int(
-        #     os.getenv('SERVER_PORT', config["DEFAULT"]["SERVER_PORT"]))
-        # config_params["logging_level"] = os.getenv(
-        #     'LOGGING_LEVEL', config["DEFAULT"]["LOGGING_LEVEL"])
-        config_params["server_port"] = 3000
-        config_params["logging_level"] = "INFO"
+        config_params["server_port"] = int(
+            os.getenv('SERVER_PORT') or config["DEFAULT"]["SERVER_PORT"])
+        config_params["logging_level"] = os.getenv(
+            'LOGGING_LEVEL') or config["DEFAULT"]["LOGGING_LEVEL"]
     except KeyError as e:
         raise KeyError(
             "Key was not found. Error: {} .Aborting server".format(e))
