@@ -2,7 +2,7 @@ package filter_after_2000
 
 import (
 	"distribuidos-tp1/common/utils"
-	"distribuidos-tp1/common/worker"
+	"distribuidos-tp1/common/worker/worker"
 )
 
 func main() {

@@ -1,7 +1,7 @@
 package top_five_country_budget
 
 import (
-	worker "distribuidos-tp1/common/worker"
+	worker "distribuidos-tp1/common/worker/worker"
 	"fmt"
 	"sort"
 	"strconv"

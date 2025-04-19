@@ -1,12 +1,11 @@
 package main
 
 import (
-	"context"
-	"distribuidos-tp1/common/worker"
-	"distribuidos-tp1/filters/filter_only_one_country"
-	"distribuidos-tp1/group_by/group_by_country_sum"
-	"distribuidos-tp1/topn/top_five_country_budget"
-	"fmt"
+	"distribuidos-tp1/common/worker/worker"
+	"os"
+
+	"distribuidos-tp1/filters/filter_argentina"
+	"distribuidos-tp1/filters/filter_spain_2000"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -28,13 +27,13 @@ func main() {
 	defer ch.Close()
 
 	err = ch.ExchangeDeclare(
-		"result_group_by_output_exchange", // name
-		"fanout",                          // type
-		true,                              // durable
-		false,                             // auto-deleted
-		false,                             // internal
-		false,                             // no-wait
-		nil,                               // arguments
+		"filter_argentina_output", // name
+		"fanout",                  // type
+		true,                      // durable
+		false,                     // auto-deleted
+		false,                     // internal
+		false,                     // no-wait
+		nil,                       // arguments
 	)
 	if err != nil {
 		println(err.Error())
@@ -42,13 +41,13 @@ func main() {
 	}
 
 	err = ch.ExchangeDeclare(
-		"filter_only_one_output_exchange", // name
-		"fanout",                          // type
-		true,                              // durable
-		false,                             // auto-deleted
-		false,                             // internal
-		false,                             // no-wait
-		nil,                               // arguments
+		"filter_spain_output", // name
+		"fanout",              // type
+		true,                  // durable
+		false,                 // auto-deleted
+		false,                 // internal
+		false,                 // no-wait
+		nil,                   // arguments
 	)
 	if err != nil {
 		println(err.Error())
@@ -56,79 +55,39 @@ func main() {
 	}
 
 	err = ch.ExchangeDeclare(
-		"filter_only_one_input_exchange", // name
-		"fanout",                         // type
-		true,                             // durable
-		false,                            // auto-deleted
-		false,                            // internal
-		false,                            // no-wait
-		nil,                              // arguments
+		"movies", // name
+		"fanout", // type
+		true,     // durable
+		false,    // auto-deleted
+		false,    // internal
+		false,    // no-wait
+		nil,      // arguments
 	)
 	if err != nil {
 		println(err.Error())
 		return
 	}
 
-	err = ch.ExchangeDeclare(
-		"top_five_output_exchange", // name
-		"fanout",                   // type
-		true,                       // durable
-		false,                      // auto-deleted
-		false,                      // internal
-		false,                      // no-wait
-		nil,                        // arguments
-	)
-	if err != nil {
-		println(err.Error())
-		return
-	}
-
-	/*filterArgentina := filter_argentina.NewFilterByArgentina(filter_argentina.FilterByArgentinaConfig{
+	filterArgentina := filter_argentina.NewFilterByArgentina(filter_argentina.FilterByArgentinaConfig{
 		WorkerConfig: worker.WorkerConfig{
-			InputExchange:  "argentina_input_exchange",
-			OutputExchange: "argentina_output_exchange",
+			InputExchange:  "movies",
+			OutputExchange: "filter_argentina_output",
 			MessageBroker:  "amqp://guest:guest@localhost:5672/",
 		},
 	})
 
-	filterAfterYear2000 := filter_after_2000.NewFilterByAfterYear2000(filter_after_2000.FilterByAfterYear2000Config{
+	filterSpain := filter_spain_2000.NewFilterBySpainAndOf2000(filter_spain_2000.FilterBySpainAndOf2000Config{
 		WorkerConfig: worker.WorkerConfig{
-			InputExchange:  "argentina_output_exchange",
-			OutputExchange: "after_2000_output_exchange",
-			MessageBroker:  "amqp://guest:guest@localhost:5672/",
-		},
-	})*/
-
-	filterOnlyOneCountry := filter_only_one_country.NewFilterByOnlyOneCountry(filter_only_one_country.FilterByOnlyOneCountryConfig{
-		WorkerConfig: worker.WorkerConfig{
-			InputExchange:  "filter_only_one_input_exchange",
-			OutputExchange: "filter_only_one_output_exchange",
+			InputExchange:  "filter_argentina_output",
+			OutputExchange: "filter_spain_output",
 			MessageBroker:  "amqp://guest:guest@localhost:5672/",
 		},
 	})
 
-	groupByCountryAndSum := group_by_country_sum.NewGroupByCountryAndSum(group_by_country_sum.GroupByCountryAndSumConfig{
-		WorkerConfig: worker.WorkerConfig{
-			InputExchange:  "filter_only_one_output_exchange",
-			OutputExchange: "result_group_by_output_exchange",
-			MessageBroker:  "amqp://guest:guest@localhost:5672/",
-		},
-	}, 10)
+	defer filterArgentina.CloseWorker()
+	defer filterSpain.CloseWorker()
 
-	topFiveByBudget := top_five_country_budget.NewTopFiveCountryBudget(top_five_country_budget.TopFiveCountryBudgetConfig{
-		WorkerConfig: worker.WorkerConfig{
-			InputExchange:  "result_group_by_output_exchange",
-			OutputExchange: "top_five_output_exchange",
-			MessageBroker:  "amqp://guest:guest@localhost:5672/",
-		},
-	})
-
-	defer filterOnlyOneCountry.CloseWorker()
-	defer groupByCountryAndSum.CloseWorker()
-	defer topFiveByBudget.CloseWorker()
-
-	// Set up a consumer for the output exchange
-	outputQueue, err := ch.QueueDeclare(
+	outputQueue, _ := ch.QueueDeclare(
 		"output_consumer", // name
 		false,             // durable
 		true,              // delete when unused
@@ -136,24 +95,16 @@ func main() {
 		false,             // no-wait
 		nil,               // arguments
 	)
-	if err != nil {
-		println("Failed to declare output queue:", err.Error())
-		return
-	}
 
-	err = ch.QueueBind(
-		outputQueue.Name,           // queue name
-		"",                         // routing key
-		"top_five_output_exchange", // exchange
-		false,                      // no-wait
-		nil,                        // arguments
+	_ = ch.QueueBind(
+		outputQueue.Name,      // queue name
+		"",                    // routing key
+		"filter_spain_output", // exchange
+		false,                 // no-wait
+		nil,                   // arguments
 	)
-	if err != nil {
-		println("Failed to bind output queue:", err.Error())
-		return
-	}
 
-	msgs, err := ch.Consume(
+	msgs, _ := ch.Consume(
 		outputQueue.Name, // queue
 		"",               // consumer
 		true,             // auto-ack
@@ -162,101 +113,19 @@ func main() {
 		false,            // no-wait
 		nil,              // args
 	)
-	if err != nil {
-		println("Failed to register consumer:", err.Error())
-		return
-	}
 
-	go filterOnlyOneCountry.RunWorker()
-	time.Sleep(2 * time.Second)
-	go groupByCountryAndSum.RunWorker()
-	time.Sleep(2 * time.Second)
-	go topFiveByBudget.RunWorker()
+	go filterArgentina.RunWorker()
 	time.Sleep(2 * time.Second)
 
-	// Produce 3 messages to input_exchange
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	// Send 3 sample messages to the input exchange
-
-	/*line = `
-	USA|ARG|CHI,2006-10-30,Comedy|Family|Action,toy story,id1
-	CAN|ARG|BRA,1996-10-30,Comedy|Family|Action,megamente,id2
-	ARG|CHI|SPAIN,2004-10-30,Comedy|Family|Action,shrek,id3
-	USA,2008-10-30,Comedy|Family|Action,cars,id4
-	`*/
-	line := `
-	USA|ARG|CHI,1500
-	CAN|ARG|BRA,2000
-	ARG|CHI|SPAIN,3000
-	USA,1000
-	ARG,4000
-	CHI,6000
-	USA,4000
-	ARG,500
-	BRA|CHI,700
-	BRA,800
-	SPA,4000
-	UK,7000
-	URU,200
-	PER,850
-	BRA,9000
-	`
-
-	for i := 1; i <= 3; i++ {
-		message := fmt.Sprintf("%v", line)
-		err = ch.PublishWithContext(ctx,
-			"filter_only_one_input_exchange", // exchange
-			"",                               // routing key
-			false,                            // mandatory
-			false,                            // immediate
-			amqp.Publishing{
-				ContentType: "text/plain",
-				Body:        []byte(message),
-			})
-		if err != nil {
-			println("Failed to publish message:", err.Error())
-			return
-		}
-		if i == 3 {
-			message = "EOF"
-			err = ch.PublishWithContext(ctx,
-				"filter_only_one_input_exchange", // exchange
-				"",                               // routing key
-				false,                            // mandatory
-				false,                            // immediate
-				amqp.Publishing{
-					ContentType: "text/plain",
-					Body:        []byte(message),
-				})
-			if err != nil {
-				println("Failed to publish message:", err.Error())
-				return
-			}
-		}
-		println("Published message:", message)
-		time.Sleep(500 * time.Millisecond) // Small delay between messages
-	}
-
-	// Wait a moment to allow processing
-	println("Waiting for messages to be processed...")
+	go filterSpain.RunWorker()
 	time.Sleep(2 * time.Second)
 
-	// Read 3 messages from output_exchange
-	println("Reading messages from output_exchange:")
-	messageCount := 0
 	for msg := range msgs {
 		println("Received:", string(msg.Body))
-		messageCount++
-		if messageCount >= 3 {
-			break
-		}
+		f, _ := os.OpenFile("test_query.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		f.WriteString(string(msg.Body) + "\n")
 	}
 
-	ch.ExchangeDelete("filter_only_one_input_exchange", false, false)
 	ch.ExchangeDelete("filter_only_one_output_exchange", false, false)
-	ch.ExchangeDelete("result_group_by_output_exchange", false, false)
-	ch.ExchangeDelete("top_five_output_exchange", false, false)
 	println("Exchanges deleted")
 }

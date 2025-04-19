@@ -1,7 +1,7 @@
 package filter_only_one_country
 
 import (
-	worker "distribuidos-tp1/common/worker"
+	worker "distribuidos-tp1/common/worker/worker"
 	"strings"
 
 	"github.com/op/go-logging"
@@ -20,8 +20,8 @@ type FilterByOnlyOneCountry struct {
 func filterByOnlyOneCountry(lines []string) []string {
 	var result []string
 	for _, line := range lines {
-		parts := strings.Split(line, ",")
-		countries := strings.Split(parts[0], "|")
+		parts := strings.Split(line, "|")
+		countries := strings.Split(parts[3], ",")
 		if len(countries) == 1 {
 			result = append(result, strings.TrimSpace(line))
 		}
@@ -30,7 +30,7 @@ func filterByOnlyOneCountry(lines []string) []string {
 }
 
 func NewFilterByOnlyOneCountry(config FilterByOnlyOneCountryConfig) *FilterByOnlyOneCountry {
-	log.Infof("NewFilterByYear: %+v", config)
+	log.Infof("NewFilterByOnlyOneCountry: %+v", config)
 	return &FilterByOnlyOneCountry{
 		Worker: worker.Worker{
 			InputExchange:  config.InputExchange,
@@ -41,7 +41,7 @@ func NewFilterByOnlyOneCountry(config FilterByOnlyOneCountryConfig) *FilterByOnl
 }
 
 func (f *FilterByOnlyOneCountry) RunWorker() error {
-	log.Info("Starting FilterByYear worker")
+	log.Info("Starting FilterByOnlyOneCountry worker")
 	worker.InitSender(&f.Worker)
 	worker.InitReceiver(&f.Worker)
 

@@ -1,7 +1,7 @@
 package group_by_country_sum
 
 import (
-	worker "distribuidos-tp1/common/worker"
+	worker "distribuidos-tp1/common/worker/worker"
 	"fmt"
 	"strconv"
 	"strings"

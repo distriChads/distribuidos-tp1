@@ -2,7 +2,7 @@ package filter_only_one_country
 
 import (
 	"distribuidos-tp1/common/utils"
-	"distribuidos-tp1/common/worker"
+	"distribuidos-tp1/common/worker/worker"
 )
 
 func main() {

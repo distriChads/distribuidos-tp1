@@ -1,7 +1,7 @@
 package filter_argentina
 
 import (
-	worker "distribuidos-tp1/common/worker"
+	"distribuidos-tp1/common/worker/worker"
 	"strings"
 
 	"github.com/op/go-logging"
@@ -20,10 +20,10 @@ type FilterByArgentina struct {
 func filterByArgentina(lines []string) []string {
 	var result []string
 	for _, line := range lines {
-		parts := strings.Split(line, ",")
-		countries := strings.Split(parts[0], "|")
+		parts := strings.Split(line, "|")
+		countries := strings.Split(parts[3], ",")
 		for _, country := range countries {
-			if strings.TrimSpace(country) == "ARG" {
+			if strings.TrimSpace(country) == "AR" {
 				result = append(result, strings.TrimSpace(line))
 				break
 			}
@@ -59,10 +59,14 @@ func (f *FilterByArgentina) RunWorker() error {
 		message := string(message.Body)
 		lines := strings.Split(strings.TrimSpace(message), "\n")
 		result := filterByArgentina(lines)
-		err := worker.SendMessage(f.Worker, []byte(strings.Join(result, "\n")))
-		if err != nil {
-			log.Infof("Error sending message: %s", err.Error())
+		message_to_send := strings.Join(result, "\n")
+		if len(message_to_send) != 0 {
+			err := worker.SendMessage(f.Worker, []byte(message_to_send))
+			if err != nil {
+				log.Infof("Error sending message: %s", err.Error())
+			}
 		}
+
 	}
 
 	return nil

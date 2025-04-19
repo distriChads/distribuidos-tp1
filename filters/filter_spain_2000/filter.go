@@ -1,7 +1,7 @@
 package filter_spain_2000
 
 import (
-	worker "distribuidos-tp1/common/worker"
+	worker "distribuidos-tp1/common/worker/worker"
 	"strconv"
 	"strings"
 
@@ -21,8 +21,8 @@ var log = logging.MustGetLogger("filter_by_year")
 func filterByCountrySpainAndOf2000(lines []string) []string {
 	var result []string
 	for _, line := range lines {
-		parts := strings.Split(line, ",")
-		raw_year := strings.Split(parts[1], "-")[0]
+		parts := strings.Split(line, "|")
+		raw_year := strings.Split(parts[2], "-")[0]
 		year, err := strconv.Atoi(raw_year)
 		if err != nil {
 			continue
@@ -30,9 +30,9 @@ func filterByCountrySpainAndOf2000(lines []string) []string {
 		if !(year >= 2000 && year < 2010) {
 			continue
 		}
-		countries := strings.Split(parts[0], "|")
+		countries := strings.Split(parts[3], ",")
 		for _, country := range countries {
-			if strings.TrimSpace(country) == "SPAIN" {
+			if strings.TrimSpace(country) == "ES" {
 				result = append(result, strings.TrimSpace(line))
 				break
 			}
@@ -69,16 +69,25 @@ func (f *FilterBySpainAndOf2000) RunWorker() error {
 		message := string(message.Body)
 		lines := strings.Split(strings.TrimSpace(message), "\n")
 		result := filterByCountrySpainAndOf2000(lines)
-		var message_to_send []string
+		var message_buffer []string
 		for _, r := range result {
-			parts := strings.Split(r, ",")
-			title_and_id := strings.TrimSpace(parts[len(parts)-3]) + "," + strings.TrimSpace(parts[len(parts)-2])
-			message_to_send = append(message_to_send, title_and_id)
+			parts := strings.Split(r, "|")
+			title_and_id := strings.TrimSpace(parts[1]) + "|" + strings.TrimSpace(parts[4])
+			message_buffer = append(message_buffer, title_and_id)
 		}
-		err := worker.SendMessage(f.Worker, []byte(strings.Join(message_to_send, "\n")))
-		if err != nil {
-			log.Infof("Error sending message: %s", err.Error())
+		message_to_send := strings.Join(message_buffer, "\n")
+		for _, ms := range message_buffer {
+			log.Infof("EN BUFFER %s", ms)
 		}
+
+		if len(message_to_send) != 0 {
+			log.Infof("MENSAJE QUE SERIA ENVIADO PAPU %s", message_to_send)
+			err := worker.SendMessage(f.Worker, []byte(message_to_send))
+			if err != nil {
+				log.Infof("Error sending message: %s", err.Error())
+			}
+		}
+
 	}
 
 	return nil
