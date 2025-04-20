@@ -23,8 +23,8 @@ def load_environmental_variables(config: ConfigParser, config_params: dict[str, 
             os.getenv('SERVER_LISTEN_BACKLOG') or config["DEFAULT"]["SERVER_LISTEN_BACKLOG"])
         config_params["logging_level"] = os.getenv(
             'LOGGING_LEVEL') or config["DEFAULT"]["LOGGING_LEVEL"]
-        config_params["rabbitmq_host"] = os.getenv(
-            'RABBITMQ_HOST') or config["DEFAULT"]["RABBITMQ_HOST"]
+        config_params["WORKER_BROKER"] = os.getenv(
+            'WORKER_BROKER') or config["DEFAULT"]["WORKER_BROKER"]
     except KeyError as e:
         raise KeyError(
             "Key was not found. Error: {} .Aborting server".format(e))

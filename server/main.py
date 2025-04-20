@@ -12,12 +12,12 @@ def main():
 
     init_log(logging_level)
 
-    logging.debug(
-        f"action: config | port: {port} | "f"listen_backlog: {listen_backlog} | logging_level: {logging_level}")
+    logging.info(
+        f"action: config\nport: {port}\n"f"listen_backlog: {listen_backlog}\nlogging_level: {logging_level}\nrabbitmq_host: {config['WORKER_BROKER']}")
 
     ch = ClientHandler(
         port=config["port"],
-        rabbitmq_host=config["rabbitmq_host"],
+        rabbitmq_host=config["WORKER_BROKER"],
     )
 
     try:

@@ -1,8 +1,10 @@
+import time
 import pika
 import logging
 
 from typing import Callable
 import pika.adapters.blocking_connection
+import pika.exceptions
 
 
 class RabbitWorker:
@@ -46,19 +48,26 @@ class RabbitClient:
         self.__connect()
 
     def __connect(self):
-        try:
-            self.connection = pika.BlockingConnection(
-                pika.ConnectionParameters(host=self.rabbitmq_host))
-            self.channel = self.connection.channel()
-            if not self.channel:
-                raise Exception("Failed to create channel for RabbitMQ")
-            for queue_name in self.queues_name:
-                # TODO: change to durable=True for persistent messages
-                self.channel.queue_declare(queue=queue_name)
-            logging.info("Connected to RabbitMQ")
-        except Exception as e:
-            logging.error(f"Failed to connect RabbitClient to RabbitMQ: {e}")
-            raise
+        for _ in range(5):
+            try:
+                self.connection = pika.BlockingConnection(
+                    pika.ConnectionParameters(host=self.rabbitmq_host))
+                self.channel = self.connection.channel()
+                if not self.channel:
+                    raise Exception("Failed to create channel for RabbitMQ")
+                for queue_name in self.queues_name:
+                    # TODO: change to durable=True for persistent messages
+                    self.channel.queue_declare(queue=queue_name)
+                logging.info("Connected to RabbitMQ")
+                return
+            except pika.exceptions.AMQPConnectionError as e:
+                logging.info("Waiting for RabbitMQ to start...")
+                time.sleep(3)
+            except Exception as e:
+                logging.error(
+                    f"Failed to connect RabbitClient to RabbitMQ: {e}")
+                raise
+        raise Exception("Failed to connect to RabbitMQ after 5 attempts")
 
     def close(self):
         if self.connection:

@@ -1,23 +1,27 @@
 name: tp1
 services:
   rabbitmq:
-    image: rabbitmq:4.0-management
+    image: rabbitmq:management
+    container_name: rabbitmq
     ports:
-      - 5672:5672
-      - 15672:15672
+      - 5672:5672 # For Clients AMQP
+      - 15672:15672 # For RabbitMQ Management UI
     networks:
-      movies_net:
-        ipv4_address: 172.25.125.10
+      - movies_net
 
   filter-after-2000:
     build:
       context: .
-      dockerfile: filters/filter_after_2000/Dockerfile
-    volumes:
-      - ./filters/filter_after_2000/main/config.yaml:/config.yaml
+      dockerfile: filters/Dockerfile
     container_name: filter-after-2000
     image: filter-after-2000:latest
-    entrypoint: ./filter_after_2000
+    environment:
+      - FILTER_NAME=filter_after_2000
+      - LOG_LEVEL=info
+      - WORKER_EXCHANGE_INPUT=input_exchange
+      - WORKER_EXCHANGE_OUTPUT=output_exchange
+      - WORKER_BROKER=amqp://guest:guest@localhost:5672/
+    entrypoint: ./filter_runner
     networks:
       - movies_net
     depends_on:
@@ -26,12 +30,16 @@ services:
   filter-argentina:
     build:
       context: .
-      dockerfile: filters/filter_argentina/Dockerfile
-    volumes:
-      - ./filters/filter_argentina/main/config.yaml:/config.yaml
+      dockerfile: filters/Dockerfile
     container_name: filter-argentina
     image: filter-argentina:latest
-    entrypoint: ./filter_argentina
+    environment:
+      - FILTER_NAME=filter_argentina
+      - LOG_LEVEL=info
+      - WORKER_EXCHANGE_INPUT=input_exchange
+      - WORKER_EXCHANGE_OUTPUT=output_exchange
+      - WORKER_BROKER=amqp://guest:guest@localhost:5672/
+    entrypoint: ./filter_runner
     networks:
       - movies_net
     depends_on:
@@ -40,12 +48,16 @@ services:
   filter-spain-2000:
     build:
       context: .
-      dockerfile: filters/filter_spain_2000/Dockerfile
-    volumes:
-      - ./filters/filter_spain_2000/main/config.yaml:/config.yaml
+      dockerfile: filters/Dockerfile
     container_name: filter-spain-2000
     image: filter-spain-2000:latest
-    entrypoint: ./filter_spain_2000
+    environment:
+      - FILTER_NAME=filter_spain_2000
+      - LOG_LEVEL=info
+      - WORKER_EXCHANGE_INPUT=input_exchange
+      - WORKER_EXCHANGE_OUTPUT=output_exchange
+      - WORKER_BROKER=amqp://guest:guest@localhost:5672/
+    entrypoint: ./filter_runner
     networks:
       - movies_net
     depends_on:
@@ -54,12 +66,16 @@ services:
   filter-only-one-country:
     build:
       context: .
-      dockerfile: filters/filter_only_one_country/Dockerfile
-    volumes:
-      - ./filters/filter_only_one_country/main/config.yaml:/config.yaml
+      dockerfile: filters/Dockerfile
     container_name: filter-only-one-country
     image: filter-only-one-country:latest
-    entrypoint: ./filter_only_one_country
+    environment:
+      - FILTER_NAME=filter_only_one_country
+      - LOG_LEVEL=info
+      - WORKER_EXCHANGE_INPUT=input_exchange
+      - WORKER_EXCHANGE_OUTPUT=output_exchange
+      - WORKER_BROKER=amqp://guest:guest@localhost:5672/
+    entrypoint: ./filter_runner
     networks:
       - movies_net
     depends_on:
@@ -92,13 +108,13 @@ services:
       - movies_net
     depends_on:
       - rabbitmq
-      
+
   join_movie_credits:
     build:
       context: .
-      dockerfile: join/join_movie_credits/Dockerfile
+      dockerfile: joins/join_movie_credits/Dockerfile
     volumes:
-      - ./join/join_movie_credits/main/config.yaml:/config.yaml
+      - ./joins/join_movie_credits/main/config.yaml:/config.yaml
     container_name: join_movie_credits
     image: join_movie_credits:latest
     entrypoint: ./join_movie_credits
@@ -110,9 +126,9 @@ services:
   join_movie_ratings:
     build:
       context: .
-      dockerfile: join/join_movie_ratings/Dockerfile
+      dockerfile: joins/join_movie_ratings/Dockerfile
     volumes:
-      - ./join/join_movie_ratings/main/config.yaml:/config.yaml
+      - ./joins/join_movie_ratings/main/config.yaml:/config.yaml
     container_name: join_movie_ratings
     image: join_movie_ratings:latest
     entrypoint: ./join_movie_ratings
@@ -125,20 +141,22 @@ services:
     build:
       context: .
       dockerfile: server/Dockerfile
-    volumes:
-      - ./server/main.py:/app/server/main.py
+    environment:
+      - WORKER_BROKER=rabbitmq
+      - SERVER_PORT=3000
+      - SERVER_LISTEN_BACKLOG=1
+      - LOGGING_LEVEL=info
     container_name: server
     image: server:latest
-    entrypoint: ./server/main.py
+    entrypoint: python3 main.py
     networks:
       - movies_net
+    ports:
+      - 3000:3000
     depends_on:
       - rabbitmq
-      
 
 networks:
   movies_net:
     ipam:
       driver: default
-      config:
-        - subnet: 172.25.125.0/24

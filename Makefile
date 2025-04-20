@@ -20,7 +20,7 @@ stop-filters:
 	docker rm filter-after-2000 filter-argentina filter-spain-2000 filter-only-one-country
 
 rabbitmq:
-	docker run -it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:4.0-management
+	docker run -it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3.12-management
 
 server:
 	clear; PYTHONPATH=. python3 ./server/main.py
