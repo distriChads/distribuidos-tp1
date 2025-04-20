@@ -7,7 +7,7 @@ from typing import Optional
 
 from server.common.communication import Socket
 from server.common.fileProcessor import MoviesProcessor, CreditsProcessor, RatingsProcessor
-from common.worker.worker import RabbitWorker
+from server.common.worker import RabbitWorker
 
 FILES_TO_RECEIVE = 3
 MAX_BATCH_SIZE = 8000 - 4  # 4 bytes for the file size
