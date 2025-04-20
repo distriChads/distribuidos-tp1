@@ -1,13 +1,18 @@
-FROM golang:1.24-alpine
+FROM golang:1.24-alpine AS builder
 
-WORKDIR /app
+RUN mkdir -p /build
+WORKDIR /build/
+
+COPY ./common ./common
 
 COPY go.mod go.sum ./
-RUN go mod download
 
-COPY . .
+COPY ./filters/filter_argentina ./filters/filter_argentina
 
-WORKDIR /app/filters/filter_argentina
-RUN go build -o filter_argentina
+RUN CGO_ENABLED=0 GOOS=linux go build -o bin/filter_argentina ./filters/filter_argentina/main
 
-CMD ["./filter_argentina"] 
+FROM busybox:latest
+COPY --from=builder /build/bin/filter_argentina /filter_argentina
+COPY ./filters/filter_argentina/main/config.yaml /config.yaml
+
+ENTRYPOINT ["./filter_argentina"]

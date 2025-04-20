@@ -1,9 +1,14 @@
-package filter_spain_2000
+package main
 
 import (
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
+	filter "distribuidos-tp1/filters/filter_only_one_country"
+
+	"github.com/op/go-logging"
 )
+
+var log = logging.MustGetLogger("filter_only_one_country")
 
 func main() {
 	v, err := utils.InitConfig()
@@ -17,7 +22,7 @@ func main() {
 
 	utils.PrintConfig(v)
 
-	filter := NewFilterBySpainAndOf2000(FilterBySpainAndOf2000Config{
+	filter := filter.NewFilterByOnlyOneCountry(filter.FilterByOnlyOneCountryConfig{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange:  v.GetString("worker.exchange.input"),
 			OutputExchange: v.GetString("worker.exchange.output"),

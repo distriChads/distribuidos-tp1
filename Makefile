@@ -1,4 +1,4 @@
-.PHONY: rabbitmq build-filters run-filters server
+.PHONY: rabbitmq build-filters run-filters server clean-images stop-filters
 
 build-filters:
 	docker build -t filter-after-2000 -f filters/filter_after_2000/Dockerfile .
@@ -11,6 +11,9 @@ run-filters:
 	docker run -d --name filter-argentina --network host filter-argentina
 	docker run -d --name filter-spain-2000 --network host filter-spain-2000
 	docker run -d --name filter-only-one-country --network host filter-only-one-country
+
+clean-images:
+	docker rmi filter-after-2000 filter-argentina filter-spain-2000 filter-only-one-country
 
 stop-filters:
 	docker stop filter-after-2000 filter-argentina filter-spain-2000 filter-only-one-country

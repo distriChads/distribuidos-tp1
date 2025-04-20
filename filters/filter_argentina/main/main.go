@@ -1,9 +1,14 @@
-package filter_argentina
+package main
 
 import (
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
+	filter "distribuidos-tp1/filters/filter_argentina"
+
+	"github.com/op/go-logging"
 )
+
+var log = logging.MustGetLogger("filter_argentina")
 
 func main() {
 	v, err := utils.InitConfig()
@@ -17,7 +22,7 @@ func main() {
 
 	utils.PrintConfig(v)
 
-	filter := NewFilterByArgentina(FilterByArgentinaConfig{
+	filter := filter.NewFilterByArgentina(filter.FilterByArgentinaConfig{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange:  v.GetString("worker.exchange.input"),
 			OutputExchange: v.GetString("worker.exchange.output"),

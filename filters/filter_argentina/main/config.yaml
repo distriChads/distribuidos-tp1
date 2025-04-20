@@ -4,4 +4,4 @@ worker:
   exchange:
     input: input_exchange
     output: output_exchange
-  broker: amqp://guest:guest@localhost:5672/
+  broker: amqp://guest:guest@172.25.125.10:5672/

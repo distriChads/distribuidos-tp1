@@ -1,13 +1,18 @@
-FROM golang:1.24-alpine
+FROM golang:1.24-alpine AS builder
 
-WORKDIR /app
+RUN mkdir -p /build
+WORKDIR /build/
+
+COPY ./common ./common
 
 COPY go.mod go.sum ./
-RUN go mod download
 
-COPY . .
+COPY ./filters/filter_only_one_country ./filters/filter_only_one_country
 
-WORKDIR /app/filters/filter_only_one_country
-RUN go build -o filter_only_one_country
+RUN CGO_ENABLED=0 GOOS=linux go build -o bin/filter_only_one_country ./filters/filter_only_one_country/main
 
-CMD ["./filter_only_one_country"] 
+FROM busybox:latest
+COPY --from=builder /build/bin/filter_only_one_country /filter_only_one_country
+COPY ./filters/filter_only_one_country/main/config.yaml /config.yaml
+
+ENTRYPOINT ["./filter_only_one_country"]

@@ -1,13 +1,18 @@
-FROM golang:1.24-alpine
+FROM golang:1.24-alpine AS builder
 
-WORKDIR /app
+RUN mkdir -p /build
+WORKDIR /build/
+
+COPY ./common ./common
 
 COPY go.mod go.sum ./
-RUN go mod download
 
-COPY . .
+COPY ./filters/filter_spain_2000 ./filters/filter_spain_2000
 
-WORKDIR /app/filters/filter_spain_2000
-RUN go build -o filter_spain_2000
+RUN CGO_ENABLED=0 GOOS=linux go build -o bin/filter_spain_2000 ./filters/filter_spain_2000/main
 
-CMD ["./filter_spain_2000"] 
+FROM busybox:latest
+COPY --from=builder /build/bin/filter_spain_2000 /filter_spain_2000
+COPY ./filters/filter_spain_2000/main/config.yaml /config.yaml
+
+ENTRYPOINT ["./filter_spain_2000"]

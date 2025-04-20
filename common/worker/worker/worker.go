@@ -38,8 +38,24 @@ type Worker struct {
 }
 
 func initConnection(broker string) (*amqp.Connection, error) {
-	conn, err := amqp.Dial(broker)
+	var conn *amqp.Connection
+	var err error
+
+	max_retries := 3 // TODO: make these env variables
+	retry_sleep := 10 * time.Second
+	backoff_factor := 2
+	for i := range max_retries {
+		conn, err = amqp.Dial(broker)
+		if err == nil {
+			break
+		}
+		log.Warningf("Failed to connect to broker on attempt %d: %s", i+1, err)
+		if i < 2 {
+			time.Sleep(time.Duration(i*backoff_factor) + retry_sleep)
+		}
+	}
 	if err != nil {
+		log.Errorf("Failed to connect to broker: %s", err)
 		return nil, err
 	}
 
