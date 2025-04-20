@@ -24,17 +24,20 @@ type receiver struct {
 }
 
 type WorkerConfig struct {
-	InputExchange  string
-	OutputExchange string
-	MessageBroker  string
+	InputExchange       string
+	SecondInputExchange string
+	OutputExchange      string
+	MessageBroker       string
 }
 
 type Worker struct {
-	InputExchange  string
-	OutputExchange string
-	MessageBroker  string
-	sender         *sender
-	receiver       *receiver
+	InputExchange       string
+	SecondInputExchange string
+	OutputExchange      string
+	MessageBroker       string
+	sender              *sender
+	receiver            *receiver
+	secondReceiver      *receiver // solo necesario para los joins que van a tener 2 receivers :)
 }
 
 func initConnection(broker string) (*amqp.Connection, error) {
@@ -140,6 +143,64 @@ func InitReceiver(worker *Worker) error {
 	return nil
 }
 
+func InitSecondReceiver(worker *Worker) error {
+	conn, err := initConnection(worker.MessageBroker)
+	if err != nil {
+		return err
+	}
+
+	ch, err := conn.Channel()
+	if err != nil {
+		return err
+	}
+
+	q, err := ch.QueueDeclare(
+		worker.SecondInputExchange, // name
+		false,                      // durable
+		false,                      // delete when unused
+		false,                      // exclusive
+		false,                      // no-wait
+		nil,                        // arguments
+	)
+	if err != nil {
+		return err
+	}
+
+	err = ch.QueueBind(
+		q.Name,                     // queue name
+		"",                         // routing key
+		worker.SecondInputExchange, // exchange
+		false,
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+
+	msgs, err := ch.Consume(
+		q.Name, // queue
+		"",     // consumer
+		true,   // auto-ack
+		false,  // exclusive
+		false,  // no-local
+		false,  // no-wait
+		nil,    // args
+	)
+	if err != nil {
+		return err
+	}
+
+	worker.secondReceiver = &receiver{
+		conn:     conn,
+		ch:       ch,
+		queue:    q,
+		messages: msgs,
+	}
+
+	log.Info("Second Receiver initialized")
+	return nil
+}
+
 func SendMessage(worker Worker, message []byte) error {
 	if worker.sender == nil {
 		return errors.New("sender not initialized")
@@ -172,6 +233,14 @@ func ReceivedMessages(worker Worker) (<-chan amqp.Delivery, error) {
 	}
 
 	return worker.receiver.messages, nil
+}
+
+func SecondReceivedMessages(worker Worker) (<-chan amqp.Delivery, error) {
+	if worker.secondReceiver == nil {
+		return nil, errors.New("receiver not initialized")
+	}
+
+	return worker.secondReceiver.messages, nil
 }
 
 func RunWorker(worker Worker) error {
@@ -217,5 +286,24 @@ func CloseReceiver(worker *Worker) error {
 	}
 
 	worker.receiver = nil
+	return nil
+}
+
+func CloseSecondReceiver(worker *Worker) error {
+	if worker.secondReceiver == nil {
+		return errors.New("receiver not initialized")
+	}
+
+	err := worker.secondReceiver.ch.Close()
+	if err != nil {
+		return err
+	}
+
+	err = worker.secondReceiver.conn.Close()
+	if err != nil {
+		return err
+	}
+
+	worker.secondReceiver = nil
 	return nil
 }

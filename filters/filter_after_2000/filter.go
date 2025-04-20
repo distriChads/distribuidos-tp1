@@ -21,8 +21,8 @@ type FilterByAfterYear2000 struct {
 func filterByYearAfter2000(lines []string) []string {
 	var result []string
 	for _, line := range lines {
-		parts := strings.Split(line, ",")
-		raw_year := strings.Split(parts[1], "-")[0]
+		parts := strings.Split(line, "|")
+		raw_year := strings.Split(parts[2], "-")[0]
 		year, err := strconv.Atoi(raw_year)
 		if err != nil {
 			continue
@@ -57,7 +57,7 @@ func (f *FilterByAfterYear2000) RunWorker() error {
 	}
 
 	for message := range msgs {
-		log.Infof("Received message: %s", string(message.Body))
+		log.Infof("Received message in filter after 2000: %s", string(message.Body))
 		message := string(message.Body)
 		if message == "EOF" {
 			err := worker.SendMessage(f.Worker, []byte("EOF"))
@@ -68,15 +68,18 @@ func (f *FilterByAfterYear2000) RunWorker() error {
 		}
 		lines := strings.Split(strings.TrimSpace(message), "\n")
 		result := filterByYearAfter2000(lines)
-		var message_to_send []string
+		var message_buffer []string
 		for _, r := range result {
-			parts := strings.Split(r, ",")
-			title_and_id := strings.TrimSpace(parts[len(parts)-2]) + "," + strings.TrimSpace(parts[len(parts)-1])
-			message_to_send = append(message_to_send, title_and_id)
+			parts := strings.Split(r, "|")
+			title_and_id := strings.TrimSpace(parts[0]) + "|" + strings.TrimSpace(parts[1])
+			message_buffer = append(message_buffer, title_and_id)
 		}
-		err := worker.SendMessage(f.Worker, []byte(strings.Join(message_to_send, "\n")))
-		if err != nil {
-			log.Infof("Error sending message: %s", err.Error())
+		message_to_send := strings.Join(message_buffer, "\n")
+		if len(message_to_send) != 0 {
+			err := worker.SendMessage(f.Worker, []byte(message_to_send))
+			if err != nil {
+				log.Infof("Error sending message: %s", err.Error())
+			}
 		}
 	}
 

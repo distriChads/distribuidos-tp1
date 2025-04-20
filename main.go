@@ -3,9 +3,13 @@ package main
 import (
 	"distribuidos-tp1/common/worker/worker"
 	"distribuidos-tp1/group_by/group_by_country_sum"
+	group_by_movie_avg "distribuidos-tp1/group_by/group_by_movie_average"
+	"distribuidos-tp1/joins/join_movie_ratings"
+	"distribuidos-tp1/topn/first_and_last"
 	"distribuidos-tp1/topn/top_five_country_budget"
 	"os"
 
+	"distribuidos-tp1/filters/filter_after_2000"
 	"distribuidos-tp1/filters/filter_argentina"
 	"distribuidos-tp1/filters/filter_only_one_country"
 	"distribuidos-tp1/filters/filter_spain_2000"
@@ -278,7 +282,214 @@ func run_test_for_query_2() {
 	println("Exchanges deleted")
 }
 
+func run_test_for_query_3() {
+	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	if err != nil {
+		println(err.Error())
+		return
+	}
+	defer conn.Close()
+
+	ch, err := conn.Channel()
+	if err != nil {
+		println(err.Error())
+		return
+	}
+	defer ch.Close()
+
+	err = ch.ExchangeDeclare(
+		"movies", // name
+		"fanout", // type
+		true,     // durable
+		false,    // auto-deleted
+		false,    // internal
+		false,    // no-wait
+		nil,      // arguments
+	)
+	if err != nil {
+		println(err.Error())
+		return
+	}
+
+	err = ch.ExchangeDeclare(
+		"ratings", // name
+		"fanout",  // type
+		true,      // durable
+		false,     // auto-deleted
+		false,     // internal
+		false,     // no-wait
+		nil,       // arguments
+	)
+	if err != nil {
+		println(err.Error())
+		return
+	}
+
+	err = ch.ExchangeDeclare(
+		"filter_by_argentina_output", // name
+		"fanout",                     // type
+		true,                         // durable
+		false,                        // auto-deleted
+		false,                        // internal
+		false,                        // no-wait
+		nil,                          // arguments
+	)
+	if err != nil {
+		println(err.Error())
+		return
+	}
+
+	err = ch.ExchangeDeclare(
+		"filter_after_2000_output", // name
+		"fanout",                   // type
+		true,                       // durable
+		false,                      // auto-deleted
+		false,                      // internal
+		false,                      // no-wait
+		nil,                        // arguments
+	)
+	if err != nil {
+		println(err.Error())
+		return
+	}
+
+	err = ch.ExchangeDeclare(
+		"join_output", // name
+		"fanout",      // type
+		true,          // durable
+		false,         // auto-deleted
+		false,         // internal
+		false,         // no-wait
+		nil,           // arguments
+	)
+	if err != nil {
+		println(err.Error())
+		return
+	}
+
+	err = ch.ExchangeDeclare(
+		"group_by_output", // name
+		"fanout",          // type
+		true,              // durable
+		false,             // auto-deleted
+		false,             // internal
+		false,             // no-wait
+		nil,               // arguments
+	)
+	if err != nil {
+		println(err.Error())
+		return
+	}
+
+	err = ch.ExchangeDeclare(
+		"first_and_last_output", // name
+		"fanout",                // type
+		true,                    // durable
+		false,                   // auto-deleted
+		false,                   // internal
+		false,                   // no-wait
+		nil,                     // arguments
+	)
+	if err != nil {
+		println(err.Error())
+		return
+	}
+
+	filterByArgentina := filter_argentina.NewFilterByArgentina(filter_argentina.FilterByArgentinaConfig{
+		WorkerConfig: worker.WorkerConfig{
+			InputExchange:  "movies",
+			OutputExchange: "filter_by_argentina_output",
+			MessageBroker:  "amqp://guest:guest@localhost:5672/",
+		},
+	})
+
+	filterAfter2000 := filter_after_2000.NewFilterByAfterYear2000(filter_after_2000.FilterByAfterYear2000Config{
+		WorkerConfig: worker.WorkerConfig{
+			InputExchange:  "filter_by_argentina_output",
+			OutputExchange: "filter_after_2000_output",
+			MessageBroker:  "amqp://guest:guest@localhost:5672/",
+		},
+	})
+
+	joinMovieRating := join_movie_ratings.NewJoinMovieRatingById(join_movie_ratings.JoinMovieRatingByIdConfig{
+		WorkerConfig: worker.WorkerConfig{
+			InputExchange:       "filter_after_2000_output",
+			SecondInputExchange: "ratings",
+			OutputExchange:      "join_output",
+			MessageBroker:       "amqp://guest:guest@localhost:5672/",
+		},
+	}, 10)
+
+	groupByMovie := group_by_movie_avg.NewGroupByMovieAndAvg(group_by_movie_avg.GroupByMovieAndAvgConfig{
+		WorkerConfig: worker.WorkerConfig{
+			InputExchange:  "join_output",
+			OutputExchange: "group_by_output",
+			MessageBroker:  "amqp://guest:guest@localhost:5672/",
+		},
+	}, 10)
+
+	firstAndLast := first_and_last.NewFirstAndLast(first_and_last.FirstAndLastConfig{
+		WorkerConfig: worker.WorkerConfig{
+			InputExchange:  "group_by_output",
+			OutputExchange: "first_and_last_output",
+			MessageBroker:  "amqp://guest:guest@localhost:5672/",
+		},
+	})
+
+	defer filterByArgentina.CloseWorker()
+	defer filterAfter2000.CloseWorker()
+	defer joinMovieRating.CloseWorker()
+	defer groupByMovie.CloseWorker()
+	defer firstAndLast.CloseWorker()
+
+	outputQueue, _ := ch.QueueDeclare(
+		"output_consumer", // name
+		false,             // durable
+		true,              // delete when unused
+		true,              // exclusive
+		false,             // no-wait
+		nil,               // arguments
+	)
+
+	_ = ch.QueueBind(
+		outputQueue.Name,        // queue name
+		"",                      // routing key
+		"first_and_last_output", // exchange
+		false,                   // no-wait
+		nil,                     // arguments
+	)
+
+	msgs, _ := ch.Consume(
+		outputQueue.Name, // queue
+		"",               // consumer
+		true,             // auto-ack
+		false,            // exclusive
+		false,            // no-local
+		false,            // no-wait
+		nil,              // args
+	)
+
+	go filterByArgentina.RunWorker()
+	time.Sleep(1 * time.Second)
+	go filterAfter2000.RunWorker()
+	time.Sleep(1 * time.Second)
+	go joinMovieRating.RunWorker()
+	time.Sleep(1 * time.Second)
+	go groupByMovie.RunWorker()
+	time.Sleep(1 * time.Second)
+	go firstAndLast.RunWorker()
+	time.Sleep(1 * time.Second)
+
+	for msg := range msgs {
+		println("Received:", string(msg.Body))
+		f, _ := os.OpenFile("test_query3.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		f.WriteString(string(msg.Body) + "\n")
+	}
+
+}
+
 func main() {
-	run_test_for_query_1()
+	//run_test_for_query_1()
 	//run_test_for_query_2()
+	run_test_for_query_3()
 }
