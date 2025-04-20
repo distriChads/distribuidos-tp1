@@ -65,6 +65,77 @@ services:
     depends_on:
       - rabbitmq
 
+  group_by_country_sum:
+    build:
+      context: .
+      dockerfile: group_by/group_by_country_sum/Dockerfile
+    volumes:
+      - ./group_by/group_by_country_sum/main/config.yaml:/config.yaml
+    container_name: group_by_country_sum
+    image: group_by_country_sum:latest
+    entrypoint: ./group_by_country_sum
+    networks:
+      - movies_net
+    depends_on:
+      - rabbitmq
+
+  top_five_country_budget:
+    build:
+      context: .
+      dockerfile: topn/top_five_country_budget/Dockerfile
+    volumes:
+      - ./topn/top_five_country_budget/main/config.yaml:/config.yaml
+    container_name: top_five_country_budget
+    image: top_five_country_budget:latest
+    entrypoint: ./top_five_country_budget
+    networks:
+      - movies_net
+    depends_on:
+      - rabbitmq
+      
+  join_movie_credits:
+    build:
+      context: .
+      dockerfile: join/join_movie_credits/Dockerfile
+    volumes:
+      - ./join/join_movie_credits/main/config.yaml:/config.yaml
+    container_name: join_movie_credits
+    image: join_movie_credits:latest
+    entrypoint: ./join_movie_credits
+    networks:
+      - movies_net
+    depends_on:
+      - rabbitmq
+
+  join_movie_ratings:
+    build:
+      context: .
+      dockerfile: join/join_movie_ratings/Dockerfile
+    volumes:
+      - ./join/join_movie_ratings/main/config.yaml:/config.yaml
+    container_name: join_movie_ratings
+    image: join_movie_ratings:latest
+    entrypoint: ./join_movie_ratings
+    networks:
+      - movies_net
+    depends_on:
+      - rabbitmq
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    volumes:
+      - ./server/main.py:/app/server/main.py
+    container_name: server
+    image: server:latest
+    entrypoint: ./server/main.py
+    networks:
+      - movies_net
+    depends_on:
+      - rabbitmq
+      
+
 networks:
   movies_net:
     ipam:
