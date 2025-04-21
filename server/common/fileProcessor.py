@@ -118,12 +118,18 @@ class MoviesProcessor(Processor):
         self.fields_count = FIELDS_COUNT_MOVIES
 
     def _process_line(self, line: list[str]) -> str:
+
+        # movies_df_columns = ["id", "title", "genres", "release_date", "overview",
+        #                      "production_countries", "spoken_languages", "budget", "revenue"]
         budget = line[2]
         genres = line[3]
         id = line[5]
         prodCountries = line[13]
         releaseDate = line[14]
         title = line[20]
+        spokenLanguages = line[18]
+        revenue = line[15]
+        overview = line[8]
 
         prodCountries = self._try_parse_python_structure(prodCountries)
         genres = self._try_parse_python_structure(genres)
@@ -138,6 +144,14 @@ class MoviesProcessor(Processor):
             raise EmptyFieldError("Missing production countries")
         if not genres:
             raise EmptyFieldError("Missing genres")
+        if not budget:
+            raise EmptyFieldError("Missing budget")
+        if not spokenLanguages:
+            raise EmptyFieldError("Missing spoken languages")
+        if not revenue:
+            raise EmptyFieldError("Missing revenue")
+        if not overview:
+            raise EmptyFieldError("Missing overview")
 
         countries = VALUE_SEPARATOR.join(
             [c["iso_3166_1"] for c in prodCountries])
@@ -175,14 +189,17 @@ class CreditsProcessor(Processor):
             self.bytes_read += bytes_received
 
     def _process_line(self, line: list[str]) -> str:
-        id = line[2]
         cast = line[0]
+        id = line[2]
+        timestamp = line[3]
 
         cast = self._try_parse_python_structure(cast)
         if not cast:
             raise EmptyFieldError("Missing cast")
         if not id:
             raise EmptyFieldError("Missing id")
+        if not timestamp:
+            raise EmptyFieldError("Missing timestamp")
 
         cast = VALUE_SEPARATOR.join([c["name"] for c in cast])
         return f"{id}{FIELD_SEPARATOR}{cast}"
