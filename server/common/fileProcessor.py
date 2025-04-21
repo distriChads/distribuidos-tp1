@@ -136,8 +136,8 @@ class MoviesProcessor(Processor):
             raise EmptyFieldError("Missing release date")
         if not prodCountries:
             raise EmptyFieldError("Missing production countries")
-        # if not genres:
-        #     raise EmptyFieldError("Missing genres")
+        if not genres:
+            raise EmptyFieldError("Missing genres")
 
         countries = VALUE_SEPARATOR.join(
             [c["iso_3166_1"] for c in prodCountries])
