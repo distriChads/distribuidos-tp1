@@ -8,6 +8,8 @@ import (
 	"github.com/op/go-logging"
 )
 
+var log = logging.MustGetLogger("filter_after_2000")
+
 type FilterBySpainAndOf2000Config struct {
 	worker.WorkerConfig
 }
@@ -15,8 +17,6 @@ type FilterBySpainAndOf2000Config struct {
 type FilterBySpainAndOf2000 struct {
 	worker.Worker
 }
-
-var log = logging.MustGetLogger("filter_spain_2000")
 
 func filterByCountrySpainAndOf2000(lines []string) []string {
 	var result []string

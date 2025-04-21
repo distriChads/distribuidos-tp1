@@ -1,4 +1,4 @@
-package filter_after_2000
+package filterafter2000
 
 import (
 	worker "distribuidos-tp1/common/worker/worker"

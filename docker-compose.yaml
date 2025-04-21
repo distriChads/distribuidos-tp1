@@ -12,11 +12,10 @@ services:
   filter-after-2000:
     build:
       context: .
-      dockerfile: filters/Dockerfile
+      dockerfile: filters/filter_after_2000/Dockerfile
     container_name: filter-after-2000
     image: filter-after-2000:latest
     environment:
-      - FILTER_NAME=filter_after_2000
       - LOG_LEVEL=info
       - WORKER_EXCHANGE_INPUT=input_exchange
       - WORKER_EXCHANGE_OUTPUT=output_exchange
@@ -30,11 +29,10 @@ services:
   filter-argentina:
     build:
       context: .
-      dockerfile: filters/Dockerfile
+      dockerfile: filters/filter_argentina/Dockerfile
     container_name: filter-argentina
     image: filter-argentina:latest
     environment:
-      - FILTER_NAME=filter_argentina
       - LOG_LEVEL=info
       - WORKER_EXCHANGE_INPUT=input_exchange
       - WORKER_EXCHANGE_OUTPUT=output_exchange
@@ -48,11 +46,10 @@ services:
   filter-spain-2000:
     build:
       context: .
-      dockerfile: filters/Dockerfile
+      dockerfile: filters/filter_spain_2000/Dockerfile
     container_name: filter-spain-2000
     image: filter-spain-2000:latest
     environment:
-      - FILTER_NAME=filter_spain_2000
       - LOG_LEVEL=info
       - WORKER_EXCHANGE_INPUT=input_exchange
       - WORKER_EXCHANGE_OUTPUT=output_exchange
@@ -66,11 +63,10 @@ services:
   filter-only-one-country:
     build:
       context: .
-      dockerfile: filters/Dockerfile
+      dockerfile: filters/filter_only_one_country/Dockerfile
     container_name: filter-only-one-country
     image: filter-only-one-country:latest
     environment:
-      - FILTER_NAME=filter_only_one_country
       - LOG_LEVEL=info
       - WORKER_EXCHANGE_INPUT=input_exchange
       - WORKER_EXCHANGE_OUTPUT=output_exchange
