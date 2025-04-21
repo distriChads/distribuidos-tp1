@@ -24,11 +24,17 @@ type MovieAvgByScore struct {
 	Average float64
 }
 
+// ---------------------------------
+// MESSAGE FORMAT: TITLE|AVERAGE
+// ---------------------------------
+const TITLE = 0
+const AVERAGE = 1
+
 func updateFirstAndLast(lines []string, first MovieAvgByScore, last MovieAvgByScore) (MovieAvgByScore, MovieAvgByScore) {
 	for _, line := range lines {
-		parts := strings.Split(line, ",")
-		movie := parts[0]
-		average, err := strconv.ParseFloat(parts[1], 64)
+		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		movie := parts[TITLE]
+		average, err := strconv.ParseFloat(parts[AVERAGE], 64)
 		if err != nil {
 			continue
 		}
@@ -58,15 +64,15 @@ func NewFirstAndLast(config FirstAndLastConfig) *FirstAndLast {
 	}
 }
 
-func mapToLines(first MovieAvgByScore, last MovieAvgByScore) []string {
+func mapToLines(first MovieAvgByScore, last MovieAvgByScore) string {
 	var lines []string
 
-	line := fmt.Sprintf("%s,%f", first.Movie, first.Average)
+	line := fmt.Sprintf("%s%s%f", first.Movie, worker.MESSAGE_SEPARATOR, first.Average)
 	lines = append(lines, line)
-	line = fmt.Sprintf("%s,%f", last.Movie, last.Average)
+	line = fmt.Sprintf("%s%s%f", last.Movie, worker.MESSAGE_SEPARATOR, last.Average)
 	lines = append(lines, line)
 
-	return lines
+	return strings.Join(lines, "\n")
 }
 
 func (f *FirstAndLast) RunWorker() error {
@@ -84,25 +90,16 @@ func (f *FirstAndLast) RunWorker() error {
 	for message := range msgs {
 		log.Infof("Received message in top five: %s", string(message.Body))
 		message := string(message.Body)
-		if message == "EOF" {
+		if message == worker.MESSAGE_EOF {
 			break
 		}
 		lines := strings.Split(strings.TrimSpace(message), "\n")
 		first, last = updateFirstAndLast(lines, first, last)
 	}
 	message_to_send := mapToLines(first, last)
-	err = worker.SendMessage(f.Worker, []byte(strings.Join(message_to_send, "\n")))
+	err = worker.SendMessage(f.Worker, message_to_send)
 	if err != nil {
 		log.Infof("Error sending message: %s", err.Error())
 	}
 	return nil
-}
-
-func (f *FirstAndLast) CloseWorker() error {
-	err := worker.CloseSender(&f.Worker)
-	if err != nil {
-		return err
-	}
-
-	return worker.CloseReceiver(&f.Worker)
 }

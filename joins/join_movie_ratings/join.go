@@ -18,22 +18,32 @@ type JoinMovieRatingById struct {
 	messages_before_commit int
 }
 
+// ---------------------------------
+// MESSAGE FORMAT: ID|TITLE
+// ---------------------------------
+const ID = 0
+const SCORE = 1
+
 func storeMovieWithId(lines []string, movies_by_id map[string]string) {
 	for _, line := range lines {
-		parts := strings.Split(line, "|")
-		movies_by_id[parts[0]] = line
+		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		movies_by_id[parts[ID]] = line
 	}
 }
+
+// ---------------------------------
+// MESSAGE FORMAT: MOVIE_ID|SCORE
+// ---------------------------------
 
 func joinMovieWithRating(lines []string, movies_by_id map[string]string) []string {
 	var result []string
 	for _, line := range lines {
-		parts := strings.Split(line, "|")
-		movie_data := movies_by_id[parts[0]]
+		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		movie_data := movies_by_id[parts[ID]]
 		if movie_data == "" {
 			continue
 		}
-		result = append(result, movie_data+"|"+parts[1])
+		result = append(result, movie_data+worker.MESSAGE_SEPARATOR+parts[SCORE])
 	}
 	return result
 }
@@ -74,9 +84,8 @@ func (f *JoinMovieRatingById) RunWorker() error {
 	messages_before_commit := 0
 	movies_by_id := make(map[string]string)
 	for message := range msgs {
-		log.Infof("Received message in JOIN: %s", string(message.Body))
 		message := string(message.Body)
-		if message == "EOF" {
+		if message == worker.MESSAGE_EOF {
 			break
 		}
 		messages_before_commit += 1
@@ -96,8 +105,8 @@ func (f *JoinMovieRatingById) RunWorker() error {
 
 	for message := range msgs {
 		message := string(message.Body)
-		if message == "EOF" {
-			err := worker.SendMessage(f.Worker, []byte("EOF"))
+		if message == worker.MESSAGE_EOF {
+			err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF)
 			if err != nil {
 				log.Infof("Error sending message: %s", err.Error())
 			}
@@ -107,7 +116,7 @@ func (f *JoinMovieRatingById) RunWorker() error {
 		result := joinMovieWithRating(lines, movies_by_id)
 		message_to_send := strings.Join(result, "\n")
 		if len(message_to_send) != 0 {
-			err := worker.SendMessage(f.Worker, []byte(message_to_send))
+			err := worker.SendMessage(f.Worker, message_to_send)
 			if err != nil {
 				log.Infof("Error sending message: %s", err.Error())
 			}

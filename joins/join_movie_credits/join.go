@@ -18,31 +18,41 @@ type JoinMovieCreditsById struct {
 	messages_before_commit int
 }
 
-func storeMovieWithId(lines []string, movies_by_id map[string]string) {
+// ---------------------------------
+// MESSAGE FORMAT: ID|TITLE
+// ---------------------------------
+const ID = 0
+const ACTORS = 1
+
+func storeMovieWithId(lines []string, movies_by_id map[string]bool) {
 	for _, line := range lines {
-		parts := strings.Split(line, "|")
-		movies_by_id[parts[0]] = line
+		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		movies_by_id[parts[ID]] = true
 	}
 }
 
-func joinMovieWithCredits(lines []string, movies_by_id map[string]string) []string {
+// ---------------------------------
+// MESSAGE FORMAT: MOVIE_ID|ACTORS
+// ---------------------------------
+
+func joinMovieWithCredits(lines []string, movies_by_id map[string]bool) []string {
 	var result []string
 	for _, line := range lines {
-		parts := strings.Split(line, "|")
-		movie_data := movies_by_id[parts[0]]
-		if movie_data == "" {
+		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		movie_data := movies_by_id[parts[ID]]
+		if !movie_data {
 			continue
 		}
-		result = append(result, parts[1])
+		result = append(result, parts[ACTORS])
 	}
 	return result
 }
 
-func storeGroupedElements(results map[string]string) {
+func storeGroupedElements(results map[string]bool) {
 	// TODO: Dumpear el hashmap a un archivo
 }
 
-func getGroupedElements() map[string]string {
+func getGroupedElements() map[string]bool {
 	// TODO: Cuando se caiga un worker, deberia leer de este archivo lo que estuvo obteniendo
 	return nil
 }
@@ -72,11 +82,10 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 		return err
 	}
 	messages_before_commit := 0
-	movies_by_id := make(map[string]string)
+	movies_by_id := make(map[string]bool)
 	for message := range msgs {
-		log.Infof("Received message in JOIN: %s", string(message.Body))
 		message := string(message.Body)
-		if message == "EOF" {
+		if message == worker.MESSAGE_EOF {
 			break
 		}
 		messages_before_commit += 1
@@ -93,12 +102,11 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 		log.Errorf("Error initializing receiver: %s", err.Error())
 		return err
 	}
-
 	for message := range msgs {
-		log.Infof("Received message in SECOND JOIN: %s", string(message.Body))
 		message := string(message.Body)
-		if message == "EOF" {
-			err := worker.SendMessage(f.Worker, []byte("EOF"))
+		log.Infof("ESTA ESTE MENSAJE ASQUEROSO EN EL JOIN %s", message)
+		if message == worker.MESSAGE_EOF {
+			err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF)
 			if err != nil {
 				log.Infof("Error sending message: %s", err.Error())
 			}
@@ -108,7 +116,7 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 		result := joinMovieWithCredits(lines, movies_by_id)
 		message_to_send := strings.Join(result, "\n")
 		if len(message_to_send) != 0 {
-			err := worker.SendMessage(f.Worker, []byte(message_to_send))
+			err := worker.SendMessage(f.Worker, message_to_send)
 			if err != nil {
 				log.Infof("Error sending message: %s", err.Error())
 			}

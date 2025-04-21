@@ -10,6 +10,8 @@ import (
 	"github.com/op/go-logging"
 )
 
+var log = logging.MustGetLogger("top_ten_cast_movie")
+
 type TopTenCastMovieConfig struct {
 	worker.WorkerConfig
 }
@@ -18,18 +20,22 @@ type TopTenCastMovie struct {
 	worker.Worker
 }
 
-var log = logging.MustGetLogger("top_ten_cast_movie")
-
 type TopTenCastCount struct {
 	Actor string
 	Count int
 }
 
+// ---------------------------------
+// MESSAGE FORMAT: ACTOR|COUNT
+// ---------------------------------
+const ACTOR = 0
+const COUNT = 1
+
 func updateTopTen(lines []string, top_ten []TopTenCastCount) []TopTenCastCount {
 	for _, line := range lines {
-		parts := strings.Split(line, ",")
-		actor := parts[0]
-		count, err := strconv.Atoi(parts[1])
+		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		actor := parts[ACTOR]
+		count, err := strconv.Atoi(parts[COUNT])
 		if err != nil {
 			continue
 		}
@@ -54,13 +60,13 @@ func updateTopTen(lines []string, top_ten []TopTenCastCount) []TopTenCastCount {
 	return top_ten
 }
 
-func mapToLines(top_ten []TopTenCastCount) []string {
+func mapToLines(top_ten []TopTenCastCount) string {
 	var lines []string
 	for _, actor_in_top := range top_ten {
-		line := fmt.Sprintf("%s,%d", actor_in_top.Actor, actor_in_top.Count)
+		line := fmt.Sprintf("%s%s%d", actor_in_top.Actor, worker.MESSAGE_SEPARATOR, actor_in_top.Count)
 		lines = append(lines, line)
 	}
-	return lines
+	return strings.Join(lines, "\n")
 }
 
 func NewTopTenCastMovie(config TopTenCastMovieConfig) *TopTenCastMovie {
@@ -86,27 +92,19 @@ func (f *TopTenCastMovie) RunWorker() error {
 	}
 	var top_ten []TopTenCastCount
 	for message := range msgs {
-		log.Infof("Received message in top ten: %s", string(message.Body))
 		message := string(message.Body)
-		if message == "EOF" {
+		log.Infof("RECIBI ESTA RE MIL PORONGA %s", message)
+		if message == worker.MESSAGE_EOF {
+			log.Infof("ENTRE AL EOF PELOTUDO")
 			break
 		}
 		lines := strings.Split(strings.TrimSpace(message), "\n")
 		top_ten = updateTopTen(lines, top_ten)
 	}
 	message_to_send := mapToLines(top_ten)
-	err = worker.SendMessage(f.Worker, []byte(strings.Join(message_to_send, "\n")))
+	err = worker.SendMessage(f.Worker, message_to_send)
 	if err != nil {
 		log.Infof("Error sending message: %s", err.Error())
 	}
 	return nil
-}
-
-func (f *TopTenCastMovie) CloseWorker() error {
-	err := worker.CloseSender(&f.Worker)
-	if err != nil {
-		return err
-	}
-
-	return worker.CloseReceiver(&f.Worker)
 }

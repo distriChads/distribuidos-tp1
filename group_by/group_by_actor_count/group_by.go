@@ -21,7 +21,7 @@ var log = logging.MustGetLogger("group_by_actor_count")
 
 func groupByActorAndUpdate(lines []string, grouped_elements map[string]int) {
 	for _, line := range lines {
-		actors := strings.Split(line, ",")
+		actors := strings.Split(line, worker.MESSAGE_ARRAY_SEPARATOR)
 		for _, actor := range actors {
 			grouped_elements[actor] += 1
 		}
@@ -32,13 +32,13 @@ func storeGroupedElements(results map[string]int) {
 	// TODO: Dumpear el hashmap a un archivo
 }
 
-func mapToLines(grouped_elements map[string]int) []string {
+func mapToLines(grouped_elements map[string]int) string {
 	var lines []string
-	for actor, value := range grouped_elements {
-		line := fmt.Sprintf("%s,%d", actor, value)
+	for actor, count := range grouped_elements {
+		line := fmt.Sprintf("%s%s%d", actor, worker.MESSAGE_SEPARATOR, count)
 		lines = append(lines, line)
 	}
-	return lines
+	return strings.Join(lines, "\n")
 }
 
 func getGroupedElements() map[string]int {
@@ -68,12 +68,13 @@ func (f *GroupByActorAndCount) RunWorker() error {
 		log.Errorf("Error initializing receiver: %s", err.Error())
 		return err
 	}
+
 	messages_before_commit := 0
 	grouped_elements := make(map[string]int)
 	for message := range msgs {
-		log.Infof("Received message in group by actor: %s", string(message.Body))
 		message := string(message.Body)
-		if message == "EOF" {
+		log.Infof("ESTA GARCHA HAY EN MESSAGE %s", message)
+		if message == worker.MESSAGE_EOF {
 			break
 		}
 		messages_before_commit += 1
@@ -84,24 +85,17 @@ func (f *GroupByActorAndCount) RunWorker() error {
 			messages_before_commit = 0
 		}
 	}
-	message_to_send := mapToLines(grouped_elements)
-	err = worker.SendMessage(f.Worker, []byte(strings.Join(message_to_send, "\n")))
+
 	// TODO: Enviar a una cola de un agrupador "maestro" que haga la ultima agrupacion y este se lo envie al proximo chavoncito
+	message_to_send := mapToLines(grouped_elements)
+	log.Infof("VOY A ENVIAR ESTA MIERDA %s", message_to_send)
+	err = worker.SendMessage(f.Worker, message_to_send)
 	if err != nil {
 		log.Infof("Error sending message: %s", err.Error())
 	}
-	err = worker.SendMessage(f.Worker, []byte("EOF"))
+	err = worker.SendMessage(f.Worker, worker.MESSAGE_EOF)
 	if err != nil {
 		log.Infof("Error sending message: %s", err.Error())
 	}
 	return nil
-}
-
-func (f *GroupByActorAndCount) CloseWorker() error {
-	err := worker.CloseSender(&f.Worker)
-	if err != nil {
-		return err
-	}
-
-	return worker.CloseReceiver(&f.Worker)
 }

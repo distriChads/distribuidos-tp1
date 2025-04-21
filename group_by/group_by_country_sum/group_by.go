@@ -9,6 +9,8 @@ import (
 	"github.com/op/go-logging"
 )
 
+var log = logging.MustGetLogger("group_by_country_sum")
+
 type GroupByCountryAndSumConfig struct {
 	worker.WorkerConfig
 }
@@ -18,16 +20,20 @@ type GroupByCountryAndSum struct {
 	messages_before_commit int
 }
 
-var log = logging.MustGetLogger("group_by_country_sum")
+// ---------------------------------
+// MESSAGE FORMAT: ID|TITLE|DATE|COUNTRY|GENRES|BUDGET
+// ---------------------------------
+const COUNTRY = 3
+const BUDGET = 5
 
 func groupByCountryAndSum(lines []string, grouped_elements map[string]int) {
 	for _, line := range lines {
-		parts := strings.Split(line, "|")
-		budget, err := strconv.Atoi(parts[5])
+		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		budget, err := strconv.Atoi(parts[BUDGET])
 		if err != nil {
 			continue
 		}
-		grouped_elements[parts[3]] += budget
+		grouped_elements[parts[COUNTRY]] += budget
 	}
 }
 
@@ -35,13 +41,13 @@ func storeGroupedElements(results map[string]int) {
 	// TODO: Dumpear el hashmap a un archivo
 }
 
-func mapToLines(grouped_elements map[string]int) []string {
+func mapToLines(grouped_elements map[string]int) string {
 	var lines []string
 	for country, budget := range grouped_elements {
-		line := fmt.Sprintf("%s,%d", country, budget)
+		line := fmt.Sprintf("%s%s%d", country, worker.MESSAGE_SEPARATOR, budget)
 		lines = append(lines, line)
 	}
-	return lines
+	return strings.Join(lines, "\n")
 }
 
 func getGroupedElements() map[string]int {
@@ -74,9 +80,8 @@ func (f *GroupByCountryAndSum) RunWorker() error {
 	messages_before_commit := 0
 	grouped_elements := make(map[string]int)
 	for message := range msgs {
-		log.Infof("Received message in group by country and sum: %s", string(message.Body))
 		message := string(message.Body)
-		if message == "EOF" {
+		if message == worker.MESSAGE_EOF {
 			break
 		}
 		messages_before_commit += 1
@@ -88,23 +93,14 @@ func (f *GroupByCountryAndSum) RunWorker() error {
 		}
 	}
 	message_to_send := mapToLines(grouped_elements)
-	err = worker.SendMessage(f.Worker, []byte(strings.Join(message_to_send, "\n")))
+	err = worker.SendMessage(f.Worker, message_to_send)
 	// TODO: Enviar a una cola de un agrupador "maestro" que haga la ultima agrupacion y este se lo envie al proximo chavoncito
 	if err != nil {
 		log.Infof("Error sending message: %s", err.Error())
 	}
-	err = worker.SendMessage(f.Worker, []byte("EOF"))
+	err = worker.SendMessage(f.Worker, worker.MESSAGE_EOF)
 	if err != nil {
 		log.Infof("Error sending message: %s", err.Error())
 	}
 	return nil
-}
-
-func (f *GroupByCountryAndSum) CloseWorker() error {
-	err := worker.CloseSender(&f.Worker)
-	if err != nil {
-		return err
-	}
-
-	return worker.CloseReceiver(&f.Worker)
 }

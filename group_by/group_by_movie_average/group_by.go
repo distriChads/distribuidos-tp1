@@ -13,6 +13,8 @@ type GroupByMovieAndAvgConfig struct {
 	worker.WorkerConfig
 }
 
+var log = logging.MustGetLogger("group_by_movie_average")
+
 type GroupByMovieAndAvg struct {
 	worker.Worker
 	messages_before_commit int
@@ -23,20 +25,24 @@ type ScoreAndCount struct {
 	score float64
 }
 
-var log = logging.MustGetLogger("group_by_movie_average")
+// ---------------------------------
+// MESSAGE FORMAT: ID|TITLE|SCORE
+// ---------------------------------
+const TITLE = 1
+const SCORE = 2
 
 func groupByMovieAndUpdate(lines []string, grouped_elements map[string]ScoreAndCount) {
 	for _, line := range lines {
-		parts := strings.Split(line, "|")
-		score, err := strconv.ParseFloat(parts[2], 64)
+		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		score, err := strconv.ParseFloat(parts[SCORE], 64)
 		if err != nil {
 			continue
 		}
 
-		current := grouped_elements[parts[1]]
+		current := grouped_elements[parts[TITLE]]
 		current.score += score
 		current.count += 1
-		grouped_elements[parts[1]] = current
+		grouped_elements[parts[TITLE]] = current
 
 	}
 }
@@ -45,14 +51,14 @@ func storeGroupedElements(results map[string]ScoreAndCount) {
 	// TODO: Dumpear el hashmap a un archivo
 }
 
-func mapToLines(grouped_elements map[string]ScoreAndCount) []string {
+func mapToLines(grouped_elements map[string]ScoreAndCount) string {
 	var lines []string
 	for title, value := range grouped_elements {
 		average := value.score / float64(value.count)
-		line := fmt.Sprintf("%s,%f", title, average)
+		line := fmt.Sprintf("%s%s%f", title, worker.MESSAGE_SEPARATOR, average)
 		lines = append(lines, line)
 	}
-	return lines
+	return strings.Join(lines, "\n")
 }
 
 func getGroupedElements() map[string]int {
@@ -85,9 +91,8 @@ func (f *GroupByMovieAndAvg) RunWorker() error {
 	messages_before_commit := 0
 	grouped_elements := make(map[string]ScoreAndCount)
 	for message := range msgs {
-		log.Infof("Received message in group by title and avg: %s", string(message.Body))
 		message := string(message.Body)
-		if message == "EOF" {
+		if message == worker.MESSAGE_EOF {
 			break
 		}
 		messages_before_commit += 1
@@ -99,23 +104,14 @@ func (f *GroupByMovieAndAvg) RunWorker() error {
 		}
 	}
 	message_to_send := mapToLines(grouped_elements)
-	err = worker.SendMessage(f.Worker, []byte(strings.Join(message_to_send, "\n")))
+	err = worker.SendMessage(f.Worker, message_to_send)
 	// TODO: Enviar a una cola de un agrupador "maestro" que haga la ultima agrupacion y este se lo envie al proximo chavoncito
 	if err != nil {
 		log.Infof("Error sending message: %s", err.Error())
 	}
-	err = worker.SendMessage(f.Worker, []byte("EOF"))
+	err = worker.SendMessage(f.Worker, worker.MESSAGE_EOF)
 	if err != nil {
 		log.Infof("Error sending message: %s", err.Error())
 	}
 	return nil
-}
-
-func (f *GroupByMovieAndAvg) CloseWorker() error {
-	err := worker.CloseSender(&f.Worker)
-	if err != nil {
-		return err
-	}
-
-	return worker.CloseReceiver(&f.Worker)
 }

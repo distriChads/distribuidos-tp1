@@ -18,11 +18,19 @@ type FilterBySpainAndOf2000 struct {
 	worker.Worker
 }
 
+// ---------------------------------
+// MESSAGE FORMAT: ID|TITLE|DATE|COUNTRIES|GENRES|...
+// ---------------------------------
+const TITLE = 1
+const DATE = 2
+const COUNTRIES = 3
+const GENRES = 4
+
 func filterByCountrySpainAndOf2000(lines []string) []string {
 	var result []string
 	for _, line := range lines {
-		parts := strings.Split(line, "|")
-		raw_year := strings.Split(parts[2], "-")[0]
+		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		raw_year := strings.Split(parts[DATE], "-")[0]
 		year, err := strconv.Atoi(raw_year)
 		if err != nil {
 			continue
@@ -30,10 +38,10 @@ func filterByCountrySpainAndOf2000(lines []string) []string {
 		if !(year >= 2000 && year < 2010) {
 			continue
 		}
-		countries := strings.Split(parts[3], ",")
+		countries := strings.Split(parts[COUNTRIES], worker.MESSAGE_ARRAY_SEPARATOR)
 		for _, country := range countries {
 			if strings.TrimSpace(country) == "ES" {
-				result = append(result, strings.TrimSpace(line))
+				result = append(result, strings.TrimSpace(parts[TITLE])+worker.MESSAGE_SEPARATOR+strings.TrimSpace(parts[GENRES]))
 				break
 			}
 		}
@@ -55,16 +63,8 @@ func NewFilterBySpainAndOf2000(config FilterBySpainAndOf2000Config) *FilterBySpa
 
 func (f *FilterBySpainAndOf2000) RunWorker() error {
 	log.Info("Starting FilterByYear worker")
-	err := worker.InitSender(&f.Worker)
-	if err != nil {
-		log.Errorf("Error initializing sender: %s", err.Error())
-		return err
-	}
-	err = worker.InitReceiver(&f.Worker)
-	if err != nil {
-		log.Errorf("Error initializing receiver: %s", err.Error())
-		return err
-	}
+	worker.InitSender(&f.Worker)
+	worker.InitReceiver(&f.Worker)
 
 	msgs, err := worker.ReceivedMessages(f.Worker)
 	if err != nil {
@@ -74,20 +74,14 @@ func (f *FilterBySpainAndOf2000) RunWorker() error {
 
 	for message := range msgs {
 		message := string(message.Body)
-		if message == "EOF" {
+		if message == worker.MESSAGE_EOF {
 			break
 		}
 		lines := strings.Split(strings.TrimSpace(message), "\n")
-		result := filterByCountrySpainAndOf2000(lines)
-		var message_buffer []string
-		for _, r := range result {
-			parts := strings.Split(r, "|")
-			title_and_id := strings.TrimSpace(parts[1]) + "|" + strings.TrimSpace(parts[4])
-			message_buffer = append(message_buffer, title_and_id)
-		}
-		message_to_send := strings.Join(message_buffer, "\n")
+		filtered_lines := filterByCountrySpainAndOf2000(lines)
+		message_to_send := strings.Join(filtered_lines, "\n")
 		if len(message_to_send) != 0 {
-			err := worker.SendMessage(f.Worker, []byte(message_to_send))
+			err := worker.SendMessage(f.Worker, message_to_send)
 			if err != nil {
 				log.Infof("Error sending message: %s", err.Error())
 			}
@@ -96,13 +90,4 @@ func (f *FilterBySpainAndOf2000) RunWorker() error {
 	}
 
 	return nil
-}
-
-func (f *FilterBySpainAndOf2000) CloseWorker() error {
-	err := worker.CloseSender(&f.Worker)
-	if err != nil {
-		return err
-	}
-
-	return worker.CloseReceiver(&f.Worker)
 }

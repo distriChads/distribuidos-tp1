@@ -9,6 +9,10 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+const MESSAGE_SEPARATOR = "|"
+const MESSAGE_ARRAY_SEPARATOR = ","
+const MESSAGE_EOF = "EOF"
+
 var log = logging.MustGetLogger("worker")
 
 type sender struct {
@@ -201,7 +205,7 @@ func InitSecondReceiver(worker *Worker) error {
 	return nil
 }
 
-func SendMessage(worker Worker, message []byte) error {
+func SendMessage(worker Worker, message string) error {
 	if worker.sender == nil {
 		return errors.New("sender not initialized")
 	}
@@ -216,14 +220,13 @@ func SendMessage(worker Worker, message []byte) error {
 		false,                 // immediate
 		amqp.Publishing{
 			ContentType: "text/plain",
-			Body:        message,
+			Body:        []byte(message),
 		})
 
 	if err != nil {
 		return err
 	}
 
-	log.Infof("Message sent: %s", string(message))
 	return nil
 }
 
@@ -249,6 +252,15 @@ func RunWorker(worker Worker) error {
 
 func CloseWorker(worker *Worker) error {
 	return errors.New("not implemented")
+}
+
+func (worker *Worker) CloseWorker() error {
+	err := CloseSender(worker)
+	if err != nil {
+		return err
+	}
+
+	return CloseReceiver(worker)
 }
 
 func CloseSender(worker *Worker) error {

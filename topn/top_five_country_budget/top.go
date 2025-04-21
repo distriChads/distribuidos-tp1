@@ -25,11 +25,17 @@ type TopFiveCountrByBudget struct {
 	Budget  int
 }
 
+// ---------------------------------
+// MESSAGE FORMAT: COUNTRY|BUDGET
+// ---------------------------------
+const COUNTRY = 0
+const BUDGET = 1
+
 func updateTopFive(lines []string, top_five []TopFiveCountrByBudget) []TopFiveCountrByBudget {
 	for _, line := range lines {
-		parts := strings.Split(line, ",")
-		country := parts[0]
-		budget, err := strconv.Atoi(parts[1])
+		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		country := parts[COUNTRY]
+		budget, err := strconv.Atoi(parts[BUDGET])
 		if err != nil {
 			continue
 		}
@@ -51,13 +57,13 @@ func updateTopFive(lines []string, top_five []TopFiveCountrByBudget) []TopFiveCo
 	return top_five
 }
 
-func mapToLines(top_five []TopFiveCountrByBudget) []string {
+func mapToLines(top_five []TopFiveCountrByBudget) string {
 	var lines []string
 	for _, country_in_top := range top_five {
-		line := fmt.Sprintf("%s,%d", country_in_top.Country, country_in_top.Budget)
+		line := fmt.Sprintf("%s%s%d", country_in_top.Country, worker.MESSAGE_SEPARATOR, country_in_top.Budget)
 		lines = append(lines, line)
 	}
-	return lines
+	return strings.Join(lines, "\n")
 }
 
 func NewTopFiveCountryBudget(config TopFiveCountryBudgetConfig) *TopFiveCountryBudget {
@@ -83,27 +89,17 @@ func (f *TopFiveCountryBudget) RunWorker() error {
 	}
 	var top_five []TopFiveCountrByBudget
 	for message := range msgs {
-		log.Infof("Received message in top five: %s", string(message.Body))
 		message := string(message.Body)
-		if message == "EOF" {
+		if message == worker.MESSAGE_EOF {
 			break
 		}
 		lines := strings.Split(strings.TrimSpace(message), "\n")
 		top_five = updateTopFive(lines, top_five)
 	}
 	message_to_send := mapToLines(top_five)
-	err = worker.SendMessage(f.Worker, []byte(strings.Join(message_to_send, "\n")))
+	err = worker.SendMessage(f.Worker, message_to_send)
 	if err != nil {
 		log.Infof("Error sending message: %s", err.Error())
 	}
 	return nil
-}
-
-func (f *TopFiveCountryBudget) CloseWorker() error {
-	err := worker.CloseSender(&f.Worker)
-	if err != nil {
-		return err
-	}
-
-	return worker.CloseReceiver(&f.Worker)
 }

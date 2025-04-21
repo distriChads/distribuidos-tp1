@@ -17,11 +17,16 @@ type FilterByOnlyOneCountry struct {
 	worker.Worker
 }
 
+// ---------------------------------
+// MESSAGE FORMAT: ID|TITLE|DATE|COUNTRIES|...
+// ---------------------------------
+const COUNTRIES = 3
+
 func filterByOnlyOneCountry(lines []string) []string {
 	var result []string
 	for _, line := range lines {
-		parts := strings.Split(line, "|")
-		countries := strings.Split(parts[3], ",")
+		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		countries := strings.Split(parts[COUNTRIES], worker.MESSAGE_ARRAY_SEPARATOR)
 		if len(countries) == 1 {
 			result = append(result, strings.TrimSpace(line))
 		}
@@ -53,29 +58,23 @@ func (f *FilterByOnlyOneCountry) RunWorker() error {
 
 	for message := range msgs {
 		message := string(message.Body)
-		if message == "EOF" {
-			err := worker.SendMessage(f.Worker, []byte("EOF"))
+		if message == worker.MESSAGE_EOF {
+			err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF)
 			if err != nil {
 				log.Infof("Error sending message: %s", err.Error())
 			}
 			break
 		}
 		lines := strings.Split(strings.TrimSpace(message), "\n")
-		result := filterByOnlyOneCountry(lines)
-		err := worker.SendMessage(f.Worker, []byte(strings.Join(result, "\n")))
-		if err != nil {
-			log.Infof("Error sending message: %s", err.Error())
+		filtered_lines := filterByOnlyOneCountry(lines)
+		message_to_send := strings.Join(filtered_lines, "\n")
+		if len(message_to_send) != 0 {
+			err := worker.SendMessage(f.Worker, message_to_send)
+			if err != nil {
+				log.Infof("Error sending message: %s", err.Error())
+			}
 		}
 	}
 
 	return nil
-}
-
-func (f *FilterByOnlyOneCountry) CloseWorker() error {
-	err := worker.CloseSender(&f.Worker)
-	if err != nil {
-		return err
-	}
-
-	return worker.CloseReceiver(&f.Worker)
 }

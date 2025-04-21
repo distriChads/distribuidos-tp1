@@ -12,11 +12,10 @@ import (
 	"distribuidos-tp1/topn/top_ten_cast_movie"
 	"os"
 
-	"distribuidos-tp1/filters/filter_after_2000"
+	filterafter2000 "distribuidos-tp1/filters/filter_after_2000"
 	"distribuidos-tp1/filters/filter_argentina"
 	"distribuidos-tp1/filters/filter_only_one_country"
 	"distribuidos-tp1/filters/filter_spain_2000"
-	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -125,10 +124,7 @@ func run_test_for_query_1() {
 	)
 
 	go filterArgentina.RunWorker()
-	time.Sleep(2 * time.Second)
-
 	go filterSpain.RunWorker()
-	time.Sleep(2 * time.Second)
 
 	for msg := range msgs {
 		println("Received:", string(msg.Body))
@@ -267,13 +263,10 @@ func run_test_for_query_2() {
 	)
 
 	go filterOneCountry.RunWorker()
-	time.Sleep(2 * time.Second)
 
 	go groupByCountry.RunWorker()
-	time.Sleep(2 * time.Second)
 
 	go getTop5.RunWorker()
-	time.Sleep(2 * time.Second)
 
 	for msg := range msgs {
 		println("Received:", string(msg.Body))
@@ -406,7 +399,7 @@ func run_test_for_query_3() {
 		},
 	})
 
-	filterAfter2000 := filter_after_2000.NewFilterByAfterYear2000(filter_after_2000.FilterByAfterYear2000Config{
+	filterAfter2000 := filterafter2000.NewFilterByAfterYear2000(filterafter2000.FilterByAfterYear2000Config{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange:  "filter_by_argentina_output",
 			OutputExchange: "filter_after_2000_output",
@@ -473,15 +466,10 @@ func run_test_for_query_3() {
 	)
 
 	go filterByArgentina.RunWorker()
-	time.Sleep(1 * time.Second)
 	go filterAfter2000.RunWorker()
-	time.Sleep(1 * time.Second)
 	go joinMovieRating.RunWorker()
-	time.Sleep(1 * time.Second)
 	go groupByMovie.RunWorker()
-	time.Sleep(1 * time.Second)
 	go firstAndLast.RunWorker()
-	time.Sleep(1 * time.Second)
 
 	for msg := range msgs {
 		println("Received:", string(msg.Body))
@@ -612,7 +600,7 @@ func run_test_for_query_4() {
 		},
 	})
 
-	filterAfter2000 := filter_after_2000.NewFilterByAfterYear2000(filter_after_2000.FilterByAfterYear2000Config{
+	filterAfter2000 := filterafter2000.NewFilterByAfterYear2000(filterafter2000.FilterByAfterYear2000Config{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange:  "filter_by_argentina_output",
 			OutputExchange: "filter_after_2000_output",
@@ -679,15 +667,10 @@ func run_test_for_query_4() {
 	)
 
 	go filterByArgentina.RunWorker()
-	time.Sleep(1 * time.Second)
 	go filterAfter2000.RunWorker()
-	time.Sleep(1 * time.Second)
 	go joinMovieCredits.RunWorker()
-	time.Sleep(1 * time.Second)
 	go groupByActor.RunWorker()
-	time.Sleep(1 * time.Second)
 	go topTen.RunWorker()
-	time.Sleep(1 * time.Second)
 
 	for msg := range msgs {
 		println("Received:", string(msg.Body))

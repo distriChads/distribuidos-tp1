@@ -18,17 +18,24 @@ type FilterByAfterYear2000 struct {
 	worker.Worker
 }
 
+// ---------------------------------
+// MESSAGE FORMAT: ID|TITLE|DATE|...
+// ---------------------------------
+const ID = 0
+const TITLE = 1
+const DATE = 2
+
 func filterByYearAfter2000(lines []string) []string {
 	var result []string
 	for _, line := range lines {
-		parts := strings.Split(line, "|")
-		raw_year := strings.Split(parts[2], "-")[0]
+		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		raw_year := strings.Split(parts[DATE], "-")[0]
 		year, err := strconv.Atoi(raw_year)
 		if err != nil {
 			continue
 		}
 		if year >= 2000 {
-			result = append(result, strings.TrimSpace(line))
+			result = append(result, strings.TrimSpace(parts[ID])+worker.MESSAGE_SEPARATOR+strings.TrimSpace(parts[TITLE]))
 		}
 	}
 	return result
@@ -58,24 +65,18 @@ func (f *FilterByAfterYear2000) RunWorker() error {
 
 	for message := range msgs {
 		message := string(message.Body)
-		if message == "EOF" {
-			err := worker.SendMessage(f.Worker, []byte("EOF"))
+		if message == worker.MESSAGE_EOF {
+			err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF)
 			if err != nil {
 				log.Infof("Error sending message: %s", err.Error())
 			}
 			break
 		}
 		lines := strings.Split(strings.TrimSpace(message), "\n")
-		result := filterByYearAfter2000(lines)
-		var message_buffer []string
-		for _, r := range result {
-			parts := strings.Split(r, "|")
-			title_and_id := strings.TrimSpace(parts[0]) + "|" + strings.TrimSpace(parts[1])
-			message_buffer = append(message_buffer, title_and_id)
-		}
-		message_to_send := strings.Join(message_buffer, "\n")
+		filtered_lines := filterByYearAfter2000(lines)
+		message_to_send := strings.Join(filtered_lines, "\n")
 		if len(message_to_send) != 0 {
-			err := worker.SendMessage(f.Worker, []byte(message_to_send))
+			err := worker.SendMessage(f.Worker, message_to_send)
 			if err != nil {
 				log.Infof("Error sending message: %s", err.Error())
 			}
@@ -83,13 +84,4 @@ func (f *FilterByAfterYear2000) RunWorker() error {
 	}
 
 	return nil
-}
-
-func (f *FilterByAfterYear2000) CloseWorker() error {
-	err := worker.CloseSender(&f.Worker)
-	if err != nil {
-		return err
-	}
-
-	return worker.CloseReceiver(&f.Worker)
 }
