@@ -10,7 +10,7 @@ WORKDIR /app
 COPY --from=deps /app/go.mod /app/go.sum ./
 COPY ./common ./common
 COPY ./filters/filter_only_one_country ./filters/filter_only_one_country
-RUN CGO_ENABLED=0 GOOS=linux go build -o bin/filter_runner ./filters/filter_only_one_country/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o bin/filter_runner ./filters/filter_only_one_country/main/main.go
 
 # Image final
 FROM busybox:latest

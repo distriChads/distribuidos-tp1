@@ -5,6 +5,8 @@ import (
 	"distribuidos-tp1/common/worker/worker"
 	"fmt"
 
+	filter "distribuidos-tp1/filters/filter_spain_2000"
+
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 )
@@ -40,7 +42,7 @@ func main() {
 		return
 	}
 
-	filter := NewFilterByOnlyOneCountry(FilterByOnlyOneCountryConfig{
+	filter := filter.NewFilterBySpainAndOf2000(filter.FilterBySpainAndOf2000Config{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange:  v.GetString("worker.exchange.input"),
 			OutputExchange: v.GetString("worker.exchange.output"),
@@ -50,7 +52,7 @@ func main() {
 
 	defer filter.CloseWorker()
 
-	err = filter.RunWorker()
+	err := filter.RunWorker()
 	if err != nil {
 		panic(err)
 	}

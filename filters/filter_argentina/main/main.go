@@ -5,12 +5,14 @@ import (
 	"distribuidos-tp1/common/worker/worker"
 	"fmt"
 
+	filter "distribuidos-tp1/filters/filter_argentina"
+
 	"github.com/joho/godotenv"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 )
 
-var log = logging.MustGetLogger("filter_after_2000")
+var log = logging.MustGetLogger("filter_argentina")
 
 func main() {
 	// Uncomment the following lines if you want to load environment variables from a .env file without using docker
@@ -41,7 +43,7 @@ func main() {
 		return
 	}
 
-	filter := NewFilterByAfterYear2000(FilterByAfterYear2000Config{
+	filter := filter.NewFilterByArgentina(filter.FilterByArgentinaConfig{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange:  v.GetString("worker.exchange.input"),
 			OutputExchange: v.GetString("worker.exchange.output"),

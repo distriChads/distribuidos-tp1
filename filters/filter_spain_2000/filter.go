@@ -4,7 +4,11 @@ import (
 	worker "distribuidos-tp1/common/worker/worker"
 	"strconv"
 	"strings"
+
+	"github.com/op/go-logging"
 )
+
+var log = logging.MustGetLogger("filter_after_2000")
 
 type FilterBySpainAndOf2000Config struct {
 	worker.WorkerConfig
