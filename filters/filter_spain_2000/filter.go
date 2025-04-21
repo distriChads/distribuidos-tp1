@@ -4,8 +4,6 @@ import (
 	worker "distribuidos-tp1/common/worker/worker"
 	"strconv"
 	"strings"
-
-	"github.com/op/go-logging"
 )
 
 type FilterBySpainAndOf2000Config struct {
@@ -15,8 +13,6 @@ type FilterBySpainAndOf2000Config struct {
 type FilterBySpainAndOf2000 struct {
 	worker.Worker
 }
-
-var log = logging.MustGetLogger("filter_spain_2000")
 
 func filterByCountrySpainAndOf2000(lines []string) []string {
 	var result []string

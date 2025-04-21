@@ -1,13 +1,9 @@
-package filter_only_one_country
+package main
 
 import (
 	worker "distribuidos-tp1/common/worker/worker"
 	"strings"
-
-	"github.com/op/go-logging"
 )
-
-var log = logging.MustGetLogger("filter_only_one_country")
 
 type FilterByOnlyOneCountryConfig struct {
 	worker.WorkerConfig
