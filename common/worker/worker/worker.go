@@ -80,6 +80,19 @@ func InitSender(worker *Worker) error {
 		return err
 	}
 
+	err = ch.ExchangeDeclare(
+		worker.OutputExchange, // name
+		"topic",               // type
+		false,                 // durable
+		true,                  // auto-deleted
+		false,                 // internal
+		false,                 // no-wait
+		nil,                   // arguments
+	)
+	if err != nil {
+		return err
+	}
+
 	worker.sender = &sender{
 		conn: conn,
 		ch:   ch,
@@ -96,6 +109,19 @@ func InitReceiver(worker *Worker) error {
 	}
 
 	ch, err := conn.Channel()
+	if err != nil {
+		return err
+	}
+
+	err = ch.ExchangeDeclare(
+		worker.InputExchange, // name
+		"topic",              // type
+		false,                // durable
+		true,                 // auto-deleted
+		false,                // internal
+		false,                // no-wait
+		nil,                  // arguments
+	)
 	if err != nil {
 		return err
 	}
@@ -154,6 +180,19 @@ func InitSecondReceiver(worker *Worker) error {
 	}
 
 	ch, err := conn.Channel()
+	if err != nil {
+		return err
+	}
+
+	err = ch.ExchangeDeclare(
+		worker.InputExchange, // name
+		"topic",              // type
+		false,                // durable
+		true,                 // auto-deleted
+		false,                // internal
+		false,                // no-wait
+		nil,                  // arguments
+	)
 	if err != nil {
 		return err
 	}
