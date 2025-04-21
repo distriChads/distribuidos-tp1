@@ -104,7 +104,6 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 	}
 	for message := range msgs {
 		message := string(message.Body)
-		log.Infof("ESTA ESTE MENSAJE ASQUEROSO EN EL JOIN %s", message)
 		if message == worker.MESSAGE_EOF {
 			err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF)
 			if err != nil {

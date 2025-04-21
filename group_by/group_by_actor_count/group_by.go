@@ -73,7 +73,6 @@ func (f *GroupByActorAndCount) RunWorker() error {
 	grouped_elements := make(map[string]int)
 	for message := range msgs {
 		message := string(message.Body)
-		log.Infof("ESTA GARCHA HAY EN MESSAGE %s", message)
 		if message == worker.MESSAGE_EOF {
 			break
 		}
@@ -88,7 +87,6 @@ func (f *GroupByActorAndCount) RunWorker() error {
 
 	// TODO: Enviar a una cola de un agrupador "maestro" que haga la ultima agrupacion y este se lo envie al proximo chavoncito
 	message_to_send := mapToLines(grouped_elements)
-	log.Infof("VOY A ENVIAR ESTA MIERDA %s", message_to_send)
 	err = worker.SendMessage(f.Worker, message_to_send)
 	if err != nil {
 		log.Infof("Error sending message: %s", err.Error())

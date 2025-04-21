@@ -93,9 +93,7 @@ func (f *TopTenCastMovie) RunWorker() error {
 	var top_ten []TopTenCastCount
 	for message := range msgs {
 		message := string(message.Body)
-		log.Infof("RECIBI ESTA RE MIL PORONGA %s", message)
 		if message == worker.MESSAGE_EOF {
-			log.Infof("ENTRE AL EOF PELOTUDO")
 			break
 		}
 		lines := strings.Split(strings.TrimSpace(message), "\n")
