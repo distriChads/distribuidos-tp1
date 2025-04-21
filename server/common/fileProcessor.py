@@ -118,12 +118,12 @@ class MoviesProcessor(Processor):
         self.fields_count = FIELDS_COUNT_MOVIES
 
     def _process_line(self, line: list[str]) -> str:
-        id = line[5]
-        title = line[20]
-        releaseDate = line[14]
-        prodCountries = line[13]
-        genres = line[3]
         budget = line[2]
+        genres = line[3]
+        id = line[5]
+        prodCountries = line[13]
+        releaseDate = line[14]
+        title = line[20]
 
         prodCountries = self._try_parse_python_structure(prodCountries)
         genres = self._try_parse_python_structure(genres)
@@ -136,8 +136,8 @@ class MoviesProcessor(Processor):
             raise EmptyFieldError("Missing release date")
         if not prodCountries:
             raise EmptyFieldError("Missing production countries")
-        if not genres:
-            raise EmptyFieldError("Missing genres")
+        # if not genres:
+        #     raise EmptyFieldError("Missing genres")
 
         countries = VALUE_SEPARATOR.join(
             [c["iso_3166_1"] for c in prodCountries])
