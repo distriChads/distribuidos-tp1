@@ -191,15 +191,12 @@ class CreditsProcessor(Processor):
     def _process_line(self, line: list[str]) -> str:
         cast = line[0]
         id = line[2]
-        timestamp = line[3]
 
         cast = self._try_parse_python_structure(cast)
         if not cast:
             raise EmptyFieldError("Missing cast")
         if not id:
             raise EmptyFieldError("Missing id")
-        if not timestamp:
-            raise EmptyFieldError("Missing timestamp")
 
         cast = VALUE_SEPARATOR.join([c["name"] for c in cast])
         return f"{id}{FIELD_SEPARATOR}{cast}"
@@ -214,11 +211,14 @@ class RatingsProcessor(Processor):
     def _process_line(self, line: list[str]) -> str:
         movieId = line[1]
         rating = line[2]
+        timestamp = line[3]
 
         if not movieId:
             raise EmptyFieldError("Missing movieId")
         if not rating:
             raise EmptyFieldError("Missing rating")
+        if not timestamp:
+            raise EmptyFieldError("Missing timestamp")
 
         return f"{movieId}{FIELD_SEPARATOR}{rating}"
 
