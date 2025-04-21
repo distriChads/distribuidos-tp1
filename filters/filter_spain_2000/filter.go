@@ -16,7 +16,7 @@ type FilterBySpainAndOf2000 struct {
 	worker.Worker
 }
 
-var log = logging.MustGetLogger("filter_by_year")
+var log = logging.MustGetLogger("filter_spain_2000")
 
 func filterByCountrySpainAndOf2000(lines []string) []string {
 	var result []string
@@ -73,7 +73,6 @@ func (f *FilterBySpainAndOf2000) RunWorker() error {
 	}
 
 	for message := range msgs {
-		log.Infof("Received message: %s", string(message.Body))
 		message := string(message.Body)
 		if message == "EOF" {
 			break

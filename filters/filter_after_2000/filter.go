@@ -27,7 +27,7 @@ func filterByYearAfter2000(lines []string) []string {
 		if err != nil {
 			continue
 		}
-		if year > 2000 {
+		if year >= 2000 {
 			result = append(result, strings.TrimSpace(line))
 		}
 	}
@@ -57,7 +57,6 @@ func (f *FilterByAfterYear2000) RunWorker() error {
 	}
 
 	for message := range msgs {
-		log.Infof("Received message in filter after 2000: %s", string(message.Body))
 		message := string(message.Body)
 		if message == "EOF" {
 			err := worker.SendMessage(f.Worker, []byte("EOF"))

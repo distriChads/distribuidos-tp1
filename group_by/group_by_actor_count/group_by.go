@@ -1,33 +1,30 @@
-package group_by_country_sum
+package group_by_actor_count
 
 import (
 	worker "distribuidos-tp1/common/worker/worker"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/op/go-logging"
 )
 
-type GroupByCountryAndSumConfig struct {
+type GroupByActorAndCountConfig struct {
 	worker.WorkerConfig
 }
 
-type GroupByCountryAndSum struct {
+type GroupByActorAndCount struct {
 	worker.Worker
 	messages_before_commit int
 }
 
-var log = logging.MustGetLogger("group_by_country_sum")
+var log = logging.MustGetLogger("group_by_actor_count")
 
-func groupByCountryAndSum(lines []string, grouped_elements map[string]int) {
+func groupByActorAndUpdate(lines []string, grouped_elements map[string]int) {
 	for _, line := range lines {
-		parts := strings.Split(line, "|")
-		budget, err := strconv.Atoi(parts[5])
-		if err != nil {
-			continue
+		actors := strings.Split(line, ",")
+		for _, actor := range actors {
+			grouped_elements[actor] += 1
 		}
-		grouped_elements[parts[3]] += budget
 	}
 }
 
@@ -37,8 +34,8 @@ func storeGroupedElements(results map[string]int) {
 
 func mapToLines(grouped_elements map[string]int) []string {
 	var lines []string
-	for country, budget := range grouped_elements {
-		line := fmt.Sprintf("%s,%d", country, budget)
+	for actor, value := range grouped_elements {
+		line := fmt.Sprintf("%s,%d", actor, value)
 		lines = append(lines, line)
 	}
 	return lines
@@ -49,9 +46,9 @@ func getGroupedElements() map[string]int {
 	return nil
 }
 
-func NewGroupByCountryAndSum(config GroupByCountryAndSumConfig, messages_before_commit int) *GroupByCountryAndSum {
-	log.Infof("GroupByCountryAndSum: %+v", config)
-	return &GroupByCountryAndSum{
+func NewGroupByActorAndCount(config GroupByActorAndCountConfig, messages_before_commit int) *GroupByActorAndCount {
+	log.Infof("GroupByActorAndCount: %+v", config)
+	return &GroupByActorAndCount{
 		Worker: worker.Worker{
 			InputExchange:  config.InputExchange,
 			OutputExchange: config.OutputExchange,
@@ -61,8 +58,8 @@ func NewGroupByCountryAndSum(config GroupByCountryAndSumConfig, messages_before_
 	}
 }
 
-func (f *GroupByCountryAndSum) RunWorker() error {
-	log.Info("Starting GroupByCountryAndSum worker")
+func (f *GroupByActorAndCount) RunWorker() error {
+	log.Info("Starting GroupByActorAndCount worker")
 	worker.InitSender(&f.Worker)
 	worker.InitReceiver(&f.Worker)
 
@@ -74,14 +71,14 @@ func (f *GroupByCountryAndSum) RunWorker() error {
 	messages_before_commit := 0
 	grouped_elements := make(map[string]int)
 	for message := range msgs {
-		log.Infof("Received message in group by country and sum: %s", string(message.Body))
+		log.Infof("Received message in group by actor: %s", string(message.Body))
 		message := string(message.Body)
 		if message == "EOF" {
 			break
 		}
 		messages_before_commit += 1
 		lines := strings.Split(strings.TrimSpace(message), "\n")
-		groupByCountryAndSum(lines, grouped_elements)
+		groupByActorAndUpdate(lines, grouped_elements)
 		if messages_before_commit >= f.messages_before_commit {
 			storeGroupedElements(grouped_elements)
 			messages_before_commit = 0
@@ -100,7 +97,7 @@ func (f *GroupByCountryAndSum) RunWorker() error {
 	return nil
 }
 
-func (f *GroupByCountryAndSum) CloseWorker() error {
+func (f *GroupByActorAndCount) CloseWorker() error {
 	err := worker.CloseSender(&f.Worker)
 	if err != nil {
 		return err

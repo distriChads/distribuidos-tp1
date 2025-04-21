@@ -18,7 +18,7 @@ type TopFiveCountryBudget struct {
 	worker.Worker
 }
 
-var log = logging.MustGetLogger("filter_by_year")
+var log = logging.MustGetLogger("top_five_country_budget")
 
 type TopFiveCountrByBudget struct {
 	Country string

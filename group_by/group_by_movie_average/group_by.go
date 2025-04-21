@@ -23,7 +23,7 @@ type ScoreAndCount struct {
 	score float64
 }
 
-var log = logging.MustGetLogger("filter_by_year")
+var log = logging.MustGetLogger("group_by_movie_average")
 
 func groupByMovieAndUpdate(lines []string, grouped_elements map[string]ScoreAndCount) {
 	for _, line := range lines {

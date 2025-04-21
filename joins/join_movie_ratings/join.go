@@ -7,7 +7,7 @@ import (
 	"github.com/op/go-logging"
 )
 
-var log = logging.MustGetLogger("filter_after_2000")
+var log = logging.MustGetLogger("join_movie_ratings")
 
 type JoinMovieRatingByIdConfig struct {
 	worker.WorkerConfig

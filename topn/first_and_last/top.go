@@ -17,7 +17,7 @@ type FirstAndLast struct {
 	worker.Worker
 }
 
-var log = logging.MustGetLogger("filter_by_year")
+var log = logging.MustGetLogger("first_and_last")
 
 type MovieAvgByScore struct {
 	Movie   string
