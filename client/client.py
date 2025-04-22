@@ -8,17 +8,18 @@ from typing import Optional
 from communication import write_to_socket
 
 
-MOVIES_PATH = "../datasets/movies_metadata.csv"
-CREDITS_PATH = "../datasets/credits.csv"
-RATINGS_PATH = "../datasets/ratings.csv"
-
 BATCH_SIZE = 8000 - 4  # 4 bytes for the length of the message
 
-
 class Client:
-    def __init__(self, server_port: int):
+
+    def __init__(self, server_address: str, server_port: int, storage_path: str):
+        self.server_address = server_address
         self.server_port = server_port
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        self.movies_path = os.path.join(storage_path, "movies_metadata.csv")
+        self.credits_path = os.path.join(storage_path, "credits.csv")
+        self.ratings_path = os.path.join(storage_path, "ratings.csv")
 
         self.running = True
         # Handle SIGINT (Ctrl+C) and SIGTERM (docker stop)
@@ -31,16 +32,16 @@ class Client:
         logging.info("Client socket closed")
 
     def __connect(self):
-        self.client_socket.connect(('localhost', self.server_port))
+        self.client_socket.connect((self.server_address, self.server_port))
         logging.info(f"Connected to server")
 
     def run(self):
         self.__connect()
 
         try:
-            self.__send_file_in_chunks(MOVIES_PATH)
-            self.__send_credits_in_chunks(CREDITS_PATH)
-            self.__send_file_in_chunks(RATINGS_PATH)
+            self.__send_file_in_chunks(self.movies_path)
+            self.__send_credits_in_chunks(self.credits_path)
+            self.__send_file_in_chunks(self.ratings_path)
 
         except Exception as e:
             logging.error(f"Error: {e}")

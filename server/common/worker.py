@@ -20,7 +20,7 @@ class RabbitWorker:
         try:
             self._receiver.run()
             logging.info(
-                f"Worker started, listening on queue: {self._receiver.queues_name}")
+                f"Worker started, listening on queue: {self._receiver.exchanges_name}")
         except Exception as e:
             logging.critical(f"Failed worker: {e}")
             self._sender.close()
@@ -39,9 +39,9 @@ class RabbitWorker:
 
 
 class RabbitClient:
-    def __init__(self, rabbitmq_host: str, queues_name: set[str]):
+    def __init__(self, rabbitmq_host: str, exchanges_name: set[str]):
         self.rabbitmq_host = rabbitmq_host
-        self.queues_name = queues_name
+        self.exchanges_name = exchanges_name
         self.connection: pika.BlockingConnection | None = None
         self.channel: pika.adapters.blocking_connection.BlockingChannel | None = None
 
@@ -55,9 +55,27 @@ class RabbitClient:
                 self.channel = self.connection.channel()
                 if not self.channel:
                     raise Exception("Failed to create channel for RabbitMQ")
-                for queue_name in self.queues_name:
+                for exchange_name in self.exchanges_name:
                     # TODO: change to durable=True for persistent messages
-                    self.channel.queue_declare(queue=queue_name)
+                    result = self.channel.queue_declare(
+                        queue='',
+                        durable=False,
+                        auto_delete=True,
+                        exclusive=True,
+                        arguments=None
+                    )
+                    q_name = result.method.queue
+                    self.channel.exchange_declare(
+                        exchange=exchange_name,
+                        exchange_type="topic",
+                        durable=False,
+                        auto_delete=True,
+                        internal=False,
+                        arguments=None
+                    )
+                    self.channel.queue_bind(
+                        queue=q_name, exchange=exchange_name, routing_key=f"{exchange_name}.input"
+                    )
                 logging.info("Connected to RabbitMQ")
                 return
             except pika.exceptions.AMQPConnectionError as e:
@@ -75,21 +93,21 @@ class RabbitClient:
 
 
 class Sender(RabbitClient):
-    def send_to(self, queue_name: str, message: str):
-        if queue_name not in self.queues_name:
+    def send_to(self, exchange_name: str, message: str):
+        if exchange_name not in self.exchanges_name:
             raise Exception(
-                f"Queue {queue_name} is not in the sender's queues: {self.queues_name}")
+                f"Exchange {exchange_name} is not in the sender's exchanges: {self.exchanges_name}")
         if not self.connection or not self.channel:
             raise Exception("Sender is not connected to RabbitMQ")
         try:
             self.channel.basic_publish(
-                exchange='',
-                routing_key=queue_name,
+                exchange=exchange_name,
+                routing_key=f"{exchange_name}.input",
                 body=message,
                 # TODO: change to durable=True for persistent messages
                 # properties=pika.BasicProperties(
                 #     delivery_mode=2,  # make message persistent
-                # ))
+                # )
             )
             logging.debug(f"Sent message from Sender to RabbitMQ: {message}")
         except Exception as e:
@@ -108,7 +126,7 @@ class Receiver(RabbitClient):
         super().__init__(rabbitmq_host, queues_name)
 
     def run(self):
-        queue_name = self.queues_name.pop()
+        queue_name = self.exchanges_name.pop()
         if not self.connection or not self.channel:
             raise Exception("Receiver is not connected to RabbitMQ")
         try:
@@ -119,7 +137,7 @@ class Receiver(RabbitClient):
                     auto_ack=True  # TODO: change to False for manual ack
                 )
             logging.info(
-                f"Waiting for messages in {self.queues_name}. To exit press CTRL+C")
+                f"Waiting for messages in {self.exchanges_name}. To exit press CTRL+C")
             self.channel.start_consuming()
         except Exception as e:
             logging.error(f"Failed to run Receiver: {e}")

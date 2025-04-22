@@ -15,7 +15,7 @@ def main():
     logging.debug(
         f"action: config | server_port: {port} | logging_level: {logging_level}")
 
-    client = Client(config["server_port"])
+    client = Client(config["server_address"], config["server_port"], config["storage_path"])
 
     try:
         client.run()

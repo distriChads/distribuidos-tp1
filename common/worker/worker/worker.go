@@ -27,17 +27,23 @@ type receiver struct {
 	messages <-chan amqp.Delivery
 }
 
+type ExchangeSpec struct {
+	Name        string
+	RoutingKeys []string
+	QueueName   string
+}
+
 type WorkerConfig struct {
-	InputExchange       string
-	SecondInputExchange string
-	OutputExchange      string
+	InputExchange       ExchangeSpec
+	SecondInputExchange ExchangeSpec
+	OutputExchange      ExchangeSpec
 	MessageBroker       string
 }
 
 type Worker struct {
-	InputExchange       string
-	SecondInputExchange string
-	OutputExchange      string
+	InputExchange       ExchangeSpec
+	SecondInputExchange ExchangeSpec
+	OutputExchange      ExchangeSpec
 	MessageBroker       string
 	sender              *sender
 	receiver            *receiver
@@ -81,13 +87,13 @@ func InitSender(worker *Worker) error {
 	}
 
 	err = ch.ExchangeDeclare(
-		worker.OutputExchange, // name
-		"fanout",              // type
-		true,                  // durable
-		false,                 // auto-deleted
-		false,                 // internal
-		false,                 // no-wait
-		nil,                   // arguments
+		worker.OutputExchange.Name, // name
+		"topic",                    // type
+		false,                      // durable
+		true,                       // auto-deleted
+		false,                      // internal
+		false,                      // no-wait
+		nil,                        // arguments
 	)
 	if err != nil {
 		return err
@@ -114,39 +120,40 @@ func InitReceiver(worker *Worker) error {
 	}
 
 	err = ch.ExchangeDeclare(
-		worker.InputExchange, // name
-		"fanout",             // type
-		true,                 // durable
-		false,                // auto-deleted
-		false,                // internal
-		false,                // no-wait
-		nil,                  // arguments
+		"topic",                   // type
+		false,                     // durable
+		true,                      // auto-deleted
+		false,                     // internal
+		false,                     // no-wait
+		nil,                       // arguments
 	)
 	if err != nil {
 		return err
 	}
 
 	q, err := ch.QueueDeclare(
-		worker.InputExchange, // name
-		false,                // durable
-		false,                // delete when unused
-		false,                // exclusive
-		false,                // no-wait
-		nil,                  // arguments
+		worker.InputExchange.QueueName, // name
+		false,                          // durable
+		false,                          // delete when unused
+		true,                           // exclusive
+		false,                          // no-wait
+		nil,                            // arguments
 	)
 	if err != nil {
 		return err
 	}
 
-	err = ch.QueueBind(
-		q.Name,               // queue name
-		"",                   // routing key
-		worker.InputExchange, // exchange
-		false,
-		nil,
-	)
-	if err != nil {
-		return err
+	for _, routingKey := range worker.InputExchange.RoutingKeys {
+		err = ch.QueueBind(
+			q.Name,                    // queue name
+			routingKey,                // routing key
+			worker.InputExchange.Name, // exchange
+			false,
+			nil,
+		)
+		if err != nil {
+			return err
+		}
 	}
 
 	msgs, err := ch.Consume(
@@ -185,39 +192,40 @@ func InitSecondReceiver(worker *Worker) error {
 	}
 
 	err = ch.ExchangeDeclare(
-		worker.InputExchange, // name
-		"fanout",             // type
-		true,                 // durable
-		false,                // auto-deleted
-		false,                // internal
-		false,                // no-wait
-		nil,                  // arguments
+		"topic",                         // type
+		false,                           // durable
+		true,                            // auto-deleted
+		false,                           // internal
+		false,                           // no-wait
+		nil,                             // arguments
 	)
 	if err != nil {
 		return err
 	}
 
 	q, err := ch.QueueDeclare(
-		worker.SecondInputExchange, // name
-		false,                      // durable
-		false,                      // delete when unused
-		false,                      // exclusive
-		false,                      // no-wait
-		nil,                        // arguments
+		worker.SecondInputExchange.QueueName, // name
+		false,                                // durable
+		false,                                // delete when unused
+		true,                                 // exclusive
+		false,                                // no-wait
+		nil,                                  // arguments
 	)
 	if err != nil {
 		return err
 	}
 
-	err = ch.QueueBind(
-		q.Name,                     // queue name
-		"",                         // routing key
-		worker.SecondInputExchange, // exchange
-		false,
-		nil,
-	)
-	if err != nil {
-		return err
+	for _, routingKey := range worker.SecondInputExchange.RoutingKeys {
+		err = ch.QueueBind(
+			q.Name,                          // queue name
+			routingKey,                      // routing key
+			worker.SecondInputExchange.Name, // exchange
+			false,
+			nil,
+		)
+		if err != nil {
+			return err
+		}
 	}
 
 	msgs, err := ch.Consume(
@@ -252,18 +260,20 @@ func SendMessage(worker Worker, message string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	err := worker.sender.ch.PublishWithContext(ctx,
-		worker.OutputExchange, // exchange
-		"",                    // routing key
-		false,                 // mandatory
-		false,                 // immediate
-		amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        []byte(message),
-		})
-
-	if err != nil {
-		return err
+	for _, routingKey := range worker.OutputExchange.RoutingKeys {
+		err := worker.sender.ch.PublishWithContext(ctx,
+			worker.OutputExchange.Name, // exchange
+			routingKey,                 // routing key
+			false,                      // mandatory
+			false,                      // immediate
+			amqp.Publishing{
+				ContentType: "text/plain",
+				Body:        []byte(message),
+			})
+		if err != nil {
+			return err
+		}
+		log.Debugf("Sent message to exchange %s (routing key: %s): %s", worker.OutputExchange.Name, routingKey, message)
 	}
 
 	return nil

@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 def init_config() -> dict[str, str | int]:
     load_dotenv()
     config = ConfigParser()
-    config.read('./tools/config.ini')
+    config.read(['./tools/config.ini', './server/tools/config.ini'])
 
     config_params: dict[str, str | int] = {}
     load_environmental_variables(config, config_params)
