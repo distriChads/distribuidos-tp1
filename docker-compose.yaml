@@ -8,8 +8,10 @@ services:
       - 15672:15672 # For RabbitMQ Management UI
     networks:
       - movies_net
+    logging:
+      driver: "none"
 
-  filter-after-2000:
+  filter-after-2000:  
     build:
       context: .
       dockerfile: filters/filter_after_2000/Dockerfile
@@ -21,7 +23,7 @@ services:
       - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=rename_me
       - CLI_WORKER_EXCHANGE_OUTPUT_NAME=rename_me
       - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=rename_me
-      - WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     entrypoint: ./filter_runner
     networks:
       - movies_net
@@ -36,11 +38,11 @@ services:
     image: filter-argentina:latest
     environment:
       - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_NAME=file_exchange
+      - CLI_WORKER_EXCHANGE_INPUT_NAME=query_exchange
       - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.input
       - CLI_WORKER_EXCHANGE_OUTPUT_NAME=query_exchange
       - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=filter.argentina.output
-      - WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     entrypoint: ./filter_runner
     networks:
       - movies_net
@@ -59,7 +61,7 @@ services:
       - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=filter.argentina.output
       - CLI_WORKER_EXCHANGE_OUTPUT_NAME=query_exchange
       - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=filter.spain.output
-      - WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     entrypoint: ./filter_runner
     networks:
       - movies_net
@@ -74,9 +76,9 @@ services:
     image: filter-only-one-country:latest
     environment:
       - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_NAME=rename_me
+      - CLI_WORKER_EXCHANGE_INPUT_NAME=query_exchange
       - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=rename_me
-      - CLI_WORKER_EXCHANGE_OUTPUT_NAME=rename_me
+      - CLI_WORKER_EXCHANGE_OUTPUT_NAME=query_exchange
       - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=rename_me
       - WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     entrypoint: ./filter_runner
@@ -153,6 +155,7 @@ services:
       - QUEUES_SEND=movies,credits,ratings
       - QUEUE_RECEIVE=query_exchange
       - WORKER_BROKER=rabbitmq
+      - EXCHANGE_NAME=query_exchange
     container_name: server
     image: server:latest
     entrypoint: python3 main.py
@@ -162,25 +165,25 @@ services:
       - 3000:3000
     depends_on:
       - rabbitmq
+    logging:
+      driver: "none"
 
-  client:
-    build:
-      context: .
-      dockerfile: client/Dockerfile
-    volumes:
-      - ./datasets:/datasets
-    environment:
-      - SERVER_PORT=3000
-      - SERVER_ADDRESS=server
-      - LOGGING_LEVEL=info
-      - STORAGE_PATH=/datasets
-    container_name: client
-    image: client:latest
-    entrypoint: python3 main.py
-    networks:
-      - movies_net
-    depends_on:
-      - server
+  # client:
+  #   build:
+  #     context: .
+  #     dockerfile: client/Dockerfile
+  #   volumes:
+  #     - ./datasets:/datasets
+  #   environment:
+  #     - SERVER_PORT=3000
+  #     - SERVER_ADDRESS=localhost
+  #     - LOGGING_LEVEL=info
+  #     - STORAGE_PATH=/datasets
+  #   container_name: client
+  #   image: client:latest
+  #   entrypoint: python3 main.py
+  #   depends_on:
+  #     - server
 
 networks:
   movies_net:

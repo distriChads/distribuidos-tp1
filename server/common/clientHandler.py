@@ -14,7 +14,7 @@ MAX_BATCH_SIZE = 8000 - 4  # 4 bytes for the file size
 
 
 class ClientHandler:
-    def __init__(self, port: int, rabbitmq_host: str):
+    def __init__(self, port: int, rabbitmq_host: str, exchange_name: str):
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(1)  # TODO: change to .env
@@ -25,11 +25,13 @@ class ClientHandler:
         signal.signal(signal.SIGINT, self.__graceful_shutdown_handler)
         signal.signal(signal.SIGTERM, self.__graceful_shutdown_handler)
 
+        self.exchange_name = exchange_name
         self.batch_processor = MoviesProcessor()
         self.rabbit_worker = RabbitWorker(
             rabbitmq_host=rabbitmq_host,
             queues_send={"movies", "credits", "ratings"},
-            queue_callbacks={"client_results": self.__send_result_to_client}
+            queue_callbacks={"client_results": self.__send_result_to_client},
+            exchange_name=exchange_name
         )
 
     def __graceful_shutdown_handler(self, signum: Optional[int] = None, frame: Optional[FrameType] = None):
@@ -103,7 +105,8 @@ class ClientHandler:
             queue_name = "ratings"
 
         self.rabbit_worker.send_message_to(
-            queue_name=queue_name,
+            exchange_name=self.exchange_name,
+            routing_key=queue_name,
             message=data_send
         )
 

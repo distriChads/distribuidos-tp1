@@ -9,8 +9,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-var log = logging.MustGetLogger("utils")
-
 // InitConfig Function that uses viper library to parse configuration parameters.
 // Viper is configured to read variables from both environment variables and the
 // config file ./config.yaml. Environment variables takes precedence over parameters
@@ -41,8 +39,16 @@ func InitConfig() (*viper.Viper, error) {
 	// return an error in that case
 	v.SetConfigFile("./config.yaml")
 	if err := v.ReadInConfig(); err != nil {
-		fmt.Printf("Configuration could not be read from config file. Using env variables instead")
+		fmt.Printf("Configuration could not be read from config file. Using env variables instead\n")
 	}
+
+	// Print all settings loaded by Viper (including env vars)
+	// This is useful for debugging
+	fmt.Println("--- Viper Settings ---")
+	for key, value := range v.AllSettings() {
+		fmt.Printf("%s: %v\n", key, value)
+	}
+	fmt.Println("----------------------")
 
 	return v, nil
 }
@@ -67,15 +73,4 @@ func InitLogger(logLevel string) error {
 	// Set the backends to be used.
 	logging.SetBackend(backendLeveled)
 	return nil
-}
-
-// PrintConfig Print all the configuration parameters of the program.
-// For debugging purposes only
-func PrintConfig(v *viper.Viper) {
-	log.Infof("action: config | result: success | client_id: %s | server_address: %s | log_level: %s | batch_size: %d",
-		v.GetString("id"),
-		v.GetString("server.address"),
-		v.GetString("log.level"),
-		v.GetInt("batch.maxAmount"),
-	)
 }

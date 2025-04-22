@@ -25,6 +25,8 @@ def load_environmental_variables(config: ConfigParser, config_params: dict[str, 
             'LOGGING_LEVEL') or config["DEFAULT"]["LOGGING_LEVEL"]
         config_params["WORKER_BROKER"] = os.getenv(
             'WORKER_BROKER') or config["DEFAULT"]["WORKER_BROKER"]
+        config_params["EXCHANGE_NAME"] = os.getenv(
+            'EXCHANGE_NAME') or config["DEFAULT"]["EXCHANGE_NAME"]
     except KeyError as e:
         raise KeyError(
             "Key was not found. Error: {} .Aborting server".format(e))

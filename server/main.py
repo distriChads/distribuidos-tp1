@@ -13,11 +13,17 @@ def main():
     init_log(logging_level)
 
     logging.info(
-        f"action: config\nport: {port}\n"f"listen_backlog: {listen_backlog}\nlogging_level: {logging_level}\nrabbitmq_host: {config['WORKER_BROKER']}")
+        f"action: config\nport: {port}\n"
+        f"listen_backlog: {listen_backlog}\n"
+        f"logging_level: {logging_level}\n"
+        f"rabbitmq_host: {config['WORKER_BROKER']}\n"
+        f"exchange_name: {config['EXCHANGE_NAME']}"
+    )
 
     ch = ClientHandler(
         port=config["port"],
         rabbitmq_host=config["WORKER_BROKER"],
+        exchange_name=config["EXCHANGE_NAME"]
     )
 
     try:

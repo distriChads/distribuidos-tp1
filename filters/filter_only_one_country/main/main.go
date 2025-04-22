@@ -22,10 +22,12 @@ func main() {
 	inputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.input.name"),
 		RoutingKeys: []string{v.GetString("worker.exchange.input.routingKeys")},
+		QueueName:   "filter_only_one_country_queue",
 	}
 	outputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.output.name"),
 		RoutingKeys: []string{v.GetString("worker.exchange.output.routingKeys")},
+		QueueName:   "filter_only_one_country_queue",
 	}
 	messageBroker := v.GetString("worker.broker")
 
