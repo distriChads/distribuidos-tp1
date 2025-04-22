@@ -15,6 +15,10 @@ def init_config() -> dict[str, str | int]:
             os.getenv('SERVER_PORT') or config["DEFAULT"]["SERVER_PORT"])
         config_params["logging_level"] = os.getenv(
             'LOGGING_LEVEL') or config["DEFAULT"]["LOGGING_LEVEL"]
+        config_params["server_address"] = os.getenv(
+            'SERVER_ADDRESS') or config["DEFAULT"]["SERVER_ADDRESS"]
+        config_params["storage_path"] = os.getenv(
+            'STORAGE_PATH') or config["DEFAULT"]["STORAGE_PATH"]
     except KeyError as e:
         raise KeyError(
             "Key was not found. Error: {} .Aborting server".format(e))

@@ -16,10 +16,12 @@ services:
     container_name: filter-after-2000
     image: filter-after-2000:latest
     environment:
-      - LOG_LEVEL=info
-      - WORKER_EXCHANGE_INPUT=input_exchange
-      - WORKER_EXCHANGE_OUTPUT=output_exchange
-      - WORKER_BROKER=amqp://guest:guest@localhost:5672/
+      - CLI_LOG_LEVEL=info
+      - CLI_WORKER_EXCHANGE_INPUT_NAME=rename_me
+      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=rename_me
+      - CLI_WORKER_EXCHANGE_OUTPUT_NAME=rename_me
+      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=rename_me
+      - WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     entrypoint: ./filter_runner
     networks:
       - movies_net
@@ -33,10 +35,12 @@ services:
     container_name: filter-argentina
     image: filter-argentina:latest
     environment:
-      - LOG_LEVEL=info
-      - WORKER_EXCHANGE_INPUT=input_exchange
-      - WORKER_EXCHANGE_OUTPUT=output_exchange
-      - WORKER_BROKER=amqp://guest:guest@localhost:5672/
+      - CLI_LOG_LEVEL=info
+      - CLI_WORKER_EXCHANGE_INPUT_NAME=file_exchange
+      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.input
+      - CLI_WORKER_EXCHANGE_OUTPUT_NAME=query_exchange
+      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=filter.argentina.output
+      - WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     entrypoint: ./filter_runner
     networks:
       - movies_net
@@ -50,10 +54,12 @@ services:
     container_name: filter-spain-2000
     image: filter-spain-2000:latest
     environment:
-      - LOG_LEVEL=info
-      - WORKER_EXCHANGE_INPUT=input_exchange
-      - WORKER_EXCHANGE_OUTPUT=output_exchange
-      - WORKER_BROKER=amqp://guest:guest@localhost:5672/
+      - CLI_LOG_LEVEL=info
+      - CLI_WORKER_EXCHANGE_INPUT_NAME=query_exchange
+      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=filter.argentina.output
+      - CLI_WORKER_EXCHANGE_OUTPUT_NAME=query_exchange
+      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=filter.spain.output
+      - WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     entrypoint: ./filter_runner
     networks:
       - movies_net
@@ -67,10 +73,12 @@ services:
     container_name: filter-only-one-country
     image: filter-only-one-country:latest
     environment:
-      - LOG_LEVEL=info
-      - WORKER_EXCHANGE_INPUT=input_exchange
-      - WORKER_EXCHANGE_OUTPUT=output_exchange
-      - WORKER_BROKER=amqp://guest:guest@localhost:5672/
+      - CLI_LOG_LEVEL=info
+      - CLI_WORKER_EXCHANGE_INPUT_NAME=rename_me
+      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=rename_me
+      - CLI_WORKER_EXCHANGE_OUTPUT_NAME=rename_me
+      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=rename_me
+      - WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     entrypoint: ./filter_runner
     networks:
       - movies_net
@@ -138,10 +146,13 @@ services:
       context: .
       dockerfile: server/Dockerfile
     environment:
-      - WORKER_BROKER=rabbitmq
       - SERVER_PORT=3000
       - SERVER_LISTEN_BACKLOG=1
-      - LOGGING_LEVEL=info
+      - LOGGING_LEVEL=INFO
+      - RABBITMQ_HOST=rabbitmq
+      - QUEUES_SEND=movies,credits,ratings
+      - QUEUE_RECEIVE=query_exchange
+      - WORKER_BROKER=rabbitmq
     container_name: server
     image: server:latest
     entrypoint: python3 main.py
@@ -152,7 +163,28 @@ services:
     depends_on:
       - rabbitmq
 
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    volumes:
+      - ./datasets:/datasets
+    environment:
+      - SERVER_PORT=3000
+      - SERVER_ADDRESS=server
+      - LOGGING_LEVEL=info
+      - STORAGE_PATH=/datasets
+    container_name: client
+    image: client:latest
+    entrypoint: python3 main.py
+    networks:
+      - movies_net
+    depends_on:
+      - server
+
 networks:
   movies_net:
     ipam:
       driver: default
+      config:
+        - subnet: 172.25.125.0/24

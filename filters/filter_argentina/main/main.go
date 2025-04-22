@@ -21,11 +21,11 @@ func main() {
 	log_level := v.GetString("log.level")
 	inputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.input.name"),
-		RoutingKeys: []string{v.GetString("worker.exchange.input.routingKeys")},
+		RoutingKeys: []string{v.GetString("worker.exchange.input.routingkeys")},
 	}
 	outputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.output.name"),
-		RoutingKeys: []string{v.GetString("worker.exchange.output.routingKeys")},
+		RoutingKeys: []string{v.GetString("worker.exchange.output.routingkeys")},
 	}
 	messageBroker := v.GetString("worker.broker")
 
