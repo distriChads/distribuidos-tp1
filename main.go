@@ -40,12 +40,10 @@ func run_test_for_query_1() {
 			InputExchange: worker.ExchangeSpec{
 				Name:        "movies",
 				RoutingKeys: []string{"movies.input"},
-				QueueName:   "",
 			},
 			OutputExchange: worker.ExchangeSpec{
 				Name:        "filter_argentina_output",
 				RoutingKeys: []string{"filter.argentina.output"},
-				QueueName:   "",
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
@@ -142,12 +140,12 @@ func run_test_for_query_2() {
 	filterOneCountry := filter_only_one_country.NewFilterByOnlyOneCountry(filter_only_one_country.FilterByOnlyOneCountryConfig{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange: worker.ExchangeSpec{
-				Name:       "movies",
-				RoutingKey: "movies.input",
+				Name:        "movies",
+				RoutingKeys: []string{"movies.input"},
 			},
 			OutputExchange: worker.ExchangeSpec{
-				Name:       "filter_only_one_country_output",
-				RoutingKey: "filter.only-one-country.output.*",
+				Name:        "filter_only_one_country_output",
+				RoutingKeys: []string{"filter.only-one-country.output"},
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
@@ -156,12 +154,12 @@ func run_test_for_query_2() {
 	groupByCountry := group_by_country_sum.NewGroupByCountryAndSum(group_by_country_sum.GroupByCountryAndSumConfig{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange: worker.ExchangeSpec{
-				Name:       "filter_only_one_country_output",
-				RoutingKey: "filter.only-one-country.output.g_country",
+				Name:        "filter_only_one_country_output",
+				RoutingKeys: []string{"filter.only-one-country.output"},
 			},
 			OutputExchange: worker.ExchangeSpec{
-				Name:       "group_by_country_output",
-				RoutingKey: "groupby.country.output.*",
+				Name:        "group_by_country_output",
+				RoutingKeys: []string{"groupby.country.output"},
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
@@ -170,12 +168,12 @@ func run_test_for_query_2() {
 	getTop5 := top_five_country_budget.NewTopFiveCountryBudget(top_five_country_budget.TopFiveCountryBudgetConfig{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange: worker.ExchangeSpec{
-				Name:       "group_by_country_output",
-				RoutingKey: "groupby.country.output.t_country",
+				Name:        "group_by_country_output",
+				RoutingKeys: []string{"groupby.country.output"},
 			},
 			OutputExchange: worker.ExchangeSpec{
-				Name:       "get_top_5_output",
-				RoutingKey: "topn.top-5-country.output.*",
+				Name:        "get_top_5_output",
+				RoutingKeys: []string{"topn.top-5-country.output"},
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
@@ -195,11 +193,11 @@ func run_test_for_query_2() {
 	)
 
 	_ = ch.QueueBind(
-		outputQueue.Name,                   // queue name
-		"topn.top-5-country.output.result", // routing key
-		"get_top_5_output",                 // exchange
-		false,                              // no-wait
-		nil,                                // arguments
+		outputQueue.Name,            // queue name
+		"topn.top-5-country.output", // routing key
+		"get_top_5_output",          // exchange
+		false,                       // no-wait
+		nil,                         // arguments
 	)
 
 	msgs, _ := ch.Consume(
@@ -243,12 +241,12 @@ func run_test_for_query_3() {
 	filterByArgentina := filter_argentina.NewFilterByArgentina(filter_argentina.FilterByArgentinaConfig{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange: worker.ExchangeSpec{
-				Name:       "movies",
-				RoutingKey: "movies.input",
+				Name:        "movies",
+				RoutingKeys: []string{"movies.input"},
 			},
 			OutputExchange: worker.ExchangeSpec{
-				Name:       "filter_by_argentina_output",
-				RoutingKey: "filter.argentina.output.*",
+				Name:        "filter_by_argentina_output",
+				RoutingKeys: []string{"filter.argentina.output"},
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
@@ -257,12 +255,12 @@ func run_test_for_query_3() {
 	filterAfter2000 := filterafter2000.NewFilterByAfterYear2000(filterafter2000.FilterByAfterYear2000Config{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange: worker.ExchangeSpec{
-				Name:       "filter_by_argentina_output",
-				RoutingKey: "filter.argentina.output.f_2000",
+				Name:        "filter_by_argentina_output",
+				RoutingKeys: []string{"filter.argentina.output"},
 			},
 			OutputExchange: worker.ExchangeSpec{
-				Name:       "filter_after_2000_output",
-				RoutingKey: "filter.after-2000.output.*",
+				Name:        "filter_after_2000_output",
+				RoutingKeys: []string{"filter.after-2000.output"},
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
@@ -271,16 +269,16 @@ func run_test_for_query_3() {
 	joinMovieRating := join_movie_ratings.NewJoinMovieRatingById(join_movie_ratings.JoinMovieRatingByIdConfig{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange: worker.ExchangeSpec{
-				Name:       "filter_after_2000_output",
-				RoutingKey: "filter.after-2000.output.j_rating",
+				Name:        "filter_after_2000_output",
+				RoutingKeys: []string{"filter.after-2000.output"},
 			},
 			SecondInputExchange: worker.ExchangeSpec{
-				Name:       "ratings",
-				RoutingKey: "ratings.input",
+				Name:        "ratings",
+				RoutingKeys: []string{"ratings.input"},
 			},
 			OutputExchange: worker.ExchangeSpec{
-				Name:       "join_output",
-				RoutingKey: "join.movie-ratings.output.*",
+				Name:        "join_output",
+				RoutingKeys: []string{"join.movie-ratings.output"},
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
@@ -289,12 +287,12 @@ func run_test_for_query_3() {
 	groupByMovie := group_by_movie_avg.NewGroupByMovieAndAvg(group_by_movie_avg.GroupByMovieAndAvgConfig{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange: worker.ExchangeSpec{
-				Name:       "join_output",
-				RoutingKey: "join.movie-ratings.output.g_movie",
+				Name:        "join_output",
+				RoutingKeys: []string{"join.movie-ratings.output"},
 			},
 			OutputExchange: worker.ExchangeSpec{
-				Name:       "group_by_output",
-				RoutingKey: "groupby.movie-avg.output.*",
+				Name:        "group_by_output",
+				RoutingKeys: []string{"groupby.movie-avg.output"},
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
@@ -303,12 +301,12 @@ func run_test_for_query_3() {
 	firstAndLast := first_and_last.NewFirstAndLast(first_and_last.FirstAndLastConfig{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange: worker.ExchangeSpec{
-				Name:       "group_by_output",
-				RoutingKey: "groupby.movie-avg.output.t_firstlast",
+				Name:        "group_by_output",
+				RoutingKeys: []string{"groupby.movie-avg.output"},
 			},
 			OutputExchange: worker.ExchangeSpec{
-				Name:       "first_and_last_output",
-				RoutingKey: "topn.first-last.output.*",
+				Name:        "first_and_last_output",
+				RoutingKeys: []string{"topn.first-last.output"},
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
@@ -330,11 +328,11 @@ func run_test_for_query_3() {
 	)
 
 	_ = ch.QueueBind(
-		outputQueue.Name,                // queue name
-		"topn.first-last.output.result", // routing key
-		"first_and_last_output",         // exchange
-		false,                           // no-wait
-		nil,                             // arguments
+		outputQueue.Name,         // queue name
+		"topn.first-last.output", // routing key
+		"first_and_last_output",  // exchange
+		false,                    // no-wait
+		nil,                      // arguments
 	)
 
 	msgs, _ := ch.Consume(
@@ -379,12 +377,12 @@ func run_test_for_query_4() {
 	filterByArgentina := filter_argentina.NewFilterByArgentina(filter_argentina.FilterByArgentinaConfig{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange: worker.ExchangeSpec{
-				Name:       "movies",
-				RoutingKey: "movies.input",
+				Name:        "movies",
+				RoutingKeys: []string{"movies.input"},
 			},
 			OutputExchange: worker.ExchangeSpec{
-				Name:       "filter_by_argentina_output",
-				RoutingKey: "filter.argentina.output.*",
+				Name:        "filter_by_argentina_output",
+				RoutingKeys: []string{"filter.argentina.output"},
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
@@ -393,12 +391,12 @@ func run_test_for_query_4() {
 	filterAfter2000 := filterafter2000.NewFilterByAfterYear2000(filterafter2000.FilterByAfterYear2000Config{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange: worker.ExchangeSpec{
-				Name:       "filter_by_argentina_output",
-				RoutingKey: "filter.argentina.output.f_2000",
+				Name:        "filter_by_argentina_output",
+				RoutingKeys: []string{"filter.argentina.output"},
 			},
 			OutputExchange: worker.ExchangeSpec{
-				Name:       "filter_after_2000_output",
-				RoutingKey: "filter.after-2000.output.*",
+				Name:        "filter_after_2000_output",
+				RoutingKeys: []string{"filter.after-2000.output"},
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
@@ -407,16 +405,16 @@ func run_test_for_query_4() {
 	joinMovieCredits := join_movie_credits.NewJoinMovieCreditsById(join_movie_credits.JoinMovieCreditsByIdConfig{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange: worker.ExchangeSpec{
-				Name:       "filter_after_2000_output",
-				RoutingKey: "filter.after-2000.output.j_credits",
+				Name:        "filter_after_2000_output",
+				RoutingKeys: []string{"filter.after-2000.output"},
 			},
 			SecondInputExchange: worker.ExchangeSpec{
-				Name:       "credits",
-				RoutingKey: "credits.input",
+				Name:        "credits",
+				RoutingKeys: []string{"credits.input"},
 			},
 			OutputExchange: worker.ExchangeSpec{
-				Name:       "join_output",
-				RoutingKey: "join.movie-credits.output.*",
+				Name:        "join_output",
+				RoutingKeys: []string{"join.movie-credits.output"},
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
@@ -425,12 +423,12 @@ func run_test_for_query_4() {
 	groupByActor := group_by_actor_count.NewGroupByActorAndCount(group_by_actor_count.GroupByActorAndCountConfig{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange: worker.ExchangeSpec{
-				Name:       "join_output",
-				RoutingKey: "join.movie-credits.output.g_actor",
+				Name:        "join_output",
+				RoutingKeys: []string{"join.movie-credits.output"},
 			},
 			OutputExchange: worker.ExchangeSpec{
-				Name:       "group_by_output",
-				RoutingKey: "groupby.actor.output.*",
+				Name:        "group_by_output",
+				RoutingKeys: []string{"groupby.actor.output"},
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
@@ -439,12 +437,12 @@ func run_test_for_query_4() {
 	topTen := top_ten_cast_movie.NewTopTenCastMovie(top_ten_cast_movie.TopTenCastMovieConfig{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange: worker.ExchangeSpec{
-				Name:       "group_by_output",
-				RoutingKey: "groupby.actor.output.t_cast",
+				Name:        "group_by_output",
+				RoutingKeys: []string{"groupby.actor.output"},
 			},
 			OutputExchange: worker.ExchangeSpec{
-				Name:       "top_10_output",
-				RoutingKey: "topn.top-10-cast.output.*",
+				Name:        "top_10_output",
+				RoutingKeys: []string{"topn.top-10-cast.output"},
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
@@ -466,11 +464,11 @@ func run_test_for_query_4() {
 	)
 
 	_ = ch.QueueBind(
-		outputQueue.Name,                 // queue name
-		"topn.top-10-cast.output.result", // routing key
-		"top_10_output",                  // exchange
-		false,                            // no-wait
-		nil,                              // arguments
+		outputQueue.Name,          // queue name
+		"topn.top-10-cast.output", // routing key
+		"top_10_output",           // exchange
+		false,                     // no-wait
+		nil,                       // arguments
 	)
 
 	msgs, _ := ch.Consume(
