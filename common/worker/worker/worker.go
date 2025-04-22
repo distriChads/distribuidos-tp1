@@ -82,9 +82,9 @@ func InitSender(worker *Worker) error {
 
 	err = ch.ExchangeDeclare(
 		worker.OutputExchange, // name
-		"topic",               // type
-		false,                 // durable
-		true,                  // auto-deleted
+		"fanout",              // type
+		true,                  // durable
+		false,                 // auto-deleted
 		false,                 // internal
 		false,                 // no-wait
 		nil,                   // arguments
@@ -115,9 +115,9 @@ func InitReceiver(worker *Worker) error {
 
 	err = ch.ExchangeDeclare(
 		worker.InputExchange, // name
-		"topic",              // type
-		false,                // durable
-		true,                 // auto-deleted
+		"fanout",             // type
+		true,                 // durable
+		false,                // auto-deleted
 		false,                // internal
 		false,                // no-wait
 		nil,                  // arguments
@@ -186,9 +186,9 @@ func InitSecondReceiver(worker *Worker) error {
 
 	err = ch.ExchangeDeclare(
 		worker.InputExchange, // name
-		"topic",              // type
-		false,                // durable
-		true,                 // auto-deleted
+		"fanout",             // type
+		true,                 // durable
+		false,                // auto-deleted
 		false,                // internal
 		false,                // no-wait
 		nil,                  // arguments
