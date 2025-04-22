@@ -3,37 +3,33 @@ package main
 import (
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
-	"fmt"
 
 	filter "distribuidos-tp1/filters/filter_argentina"
 
-	"github.com/joho/godotenv"
 	"github.com/op/go-logging"
-	"github.com/spf13/viper"
 )
 
 var log = logging.MustGetLogger("filter_argentina")
 
 func main() {
-	// Uncomment the following lines if you want to load environment variables from a .env file without using docker
-	err := godotenv.Load()
+	v, err := utils.InitConfig()
 	if err != nil {
-		log.Errorf("Error loading .env file")
+		log.Criticalf("%s", err)
+		return
 	}
-	v := viper.New()
-	v.AutomaticEnv()
 
-	log_level := v.GetString("LOG_LEVEL")
-	inputExchange := v.GetString("WORKER_EXCHANGE_INPUT")
-	outputExchange := v.GetString("WORKER_EXCHANGE_OUTPUT")
-	messageBroker := v.GetString("WORKER_BROKER")
+	log_level := v.GetString("log.level")
+	inputExchangeSpec := worker.ExchangeSpec{
+		Name:        v.GetString("worker.exchange.input.name"),
+		RoutingKeys: []string{v.GetString("worker.exchange.input.routingKeys")},
+	}
+	outputExchangeSpec := worker.ExchangeSpec{
+		Name:        v.GetString("worker.exchange.output.name"),
+		RoutingKeys: []string{v.GetString("worker.exchange.output.routingKeys")},
+	}
+	messageBroker := v.GetString("worker.broker")
 
-	fmt.Printf("LOG_LEVEL: %s\n", log_level)
-	fmt.Printf("WORKER_EXCHANGE_INPUT: %s\n", inputExchange)
-	fmt.Printf("WORKER_EXCHANGE_OUTPUT: %s\n", outputExchange)
-	fmt.Printf("WORKER_BROKER: %s\n", messageBroker)
-
-	if inputExchange == "" || outputExchange == "" || messageBroker == "" {
+	if inputExchangeSpec.Name == "" || inputExchangeSpec.RoutingKeys[0] == "" || outputExchangeSpec.Name == "" || outputExchangeSpec.RoutingKeys[0] == "" || messageBroker == "" {
 		log.Criticalf("Error: one or more environment variables are empty")
 		return
 	}
@@ -45,9 +41,9 @@ func main() {
 
 	filter := filter.NewFilterByArgentina(filter.FilterByArgentinaConfig{
 		WorkerConfig: worker.WorkerConfig{
-			InputExchange:  v.GetString("worker.exchange.input"),
-			OutputExchange: v.GetString("worker.exchange.output"),
-			MessageBroker:  v.GetString("worker.broker"),
+			InputExchange:  inputExchangeSpec,
+			OutputExchange: outputExchangeSpec,
+			MessageBroker:  messageBroker,
 		},
 	})
 
