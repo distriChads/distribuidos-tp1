@@ -120,6 +120,7 @@ func InitReceiver(worker *Worker) error {
 	}
 
 	err = ch.ExchangeDeclare(
+		worker.InputExchange.Name, // name
 		"topic",                   // type
 		false,                     // durable
 		true,                      // auto-deleted
@@ -192,6 +193,7 @@ func InitSecondReceiver(worker *Worker) error {
 	}
 
 	err = ch.ExchangeDeclare(
+		worker.SecondInputExchange.Name, // name
 		"topic",                         // type
 		false,                           // durable
 		true,                            // auto-deleted
