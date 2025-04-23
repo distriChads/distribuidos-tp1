@@ -4,7 +4,7 @@ import (
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
 
-	group_by "distribuidos-tp1/group_by/group_by_movie_average"
+	group_by "distribuidos-tp1/group_by/group_by_overview_average"
 
 	"github.com/op/go-logging"
 )
@@ -22,12 +22,12 @@ func main() {
 	inputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.input.name"),
 		RoutingKeys: []string{v.GetString("worker.exchange.input.routingKeys")},
-		QueueName:   "group_by_movie_average_queue",
+		QueueName:   "group_by_overview_average_queue",
 	}
 	outputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.output.name"),
 		RoutingKeys: []string{v.GetString("worker.exchange.output.routingKeys")},
-		QueueName:   "group_by_movie_average_queue",
+		QueueName:   "group_by_overview_average_queue",
 	}
 	messageBroker := v.GetString("worker.broker")
 
@@ -46,7 +46,7 @@ func main() {
 		maxMessages = 10
 	}
 
-	groupByMovieAverage := group_by.NewGroupByMovieAndAvg(group_by.GroupByMovieAndAvgConfig{
+	groupByOverviewAverage := group_by.NewGroupByOverviewAndAvg(group_by.GroupByOverviewAndAvgConfig{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange:  inputExchangeSpec,
 			OutputExchange: outputExchangeSpec,
@@ -54,9 +54,9 @@ func main() {
 		},
 	}, maxMessages)
 
-	defer groupByMovieAverage.CloseWorker()
+	defer groupByOverviewAverage.CloseWorker()
 
-	err = groupByMovieAverage.RunWorker()
+	err = groupByOverviewAverage.RunWorker()
 	if err != nil {
 		panic(err)
 	}
