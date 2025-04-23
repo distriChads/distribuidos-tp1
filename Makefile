@@ -1,4 +1,4 @@
-.PHONY: rabbitmq build-filters run-filters server clean-images stop-filters
+.PHONY: rabbitmq build-filters run-filters server clean-images stop-filters machine_learning
 
 build-filters:
 	docker build -t filter-after-2000 -f filters/filter_after_2000/Dockerfile .
@@ -24,3 +24,6 @@ rabbitmq:
 
 server:
 	clear; PYTHONPATH=. python3 ./server/main.py
+
+machine_learning:
+	clear; PYTHONPATH=. python3 ./machine_learning/main.py

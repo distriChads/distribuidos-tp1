@@ -157,7 +157,7 @@ class MoviesProcessor(Processor):
             [c["iso_3166_1"] for c in prodCountries])
         genres = VALUE_SEPARATOR.join([g["name"] for g in genres])
 
-        return f"{id}{FIELD_SEPARATOR}{title}{FIELD_SEPARATOR}{releaseDate}{FIELD_SEPARATOR}{countries}{FIELD_SEPARATOR}{genres}{FIELD_SEPARATOR}{budget}"
+        return f"{id}{FIELD_SEPARATOR}{title}{FIELD_SEPARATOR}{releaseDate}{FIELD_SEPARATOR}{countries}{FIELD_SEPARATOR}{genres}{FIELD_SEPARATOR}{budget}{FIELD_SEPARATOR}{overview}{FIELD_SEPARATOR}{revenue}"
 
 
 class CreditsProcessor(Processor):
