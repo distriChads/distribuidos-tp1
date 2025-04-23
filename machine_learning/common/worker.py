@@ -19,9 +19,8 @@ class ExchangeSpec:
 
 
 class WorkerConfig:
-    def __init__(self, input_exchange, second_input_exchange, output_exchange, message_broker):
+    def __init__(self, input_exchange, output_exchange, message_broker):
         self.input_exchange = input_exchange
-        self.second_input_exchange = second_input_exchange
         self.output_exchange = output_exchange
         self.message_broker = message_broker
 
@@ -43,12 +42,10 @@ class Receiver:
 class Worker:
     def __init__(self, config: WorkerConfig):
         self.input_exchange = config.input_exchange
-        self.second_input_exchange = config.second_input_exchange
         self.output_exchange = config.output_exchange
         self.message_broker = config.message_broker
         self.sender = None
         self.receiver = None
-        self.second_receiver = None
 
     def _init_connection(self):
         max_retries = 3
@@ -84,9 +81,6 @@ class Worker:
         self.receiver = self._init_generic_receiver(self.input_exchange)
         log.info("Receiver initialized")
 
-    def init_second_receiver(self):
-        self.second_receiver = self._init_generic_receiver(self.second_input_exchange)
-        log.info("Second Receiver initialized")
 
     def _init_generic_receiver(self, exchange_spec):
         conn = self._init_connection()
@@ -131,15 +125,10 @@ class Worker:
             raise Exception("Receiver not initialized")
         return self.receiver.messages
 
-    def second_received_messages(self):
-        if not self.second_receiver:
-            raise Exception("Second receiver not initialized")
-        return self.second_receiver.messages
 
     def close_worker(self):
         self._close_sender()
         self._close_receiver()
-        self._close_second_receiver()
 
     def _close_sender(self):
         if self.sender:
@@ -152,9 +141,3 @@ class Worker:
             self.receiver.ch.close()
             self.receiver.conn.close()
             self.receiver = None
-
-    def _close_second_receiver(self):
-        if self.second_receiver:
-            self.second_receiver.ch.close()
-            self.second_receiver.conn.close()
-            self.second_receiver = None

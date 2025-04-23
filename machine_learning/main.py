@@ -1,27 +1,26 @@
 from common.clientHandler import MachineLearning, MachineLearningConfig
 from common.worker import ExchangeSpec
-
+from tools.config import load_config
 
 
 def main():
-    # Hardcodeo de configuraciones
-    log_level = "INFO"  # Opcional si querés ajustar el logging
+    
+    config = load_config()
+    log_level = config["log.level"]
     input_exchange_spec = ExchangeSpec(
-        name="query_exchange",
-        routing_keys=["movies.input"],
+        name=config["worker.exchange.input.name"],
+        routing_keys=[config["worker.exchange.input.routingKeys"]],
         queue_name="machine_learning_queue"
     )
     output_exchange_spec = ExchangeSpec(
-        name="query_exchange",
-        routing_keys=["machine.learning.output"],
+        name=config["worker.exchange.output.name"],
+        routing_keys=[config["worker.exchange.output.routingKeys"]],
         queue_name="machine_learning_queue"
     )
-    message_broker = "amqp://guest:guest@localhost:5672/"
+    message_broker = config["worker.broker"]
 
-    # Creación del worker
     filter_config = MachineLearningConfig(
         input_exchange=input_exchange_spec,
-        second_input_exchange="",
         output_exchange=output_exchange_spec,
         message_broker=message_broker
     )

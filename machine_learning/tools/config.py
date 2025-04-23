@@ -4,32 +4,47 @@ import os
 from dotenv import load_dotenv
 
 
-def init_config() -> dict[str, str | int]:
+def init_config():
     load_dotenv()
+    return load_config()
+
+
+
+
+def load_config(config_file="./config.ini"):
     config = ConfigParser()
-    config.read(['./tools/config.ini', './server/tools/config.ini'])
+    if os.path.exists(config_file):
+        config.read(config_file)
+        print(f"Configuración leída desde {config_file}")
+    else:
+        print("No se pudo leer el archivo de configuración. Usando solo variables de entorno.")
 
-    config_params: dict[str, str | int] = {}
-    load_environmental_variables(config, config_params)
+    final_config = {}
+    keys = [
+        "log.level",
+        "worker.exchange.input.name",
+        "worker.exchange.input.routingkeys",
+        "worker.exchange.secondinput.name",
+        "worker.exchange.secondinput.routingkeys",
+        "worker.exchange.output.name",
+        "worker.exchange.output.routingkeys",
+        "worker.broker",
+        "worker.maxmessages",
+    ]
 
-    return config_params
+    for full_key in keys:
+        env_key = "CLI_" + full_key.upper().replace(".", "_")
+
+        value = os.getenv(env_key)
+        if value is not None:
+            final_config[full_key] = value
+            continue
+
+        parts = full_key.split(".")
+        section = parts[0]
+        subkey = ".".join(parts[1:])
+        if config.has_section(section) and config.has_option(section, subkey):
+            final_config[full_key] = config.get(section, subkey)
 
 
-def load_environmental_variables(config: ConfigParser, config_params: dict[str, str | int]):
-    try:
-        config_params["port"] = int(
-            os.getenv('SERVER_PORT') or config["DEFAULT"]["SERVER_PORT"])
-        config_params["listen_backlog"] = int(
-            os.getenv('SERVER_LISTEN_BACKLOG') or config["DEFAULT"]["SERVER_LISTEN_BACKLOG"])
-        config_params["logging_level"] = os.getenv(
-            'LOGGING_LEVEL') or config["DEFAULT"]["LOGGING_LEVEL"]
-        config_params["WORKER_BROKER"] = os.getenv(
-            'WORKER_BROKER') or config["DEFAULT"]["WORKER_BROKER"]
-        config_params["EXCHANGE_NAME"] = os.getenv(
-            'EXCHANGE_NAME') or config["DEFAULT"]["EXCHANGE_NAME"]
-    except KeyError as e:
-        raise KeyError(
-            "Key was not found. Error: {} .Aborting server".format(e))
-    except ValueError as e:
-        raise ValueError(
-            "Key could not be parsed. Error: {}. Aborting server".format(e))
+    return final_config
