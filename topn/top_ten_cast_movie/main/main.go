@@ -4,12 +4,12 @@ import (
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
 
-	join "distribuidos-tp1/joins/join_movie_credits"
+	topn "distribuidos-tp1/topn/top_ten_cast_movie"
 
 	"github.com/op/go-logging"
 )
 
-var log = logging.MustGetLogger("join_movie_credits")
+var log = logging.MustGetLogger("top_ten_cast_movie")
 
 func main() {
 	v, err := utils.InitConfig()
@@ -21,18 +21,13 @@ func main() {
 	log_level := v.GetString("log.level")
 	inputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.input.name"),
-		RoutingKeys: []string{v.GetString("worker.exchange.input.routingkeys")},
-		QueueName:   "join_movie_credits_queue",
-	}
-	secondInputExchangeSpec := worker.ExchangeSpec{
-		Name:        v.GetString("worker.exchange.second_input.name"),
-		RoutingKeys: []string{v.GetString("worker.exchange.secondinput.routingkeys")},
-		QueueName:   "join_movie_credits_queue",
+		RoutingKeys: []string{v.GetString("worker.exchange.input.routingKeys")},
+		QueueName:   "top_ten_cast_movie_queue",
 	}
 	outputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.output.name"),
-		RoutingKeys: []string{v.GetString("worker.exchange.output.routingkeys")},
-		QueueName:   "join_movie_credits_queue",
+		RoutingKeys: []string{v.GetString("worker.exchange.output.routingKeys")},
+		QueueName:   "top_ten_cast_movie_queue",
 	}
 	messageBroker := v.GetString("worker.broker")
 
@@ -46,19 +41,13 @@ func main() {
 		return
 	}
 
-	maxMessages := v.GetInt("worker.maxmessages")
-	if maxMessages == 0 {
-		maxMessages = 10
-	}
-
-	filter := join.NewJoinMovieCreditsById(join.JoinMovieCreditsByIdConfig{
+	filter := topn.NewTopTenCastMovie(topn.TopTenCastMovieConfig{
 		WorkerConfig: worker.WorkerConfig{
-			InputExchange:       inputExchangeSpec,
-			SecondInputExchange: secondInputExchangeSpec,
-			OutputExchange:      outputExchangeSpec,
-			MessageBroker:       messageBroker,
+			InputExchange:  inputExchangeSpec,
+			OutputExchange: outputExchangeSpec,
+			MessageBroker:  messageBroker,
 		},
-	}, maxMessages)
+	})
 
 	defer filter.CloseWorker()
 

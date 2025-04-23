@@ -4,12 +4,12 @@ import (
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
 
-	join "distribuidos-tp1/joins/join_movie_credits"
+	group_by "distribuidos-tp1/group_by/group_by_movie_average"
 
 	"github.com/op/go-logging"
 )
 
-var log = logging.MustGetLogger("join_movie_credits")
+var log = logging.MustGetLogger("group_by_movie_average")
 
 func main() {
 	v, err := utils.InitConfig()
@@ -21,18 +21,13 @@ func main() {
 	log_level := v.GetString("log.level")
 	inputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.input.name"),
-		RoutingKeys: []string{v.GetString("worker.exchange.input.routingkeys")},
-		QueueName:   "join_movie_credits_queue",
-	}
-	secondInputExchangeSpec := worker.ExchangeSpec{
-		Name:        v.GetString("worker.exchange.second_input.name"),
-		RoutingKeys: []string{v.GetString("worker.exchange.secondinput.routingkeys")},
-		QueueName:   "join_movie_credits_queue",
+		RoutingKeys: []string{v.GetString("worker.exchange.input.routingKeys")},
+		QueueName:   "group_by_movie_average_queue",
 	}
 	outputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.output.name"),
-		RoutingKeys: []string{v.GetString("worker.exchange.output.routingkeys")},
-		QueueName:   "join_movie_credits_queue",
+		RoutingKeys: []string{v.GetString("worker.exchange.output.routingKeys")},
+		QueueName:   "group_by_movie_average_queue",
 	}
 	messageBroker := v.GetString("worker.broker")
 
@@ -51,18 +46,17 @@ func main() {
 		maxMessages = 10
 	}
 
-	filter := join.NewJoinMovieCreditsById(join.JoinMovieCreditsByIdConfig{
+	groupByMovieAverage := group_by.NewGroupByMovieAndAvg(group_by.GroupByMovieAndAvgConfig{
 		WorkerConfig: worker.WorkerConfig{
-			InputExchange:       inputExchangeSpec,
-			SecondInputExchange: secondInputExchangeSpec,
-			OutputExchange:      outputExchangeSpec,
-			MessageBroker:       messageBroker,
+			InputExchange:  inputExchangeSpec,
+			OutputExchange: outputExchangeSpec,
+			MessageBroker:  messageBroker,
 		},
 	}, maxMessages)
 
-	defer filter.CloseWorker()
+	defer groupByMovieAverage.CloseWorker()
 
-	err = filter.RunWorker()
+	err = groupByMovieAverage.RunWorker()
 	if err != nil {
 		panic(err)
 	}

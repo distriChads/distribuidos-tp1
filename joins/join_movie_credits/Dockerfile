@@ -1,18 +1,18 @@
-FROM golang:1.24-alpine AS builder
-
-RUN mkdir -p /build
-WORKDIR /build/
-
-COPY ./common ./common
-
+# Dependencies stage
+FROM golang:1.24-alpine AS deps
+WORKDIR /app
 COPY go.mod go.sum ./
+RUN go mod download
 
+# Build stage
+FROM golang:1.24-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/go.mod /app/go.sum ./
+COPY ./common ./common
 COPY ./joins/join_movie_credits ./joins/join_movie_credits
+RUN CGO_ENABLED=0 GOOS=linux go build -o bin/run_worker ./joins/join_movie_credits/main/main.go
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o bin/join_movie_credits ./joins/join_movie_credits/main
-
+# Image final
 FROM busybox:latest
-COPY --from=builder /build/bin/join_movie_credits /join_movie_credits
-COPY ./joins/join_movie_credits/main/config.yaml /config.yaml
-
-ENTRYPOINT ["./join_movie_credits"]
+COPY --from=builder /app/bin/run_worker /
+ENTRYPOINT ["./run_worker"]

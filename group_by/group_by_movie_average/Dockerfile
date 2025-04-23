@@ -9,8 +9,8 @@ FROM golang:1.24-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/go.mod /app/go.sum ./
 COPY ./common ./common
-COPY ./joins/join_movie_ratings ./joins/join_movie_ratings
-RUN CGO_ENABLED=0 GOOS=linux go build -o bin/run_worker ./joins/join_movie_ratings/main/main.go
+COPY ./group_by/group_by_movie_average ./group_by/group_by_movie_average
+RUN CGO_ENABLED=0 GOOS=linux go build -o bin/run_worker ./group_by/group_by_movie_average/main/main.go
 
 # Image final
 FROM busybox:latest
