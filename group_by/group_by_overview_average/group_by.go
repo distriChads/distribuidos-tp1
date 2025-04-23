@@ -61,7 +61,10 @@ func storeGroupedElements(results map[string]RevenueBudgetCount) {
 func mapToLines(grouped_elements map[string]RevenueBudgetCount) string {
 	var lines []string
 	for overview, value := range grouped_elements {
-		result := value.revenue / value.budget
+		result := 0.0
+		if value.budget > 0 {
+			result = value.revenue / value.budget
+		}
 		average := result / float64(value.count)
 		line := fmt.Sprintf("%s%s%f", overview, worker.MESSAGE_SEPARATOR, average)
 		lines = append(lines, line)
