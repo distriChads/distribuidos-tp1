@@ -67,7 +67,11 @@ func NewFilterBySpainAndOf2000(config FilterBySpainAndOf2000Config, eof_counter 
 func (f *FilterBySpainAndOf2000) RunWorker() error {
 	log.Info("Starting FilterByYear worker")
 	worker.InitSender(&f.Worker)
-	worker.InitReceiver(&f.Worker)
+	err := worker.InitReceiver(&f.Worker)
+	if err != nil {
+		log.Errorf("Error initializing receiver: %s", err.Error())
+		return err
+	}
 
 	msgs, err := worker.ReceivedMessages(f.Worker)
 	if err != nil {

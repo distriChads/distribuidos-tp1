@@ -33,6 +33,7 @@ func InitConfig() (*viper.Viper, error) {
 	v.BindEnv("worker", "exchange", "secondinput", "routingkeys")
 	v.BindEnv("worker", "exchange", "output", "name")
 	v.BindEnv("worker", "exchange", "output", "routingkeys")
+	v.BindEnv("worker", "queue", "name")
 	v.BindEnv("worker", "broker")
 	v.BindEnv("worker", "maxmessages")
 	v.BindEnv("worker", "expectedeof")
