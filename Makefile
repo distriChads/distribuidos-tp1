@@ -27,3 +27,9 @@ server:
 
 machine_learning:
 	clear; PYTHONPATH=. python3 ./machine_learning/main.py
+
+run_docker:
+	clear; docker-compose up --build
+
+stop_docker:
+	clear; docker-compose down

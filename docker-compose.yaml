@@ -11,7 +11,7 @@ services:
     logging:
       driver: none
 
-  filter-after-2000:  
+  filter-after-2000:
     build:
       context: .
       dockerfile: filters/filter_after_2000/Dockerfile
@@ -149,7 +149,7 @@ services:
     depends_on:
       - rabbitmq
 
-  machine_learning:  
+  machine_learning:
     build:
       context: .
       dockerfile: machine_learning/Dockerfile
@@ -162,7 +162,6 @@ services:
       - CLI_WORKER_EXCHANGE_OUTPUT_NAME=query_exchange
       - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=ml.overview.output
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-    entrypoint: ./run_worker
     networks:
       - movies_net
     depends_on:
