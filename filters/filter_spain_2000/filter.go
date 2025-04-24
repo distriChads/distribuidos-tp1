@@ -16,6 +16,7 @@ type FilterBySpainAndOf2000Config struct {
 
 type FilterBySpainAndOf2000 struct {
 	worker.Worker
+	queue_to_send int
 }
 
 // ---------------------------------
@@ -81,7 +82,9 @@ func (f *FilterBySpainAndOf2000) RunWorker() error {
 		filtered_lines := filterByCountrySpainAndOf2000(lines)
 		message_to_send := strings.Join(filtered_lines, "\n")
 		if len(message_to_send) != 0 {
-			err := worker.SendMessage(f.Worker, message_to_send)
+			send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
+			err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
+			f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
 			if err != nil {
 				log.Infof("Error sending message: %s", err.Error())
 			}
