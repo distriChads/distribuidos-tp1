@@ -24,6 +24,7 @@ services:
       - CLI_WORKER_EXCHANGE_OUTPUT_NAME=movies_filtered_by_argentina_exchange
       - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=filter.made_after_2000.input,filter.spain_2000.input
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+      - CLI_WORKER_EXPECTEDEOF=1
     entrypoint: ./run_worker
     networks:
       - movies_net
@@ -43,6 +44,7 @@ services:
       - CLI_WORKER_EXCHANGE_OUTPUT_NAME=movies_filtered_by_arg_and_2000_exchange
       - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join_movie_credits.movies.input,join_movie_ratings.movies.input
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+      - CLI_WORKER_EXPECTEDEOF=1
     entrypoint: ./run_worker
     networks:
       - movies_net
@@ -62,6 +64,7 @@ services:
       - CLI_WORKER_EXCHANGE_OUTPUT_NAME=results_exchange
       - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query1_partial_results.input
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+      - CLI_WORKER_EXPECTEDEOF=1
     entrypoint: ./run_worker
     networks:
       - movies_net
@@ -81,6 +84,7 @@ services:
   #     - CLI_WORKER_EXCHANGE_OUTPUT_NAME=query_exchange
   #     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=filter.only-one-country.output
   #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+  #     - CLI_WORKER_EXPECTEDEOF=1
   #   entrypoint: ./run_worker
   #   networks:
   #     - movies_net
@@ -103,6 +107,7 @@ services:
   #     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=groupby.actor.output
   #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
   #     - CLI_WORKER_MAXMESSAGES=10
+  #     - CLI_WORKER_EXPECTEDEOF=1
   #   entrypoint: ./run_worker
   #   networks:
   #     - movies_net
@@ -123,6 +128,7 @@ services:
   #     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=groupby.country.output
   #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
   #     - CLI_WORKER_MAXMESSAGES=10
+  #     - CLI_WORKER_EXPECTEDEOF=1
   #   entrypoint: ./run_worker
   #   networks:
   #     - movies_net
@@ -143,6 +149,7 @@ services:
   #     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=groupby.movie.output
   #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
   #     - CLI_WORKER_MAXMESSAGES=10
+  #     - CLI_WORKER_EXPECTEDEOF=1
   #   entrypoint: ./run_worker
   #   networks:
   #     - movies_net
@@ -183,6 +190,7 @@ services:
   #     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=groupby.overview.output
   #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
   #     - CLI_WORKER_MAXMESSAGES=10
+  #     - CLI_WORKER_EXPECTEDEOF=1
   #   entrypoint: ./run_worker
   #   networks:
   #     - movies_net
@@ -205,6 +213,7 @@ services:
   #     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join.movie-credits.output
   #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
   #     - CLI_WORKER_MAXMESSAGES=10
+  #     - CLI_WORKER_EXPECTEDEOF=1
   #   entrypoint: ./run_worker
   #   networks:
   #     - movies_net
@@ -229,6 +238,7 @@ services:
   #     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join.movie-ratings.output
   #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
   #     - CLI_WORKER_MAXMESSAGES=10
+  #     - CLI_WORKER_EXPECTEDEOF=1
   #   entrypoint: ./run_worker
   #   networks:
   #     - movies_net
