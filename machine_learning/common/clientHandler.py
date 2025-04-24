@@ -7,7 +7,6 @@ log = logging.getLogger("machine_learning")
 logging.basicConfig(level=logging.INFO)
 
 
-
 class MachineLearningConfig(WorkerConfig):
     pass
 
@@ -48,6 +47,7 @@ class MachineLearning:
 
         try:
             for method_frame, properties, body in self.worker.received_messages():
+                print(f"Received message: {body}")
                 message = body.decode("utf-8")
                 if message == MESSAGE_EOF:
                     try:
@@ -63,10 +63,11 @@ class MachineLearning:
                 message_to_send = "\n".join(messages)
                 self.worker.send_message(
                     message_to_send, self.output_routing_keys[self.queue_to_send])
-                self.queue_to_send = (self.queue_to_send + 1) % len(self.output_routing_keys)
+                self.queue_to_send = (
+                    self.queue_to_send + 1) % len(self.output_routing_keys)
         except Exception as e:
             log.error(f"Error during message processing: {e}")
             return e
 
-        log.info("FilterByArgentina worker finished")
+        log.info("MachineLearning worker finished")
         return None

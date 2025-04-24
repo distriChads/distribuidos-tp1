@@ -2,19 +2,24 @@ import logging
 import signal
 import socket
 import sys
+import threading
 from types import FrameType
 from typing import Optional
+from .worker import Worker, WorkerConfig
 
 from common.communication import Socket
 from common.fileProcessor import MoviesProcessor, CreditsProcessor, RatingsProcessor
-from common.worker import RabbitWorker
 
 FILES_TO_RECEIVE = 3
 MAX_BATCH_SIZE = 8000 - 4  # 4 bytes for the file size
 
 
+class ClientHandlerConfig(WorkerConfig):
+    pass
+
+
 class ClientHandler:
-    def __init__(self, port: int, rabbitmq_host: str, exchange_name: str):
+    def __init__(self, port: int, client_handler_config: ClientHandlerConfig):
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(1)  # TODO: change to .env
@@ -25,23 +30,24 @@ class ClientHandler:
         signal.signal(signal.SIGINT, self.__graceful_shutdown_handler)
         signal.signal(signal.SIGTERM, self.__graceful_shutdown_handler)
 
-        self.exchange_name = exchange_name
         self.batch_processor = MoviesProcessor()
-        self.rabbit_worker = RabbitWorker(
-            rabbitmq_host=rabbitmq_host,
-            queues_send={"movies", "credits", "ratings"},
-            queue_callbacks={"client_results": self.__send_result_to_client},
-            exchange_name=exchange_name
-        )
+        self.worker = Worker(client_handler_config)
 
     def __graceful_shutdown_handler(self, signum: Optional[int] = None, frame: Optional[FrameType] = None):
         self._running = False
         if self._client_socket:
             self._client_socket.sock.close()
         self._server_socket.close()
-        self.rabbit_worker.close()
+        self.worker.close_worker()
 
     def run(self):
+        try:
+            self.worker.init_sender()
+            self.worker.init_receiver()
+        except Exception as e:
+            logging.error(f"Error initializing worker: {e}")
+            return e
+        threading.Thread(target=self.__send_result_to_client).start()
         while self._running:
             client_socket = self.__accept_new_connection()
             self._client_socket = Socket(client_socket)
@@ -72,18 +78,18 @@ class ClientHandler:
                     percent_bytes_received = (
                         self.batch_processor.bytes_read / self.batch_processor.read_until) * 100
                     percent_bytes_received = f"{percent_bytes_received:05.2f}"
-                    print(
-                        f"\rReceived {percent_bytes_received}% of File {i}\n"
-                        f"Lines with errors: {self.batch_processor.errors_per_file}\n"
-                        f"Lines processed: {self.batch_processor.successful_lines_count}",
-                        end=""
-                    )
+                    # print(
+                    #     f"\rReceived {percent_bytes_received}% of File {i}\n"
+                    #     f"Lines with errors: {self.batch_processor.errors_per_file}\n"
+                    #     f"Lines processed: {self.batch_processor.successful_lines_count}",
+                    #     end=""
+                    # )
                     j = 1
                 except socket.error as e:
                     logging.error(f'action: receive_datasets | error: {e}')
                     return
             self.__send_data("EOF")
-            print()
+            # print()
             logging.info(
                 f'\n--- received file: {i} | file_size: {self.batch_processor.read_until} | received: {self.batch_processor.bytes_read} ---\n')
 
@@ -96,19 +102,15 @@ class ClientHandler:
             return ""
 
     def __send_data(self, data_send: str):
-        queue_name = ""
+        routing_key = ""
         if type(self.batch_processor) == MoviesProcessor:
-            queue_name = "movies"
+            routing_key = "movies.first.input"
         elif type(self.batch_processor) == CreditsProcessor:
-            queue_name = "credits"
-        elif type(self.batch_processor) == RatingsProcessor:
-            queue_name = "ratings"
+            routing_key = "credits.input"
+        else:  # RatingsProcessor
+            routing_key = "ratings.input"
 
-        self.rabbit_worker.send_message_to(
-            exchange_name=self.exchange_name,
-            routing_key=queue_name,
-            message=data_send
-        )
+        self.worker.send_message(data_send, routing_key)
 
     def __receive_first_chunck(self):
         if self._client_socket is None:
@@ -123,17 +125,12 @@ class ClientHandler:
         elif type(self.batch_processor) == CreditsProcessor:
             self.batch_processor = RatingsProcessor()
 
-    def __send_result_to_client(self, result: str):
-        try:
-            if not self._client_socket:
-                raise ValueError("Client socket is not connected.")
-            self._client_socket.send(result)
-        except socket.error as e:
-            logging.error(f'action: send_result_to_client | error: {e}')
-            return
-
+    def __send_result_to_client(self):
         logging.info(
-            f'action: send_result_to_client | result: success | data: {result}')
+            f"Waiting message from Exchange {self.worker.input_exchange.name} - {self.worker.input_exchange.routing_keys}")
+        for _method_frame, _properties, result_encoded in self.worker.received_messages():
+            logging.info("Received result from worker: %s", result_encoded)
+            self._client_socket.send(result_encoded)
 
     def __accept_new_connection(self):
         logging.info('action: accept_connections | result: in_progress')

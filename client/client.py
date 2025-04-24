@@ -2,20 +2,22 @@ import logging
 import os
 import signal
 import socket
+import threading
 from types import FrameType
 from typing import Optional
 
-from communication import write_to_socket
+from communication import Socket
 
 
 BATCH_SIZE = 8000 - 4  # 4 bytes for the length of the message
 
-class Client:
 
+class Client:
     def __init__(self, server_address: str, server_port: int, storage_path: str):
         self.server_address = server_address
         self.server_port = server_port
-        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.client_socket = Socket(client_socket)
 
         self.movies_path = os.path.join(storage_path, "movies_metadata.csv")
         self.credits_path = os.path.join(storage_path, "credits.csv")
@@ -28,15 +30,17 @@ class Client:
 
     def __graceful_shutdown_handler(self, signum: Optional[int] = None, frame: Optional[FrameType] = None):
         self.running = False
-        self.client_socket.close()
+        self.client_socket.sock.close()
         logging.info("Client socket closed")
 
     def __connect(self):
-        self.client_socket.connect((self.server_address, self.server_port))
+        self.client_socket.sock.connect(
+            (self.server_address, self.server_port))
         logging.info(f"Connected to server")
 
     def run(self):
         self.__connect()
+        threading.Thread(target=self.__wait_for_results).start()
 
         try:
             self.__send_file_in_chunks(self.movies_path)
@@ -47,6 +51,17 @@ class Client:
             logging.error(f"Error: {e}")
 
         self.__graceful_shutdown_handler()
+
+    def __wait_for_results(self):
+        while self.running:
+            try:
+                _bytes_read, result = self.client_socket.read()
+                if not result:
+                    break
+                logging.info(f"Received result: {result}")
+            except socket.error as e:
+                logging.error(f"Socket error: {e}")
+                break
 
     def __send_file_in_chunks(self, file_path: str):
         """
@@ -73,8 +88,8 @@ class Client:
             logging.info("Sent %d bytes of %s to server",
                          lenght_sent, file_name)
 
-            write_to_socket(self.client_socket,
-                            file_transfer_header + b"|" + chunk)
+            self.client_socket.send(
+                file_transfer_header + b"|" + chunk)
 
             while self.running and self.client_socket and lenght_sent < total_msg_bytes:
                 chunk = buffer
@@ -85,7 +100,7 @@ class Client:
                 buffer = chunk[idx:]
                 chunk = chunk[:idx]
                 lenght_sent += len(chunk)
-                write_to_socket(self.client_socket, chunk)
+                self.client_socket.send(chunk)
 
                 percent_bytes_sent = (lenght_sent / file_size) * 100
                 percent_bytes_sent = f"{percent_bytes_sent:05.2f}"
@@ -127,7 +142,7 @@ class Client:
                     chunk += row_info
                     i += len(row_info)
 
-                    write_to_socket(self.client_socket, chunk)
+                    self.client_socket.send(chunk)
                     chunk = b""
 
                     percent_bytes_sent = round(

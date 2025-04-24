@@ -73,7 +73,7 @@ class Worker:
             exchange=self.output_exchange.name,
             exchange_type='topic',
             durable=False,
-            auto_delete=True
+            auto_delete=False
         )
 
         self.sender = Sender(conn, ch)
@@ -91,11 +91,11 @@ class Worker:
             exchange=exchange_spec.name,
             exchange_type='topic',
             durable=False,
-            auto_delete=True
+            auto_delete=False
         )
 
         result = ch.queue_declare(
-            queue=exchange_spec.queue_name, exclusive=True, auto_delete=True)
+            queue=exchange_spec.queue_name, exclusive=True, auto_delete=False)
         queue_name = result.method.queue
 
         for routing_key in exchange_spec.routing_keys:
