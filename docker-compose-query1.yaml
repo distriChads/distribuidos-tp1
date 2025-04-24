@@ -22,7 +22,7 @@ services:
       - CLI_WORKER_EXCHANGE_INPUT_NAME=results_exchange
       - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=queries_partial_results.input
       - CLI_WORKER_EXCHANGE1_OUTPUT_NAME=first_layer_exchange
-      - CLI_WORKER_EXCHANGE1_OUTPUT_ROUTINGKEYS=movies.first.input
+      - CLI_WORKER_EXCHANGE1_OUTPUT_ROUTINGKEYS=movies.first.input1,movies.first.input2
       - CLI_WORKER_EXCHANGE2_OUTPUT_NAME=query4_exchange
       - CLI_WORKER_EXCHANGE2_OUTPUT_ROUTINGKEYS=credits.input
       - CLI_WORKER_EXCHANGE3_OUTPUT_NAME=query3_exchange
@@ -40,20 +40,42 @@ services:
     logging:
       driver: none
 
-  filter-argentina:
+  filter-argentina-1:
     build:
       context: .
       dockerfile: filters/filter_argentina/Dockerfile
-    container_name: filter-argentina
+    container_name: filter-argentina-1
     image: filter-argentina:latest
     environment:
       - CLI_LOG_LEVEL=info
       - CLI_WORKER_EXCHANGE_INPUT_NAME=first_layer_exchange
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.first.input
+      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.first.input1
       - CLI_WORKER_EXCHANGE_OUTPUT_NAME=movies_filtered_by_argentina_exchange
       - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.spain_2000_1.input,movies.spain_2000_2.input
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLI_WORKER_EXPECTEDEOF=1
+      - CLI_WORKER_QUEUE_NAME=movies.argentina.input.1
+    entrypoint: ./run_worker
+    networks:
+      - movies_net
+    depends_on:
+      - rabbitmq
+
+  filter-argentina-2:
+    build:
+      context: .
+      dockerfile: filters/filter_argentina/Dockerfile
+    container_name: filter-argentina-2
+    image: filter-argentina-2:latest
+    environment:
+      - CLI_LOG_LEVEL=info
+      - CLI_WORKER_EXCHANGE_INPUT_NAME=first_layer_exchange
+      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.first.input2
+      - CLI_WORKER_EXCHANGE_OUTPUT_NAME=movies_filtered_by_argentina_exchange
+      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.spain_2000_1.input,movies.spain_2000_2.input
+      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+      - CLI_WORKER_EXPECTEDEOF=1
+      - CLI_WORKER_QUEUE_NAME=movies.argentina.input.2
     entrypoint: ./run_worker
     networks:
       - movies_net
@@ -73,7 +95,7 @@ services:
       - CLI_WORKER_EXCHANGE_OUTPUT_NAME=results_exchange
       - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=queries_partial_results.input
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_WORKER_EXPECTEDEOF=1
+      - CLI_WORKER_EXPECTEDEOF=2
       - CLI_WORKER_QUEUE_NAME=movies.spain_2000_1.input
     entrypoint: ./run_worker
     networks:
@@ -94,7 +116,7 @@ services:
       - CLI_WORKER_EXCHANGE_OUTPUT_NAME=results_exchange
       - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=queries_partial_results.input
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_WORKER_EXPECTEDEOF=1
+      - CLI_WORKER_EXPECTEDEOF=2
       - CLI_WORKER_QUEUE_NAME=movies.spain_2000_2.input
     entrypoint: ./run_worker
     networks:

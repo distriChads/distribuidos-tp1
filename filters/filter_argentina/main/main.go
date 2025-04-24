@@ -20,15 +20,16 @@ func main() {
 	}
 
 	log_level := v.GetString("log.level")
+	queueName := v.GetString("worker.queue.name")
 	inputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.input.name"),
 		RoutingKeys: []string{v.GetString("worker.exchange.input.routingkeys")},
-		QueueName:   "filter_argentina_queue",
+		QueueName:   queueName,
 	}
 	outputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.output.name"),
 		RoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
-		QueueName:   "filter_argentina_queue",
+		QueueName:   queueName,
 	}
 	messageBroker := v.GetString("worker.broker")
 

@@ -84,9 +84,9 @@ func (f *FilterBySpainAndOf2000) RunWorker() error {
 		if message == worker.MESSAGE_EOF {
 			f.eof_counter--
 			if f.eof_counter <= 0 {
-
 				break
 			}
+			continue
 		}
 		lines := strings.Split(strings.TrimSpace(message), "\n")
 		filtered_lines := filterByCountrySpainAndOf2000(lines)

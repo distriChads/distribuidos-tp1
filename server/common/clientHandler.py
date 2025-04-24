@@ -19,7 +19,12 @@ class ClientHandlerConfig(WorkerConfig):
 
 
 class ClientHandler:
-    def __init__(self, port: int, client_handler_config: ClientHandlerConfig):
+    def __init__(self,
+                 port: int,
+                 client_handler_config: ClientHandlerConfig,
+                 routing_keys1: list[str],
+                 routing_keys2: list[str],
+                 routing_keys3: list[str]):
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(1)  # TODO: change to .env
@@ -30,6 +35,15 @@ class ClientHandler:
         signal.signal(signal.SIGINT, self.__graceful_shutdown_handler)
         signal.signal(signal.SIGTERM, self.__graceful_shutdown_handler)
 
+        logging.info(f"routing_keys1: {routing_keys1}")
+        logging.info(f"routing_keys2: {routing_keys2}")
+        logging.info(f"routing_keys3: {routing_keys3}")
+
+        self.routing_keys1 = routing_keys1
+        self.routing_keys2 = routing_keys2
+        self.routing_keys3 = routing_keys3
+
+        self.queue_to_send = 0
         self.batch_processor = MoviesProcessor()
         self.worker = Worker(client_handler_config)
 
@@ -106,14 +120,29 @@ class ClientHandler:
     def __send_data(self, data_send: str):
         routing_key = ""
         if type(self.batch_processor) == MoviesProcessor:
+            self.queue_to_send = (
+                self.queue_to_send + 1) % len(self.routing_keys1)
             exchange = self.worker.output_exchange1
-            routing_key = "movies.first.input"
+            routing_key = self.routing_keys1[self.queue_to_send]
+            if data_send == "EOF":
+                for routing_key in self.routing_keys1:
+                    self.worker.send_message(data_send, routing_key, exchange)
         elif type(self.batch_processor) == CreditsProcessor:
+            self.queue_to_send = (
+                self.queue_to_send + 1) % len(self.routing_keys2)
             exchange = self.worker.output_exchange2
-            routing_key = "credits.input"
+            routing_key = self.routing_keys2[self.queue_to_send]
+            if data_send == "EOF":
+                for routing_key in self.routing_keys2:
+                    self.worker.send_message(data_send, routing_key, exchange)
         else:  # RatingsProcessor
+            self.queue_to_send = (
+                self.queue_to_send + 1) % len(self.routing_keys3)
             exchange = self.worker.output_exchange3
-            routing_key = "ratings.input"
+            routing_key = self.routing_keys3[self.queue_to_send]
+            if data_send == "EOF":
+                for routing_key in self.routing_keys3:
+                    self.worker.send_message(data_send, routing_key, exchange)
 
         self.worker.send_message(data_send, routing_key, exchange)
 
