@@ -87,7 +87,7 @@ func (f *FilterByArgentina) RunWorker() error {
 			if err != nil {
 				log.Infof("Error sending message: %s", err.Error())
 			}
-			// log.Debugf("Sent message to output exchange: %s", message_to_send)
+			log.Debugf("Sent message to output exchange: %s", message_to_send)
 		}
 
 	}
