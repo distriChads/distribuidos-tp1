@@ -3,6 +3,7 @@ package main
 import (
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
+	"strings"
 
 	join "distribuidos-tp1/joins/join_movie_ratings"
 
@@ -31,7 +32,7 @@ func main() {
 	}
 	outputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.output.name"),
-		RoutingKeys: []string{v.GetString("worker.exchange.output.routingkeys")},
+		RoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
 		QueueName:   "join_movie_ratings_queue",
 	}
 	messageBroker := v.GetString("worker.broker")

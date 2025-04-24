@@ -16,6 +16,7 @@ type JoinMovieRatingByIdConfig struct {
 type JoinMovieRatingById struct {
 	worker.Worker
 	messages_before_commit int
+	queue_to_send          int
 }
 
 // ---------------------------------
@@ -106,9 +107,11 @@ func (f *JoinMovieRatingById) RunWorker() error {
 	for message := range msgs {
 		message := string(message.Body)
 		if message == worker.MESSAGE_EOF {
-			err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF)
-			if err != nil {
-				log.Infof("Error sending message: %s", err.Error())
+			for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
+				err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF, queue_name)
+				if err != nil {
+					log.Infof("Error sending message: %s", err.Error())
+				}
 			}
 			break
 		}
@@ -116,7 +119,9 @@ func (f *JoinMovieRatingById) RunWorker() error {
 		result := joinMovieWithRating(lines, movies_by_id)
 		message_to_send := strings.Join(result, "\n")
 		if len(message_to_send) != 0 {
-			err := worker.SendMessage(f.Worker, message_to_send)
+			send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
+			err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
+			f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
 			if err != nil {
 				log.Infof("Error sending message: %s", err.Error())
 			}
