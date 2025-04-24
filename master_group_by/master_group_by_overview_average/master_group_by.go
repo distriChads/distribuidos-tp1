@@ -91,7 +91,7 @@ func (f *MasterGroupByOverviewAndAvg) RunWorker() error {
 			if eof_counter == f.expected_eof {
 				break
 			}
-			break
+			continue
 		}
 		messages_before_commit += 1
 		lines := strings.Split(strings.TrimSpace(message), "\n")

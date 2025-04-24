@@ -3,6 +3,7 @@ package main
 import (
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
+	"strings"
 
 	group_by "distribuidos-tp1/group_by/group_by_overview_average"
 
@@ -19,15 +20,16 @@ func main() {
 	}
 
 	log_level := v.GetString("log.level")
+	queueName := v.GetString("worker.queue.name")
 	inputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.input.name"),
-		RoutingKeys: []string{v.GetString("worker.exchange.input.routingKeys")},
-		QueueName:   "group_by_overview_average_queue",
+		RoutingKeys: []string{v.GetString("worker.exchange.input.routingkeys")},
+		QueueName:   queueName,
 	}
 	outputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.output.name"),
-		RoutingKeys: []string{v.GetString("worker.exchange.output.routingKeys")},
-		QueueName:   "group_by_overview_average_queue",
+		RoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
+		QueueName:   queueName,
 	}
 	messageBroker := v.GetString("worker.broker")
 

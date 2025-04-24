@@ -97,9 +97,9 @@ func (f *GroupByMovieAndAvg) RunWorker() error {
 		if message == worker.MESSAGE_EOF {
 			f.eof_counter--
 			if f.eof_counter <= 0 {
-
 				break
 			}
+			continue
 		}
 		messages_before_commit += 1
 		lines := strings.Split(strings.TrimSpace(message), "\n")
