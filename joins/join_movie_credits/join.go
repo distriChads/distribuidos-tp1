@@ -74,8 +74,17 @@ func NewJoinMovieCreditsById(config JoinMovieCreditsByIdConfig, messages_before_
 func (f *JoinMovieCreditsById) RunWorker() error {
 	log.Info("Starting JoinMovieCreditsById worker")
 	worker.InitSender(&f.Worker)
-	worker.InitReceiver(&f.Worker)
-	worker.InitSecondReceiver(&f.Worker)
+	err := worker.InitReceiver(&f.Worker)
+	if err != nil {
+		log.Errorf("Error initializing receiver: %s", err.Error())
+		return err
+	}
+	err = worker.InitSecondReceiver(&f.Worker)
+	if err != nil {
+		log.Errorf("Error initializing second receiver: %s", err.Error())
+		return err
+	}
+	log.Infof("JoinMovieCreditsById worker initialized")
 
 	msgs, err := worker.ReceivedMessages(f.Worker)
 	if err != nil {
@@ -107,7 +116,9 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 		log.Errorf("Error initializing receiver: %s", err.Error())
 		return err
 	}
+	i := 0
 	for message := range msgs {
+		log.Infof("Batch received Number: %d", i)
 		message := string(message.Body)
 		if message == worker.MESSAGE_EOF {
 			for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {

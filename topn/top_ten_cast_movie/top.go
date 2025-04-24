@@ -91,7 +91,10 @@ func (f *TopTenCastMovie) RunWorker() error {
 		return err
 	}
 	var top_ten []TopTenCastCount
+	i := 0
 	for message := range msgs {
+		log.Infof("Batch received Number: %d", i)
+		i++
 		message := string(message.Body)
 		if message == worker.MESSAGE_EOF {
 			break
@@ -100,6 +103,7 @@ func (f *TopTenCastMovie) RunWorker() error {
 		top_ten = updateTopTen(lines, top_ten)
 	}
 	message_to_send := mapToLines(top_ten)
+	log.Infof("Top 10 actors by movie: %s", message_to_send)
 	send_queue_key := f.Worker.OutputExchange.RoutingKeys[0] // los topN son nodos unicos, y solo le envian al server
 	err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
 	if err != nil {

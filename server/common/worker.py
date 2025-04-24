@@ -19,9 +19,16 @@ class ExchangeSpec:
 
 
 class WorkerConfig:
-    def __init__(self, input_exchange, output_exchange, message_broker):
+    def __init__(self,
+                 input_exchange,
+                 output_exchange1,
+                 output_exchange2,
+                 output_exchange3,
+                 message_broker):
         self.input_exchange = input_exchange
-        self.output_exchange = output_exchange
+        self.output_exchange1 = output_exchange1
+        self.output_exchange2 = output_exchange2
+        self.output_exchange3 = output_exchange3
         self.message_broker = message_broker
 
 
@@ -42,7 +49,9 @@ class Receiver:
 class Worker:
     def __init__(self, config: WorkerConfig):
         self.input_exchange = config.input_exchange
-        self.output_exchange = config.output_exchange
+        self.output_exchange1 = config.output_exchange1
+        self.output_exchange2 = config.output_exchange2
+        self.output_exchange3 = config.output_exchange3
         self.message_broker = config.message_broker
         self.sender = None
         self.receiver = None
@@ -65,12 +74,24 @@ class Worker:
         log.error("Failed to connect to broker")
         raise ConnectionError("Failed to connect to broker")
 
-    def init_sender(self):
+    def init_senders(self):
         conn = self._init_connection()
         ch = conn.channel()
 
         ch.exchange_declare(
-            exchange=self.output_exchange.name,
+            exchange=self.output_exchange1.name,
+            exchange_type='topic',
+            durable=False,
+            auto_delete=False
+        )
+        ch.exchange_declare(
+            exchange=self.output_exchange2.name,
+            exchange_type='topic',
+            durable=False,
+            auto_delete=False
+        )
+        ch.exchange_declare(
+            exchange=self.output_exchange3.name,
             exchange_type='topic',
             durable=False,
             auto_delete=False
@@ -108,17 +129,17 @@ class Worker:
         messages = ch.consume(queue=queue_name, auto_ack=True)
         return Receiver(conn, ch, queue_name, messages)
 
-    def send_message(self, message, routing_key):
+    def send_message(self, message, routing_key, exchange):
         if not self.sender:
             raise Exception("Sender not initialized")
 
         self.sender.ch.basic_publish(
-            exchange=self.output_exchange.name,
+            exchange=exchange.name,
             routing_key=routing_key,
             body=message,
             properties=pika.BasicProperties(content_type="text/plain")
         )
-        log.debug(f"Sent message to exchange {self.output_exchange.name} "
+        log.debug(f"Sent message to exchange {self.output_exchange1.name} "
                   f"(routing key: {routing_key}): {message}")
 
     def received_messages(self):

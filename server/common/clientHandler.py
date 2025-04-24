@@ -42,7 +42,7 @@ class ClientHandler:
 
     def run(self):
         try:
-            self.worker.init_sender()
+            self.worker.init_senders()
             self.worker.init_receiver()
         except Exception as e:
             logging.error(f"Error initializing worker: {e}")
@@ -104,13 +104,16 @@ class ClientHandler:
     def __send_data(self, data_send: str):
         routing_key = ""
         if type(self.batch_processor) == MoviesProcessor:
+            exchange = self.worker.output_exchange1
             routing_key = "movies.first.input"
         elif type(self.batch_processor) == CreditsProcessor:
+            exchange = self.worker.output_exchange2
             routing_key = "credits.input"
         else:  # RatingsProcessor
+            exchange = self.worker.output_exchange3
             routing_key = "ratings.input"
 
-        self.worker.send_message(data_send, routing_key)
+        self.worker.send_message(data_send, routing_key, exchange)
 
     def __receive_first_chunck(self):
         if self._client_socket is None:
