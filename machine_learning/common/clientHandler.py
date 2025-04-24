@@ -4,8 +4,6 @@ import logging
 from .worker import Worker, WorkerConfig, MESSAGE_SEPARATOR, MESSAGE_EOF
 
 log = logging.getLogger("machine_learning")
-logging.basicConfig(level=logging.INFO)
-
 
 class MachineLearningConfig(WorkerConfig):
     pass
@@ -37,7 +35,7 @@ class MachineLearning:
         return self.__create_message_to_send(positive_or_negative, parts)
 
     def run_worker(self):
-        log.info("Starting FilterByArgentina worker")
+        log.info("Starting MachineLearning worker")
         try:
             self.worker.init_sender()
             self.worker.init_receiver()
@@ -48,11 +46,13 @@ class MachineLearning:
         try:
             for method_frame, properties, body in self.worker.received_messages():
                 message = body.decode("utf-8")
-                log.info(f"Received message: {message}")
+                log.debug(f"Received message: {message}")
                 if message == MESSAGE_EOF:
+                    log.info("Received EOF")
                     try:
                         for routing_key in self.output_routing_keys:
                             self.worker.send_message(MESSAGE_EOF, routing_key)
+                            log.debug(f"Sent EOF to {routing_key}")
                     except Exception as e:
                         log.warning(f"Error sending EOF: {e}")
                     break

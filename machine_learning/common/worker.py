@@ -8,7 +8,6 @@ MESSAGE_ARRAY_SEPARATOR = ","
 MESSAGE_EOF = "EOF"
 
 log = logging.getLogger("worker")
-logging.basicConfig(level=logging.INFO)
 
 
 class ExchangeSpec:
@@ -44,6 +43,7 @@ class Worker:
         self.input_exchange = config.input_exchange
         self.output_exchange = config.output_exchange
         self.message_broker = config.message_broker
+        log.debug(f"Worker config: {config.__dict__}")
         self.sender = None
         self.receiver = None
 
