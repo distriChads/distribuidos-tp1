@@ -24,6 +24,7 @@ class Client:
         self.ratings_path = os.path.join(storage_path, "ratings.csv")
 
         self.running = True
+        self.results_thread = None
         # Handle SIGINT (Ctrl+C) and SIGTERM (docker stop)
         signal.signal(signal.SIGINT, self.__graceful_shutdown_handler)
         signal.signal(signal.SIGTERM, self.__graceful_shutdown_handler)
@@ -31,6 +32,10 @@ class Client:
     def __graceful_shutdown_handler(self, signum: Optional[int] = None, frame: Optional[FrameType] = None):
         self.running = False
         self.client_socket.sock.close()
+        if self.results_thread:
+            print("joining thread")
+            self.results_thread.join()
+        print("thread joined")
         logging.info("Client socket closed")
 
     def __connect(self):
@@ -40,7 +45,8 @@ class Client:
 
     def run(self):
         self.__connect()
-        threading.Thread(target=self.__wait_for_results).start()
+        self.results_thread = threading.Thread(target=self.__wait_for_results)
+        self.results_thread.start()
 
         try:
             self.__send_file_in_chunks(self.movies_path)
@@ -50,16 +56,20 @@ class Client:
         except Exception as e:
             logging.error(f"Error: {e}")
 
-        self.__graceful_shutdown_handler()
 
+        self.results_thread.join()
+        self.__graceful_shutdown_handler()
+        
     def __wait_for_results(self):
         while self.running:
             try:
                 _bytes_read, result = self.client_socket.read()
+                print(f"asdsadasd try")
                 if not result:
                     break
                 logging.info(f"Received result: {result}")
             except socket.error as e:
+                print(f"asdsadasd except")
                 logging.error(f"Socket error: {e}")
                 break
 
@@ -127,6 +137,8 @@ class Client:
         j = 0
         with open(file_path, 'r') as file:
             for csv_row in file:
+                if not self.running:
+                    break
                 if j != 0:
                     # length of row that are not the header
                     csv_row_size_bytes = f"{len(csv_row)}|".encode('utf-8')
@@ -136,7 +148,7 @@ class Client:
                 i = 0
                 csv_row_decoded = csv_row.encode('utf-8')
 
-                while i < len(csv_row_decoded):
+                while i < len(csv_row_decoded) and self.running:
                     row_info = csv_row_decoded[i:i + BATCH_SIZE - len(chunk)]
                     total_bytes_sent += len(row_info)
                     chunk += row_info
