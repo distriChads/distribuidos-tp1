@@ -135,8 +135,6 @@ class ClientHandler:
             hash = int(id) % len(self.routing_keys2)
             routing_key = self.routing_keys2[hash]
 
-            self.worker.send_message(data_send, routing_key, exchange)
-
             # for routing_key in self.routing_keys2:
             #     self.worker.send_message(data_send, routing_key, exchange)
         else:  # RatingsProcessor
