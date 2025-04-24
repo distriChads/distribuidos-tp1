@@ -45,6 +45,10 @@ func main() {
 	if maxMessages == 0 {
 		maxMessages = 10
 	}
+	expectedEof := v.GetInt("worker.expectedeof")
+	if expectedEof == 0 {
+		expectedEof = 1
+	}
 
 	groupByActorCount := group_by.NewGroupByActorAndCount(group_by.GroupByActorAndCountConfig{
 		WorkerConfig: worker.WorkerConfig{
@@ -52,7 +56,7 @@ func main() {
 			OutputExchange: outputExchangeSpec,
 			MessageBroker:  messageBroker,
 		},
-	}, maxMessages)
+	}, maxMessages, expectedEof)
 
 	defer groupByActorCount.CloseWorker()
 

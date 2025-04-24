@@ -16,6 +16,7 @@ type FilterByArgentinaConfig struct {
 type FilterByArgentina struct {
 	worker.Worker
 	queue_to_send int
+	eof_counter   int
 }
 
 // ---------------------------------
@@ -38,7 +39,7 @@ func filterByArgentina(lines []string) []string {
 	return result
 }
 
-func NewFilterByArgentina(config FilterByArgentinaConfig) *FilterByArgentina {
+func NewFilterByArgentina(config FilterByArgentinaConfig, eof_counter int) *FilterByArgentina {
 	log.Infof("NewFilterByYear: %+v", config)
 	return &FilterByArgentina{
 		Worker: worker.Worker{
@@ -46,6 +47,7 @@ func NewFilterByArgentina(config FilterByArgentinaConfig) *FilterByArgentina {
 			OutputExchange: config.OutputExchange,
 			MessageBroker:  config.MessageBroker,
 		},
+		eof_counter: eof_counter,
 	}
 }
 
@@ -63,13 +65,16 @@ func (f *FilterByArgentina) RunWorker() error {
 	for message := range msgs {
 		message := string(message.Body)
 		if message == worker.MESSAGE_EOF {
-			for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
-				err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF, queue_name)
-				if err != nil {
-					log.Infof("Error sending message: %s", err.Error())
+			f.eof_counter--
+			if f.eof_counter <= 0 {
+				for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
+					err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF, queue_name)
+					if err != nil {
+						log.Infof("Error sending message: %s", err.Error())
+					}
 				}
+				break
 			}
-			break
 		}
 		lines := strings.Split(strings.TrimSpace(message), "\n")
 		filtered_lines := filterByArgentina(lines)

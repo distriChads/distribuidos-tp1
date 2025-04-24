@@ -17,6 +17,7 @@ type FilterBySpainAndOf2000Config struct {
 type FilterBySpainAndOf2000 struct {
 	worker.Worker
 	queue_to_send int
+	eof_counter   int
 }
 
 // ---------------------------------
@@ -51,7 +52,7 @@ func filterByCountrySpainAndOf2000(lines []string) []string {
 	return result
 }
 
-func NewFilterBySpainAndOf2000(config FilterBySpainAndOf2000Config) *FilterBySpainAndOf2000 {
+func NewFilterBySpainAndOf2000(config FilterBySpainAndOf2000Config, eof_counter int) *FilterBySpainAndOf2000 {
 	log.Infof("FilterBySpainAndOf2000: %+v", config)
 	return &FilterBySpainAndOf2000{
 		Worker: worker.Worker{
@@ -59,6 +60,7 @@ func NewFilterBySpainAndOf2000(config FilterBySpainAndOf2000Config) *FilterBySpa
 			OutputExchange: config.OutputExchange,
 			MessageBroker:  config.MessageBroker,
 		},
+		eof_counter: eof_counter,
 	}
 }
 
@@ -76,7 +78,11 @@ func (f *FilterBySpainAndOf2000) RunWorker() error {
 	for message := range msgs {
 		message := string(message.Body)
 		if message == worker.MESSAGE_EOF {
-			break
+			f.eof_counter--
+			if f.eof_counter <= 0 {
+
+				break
+			}
 		}
 		lines := strings.Split(strings.TrimSpace(message), "\n")
 		filtered_lines := filterByCountrySpainAndOf2000(lines)

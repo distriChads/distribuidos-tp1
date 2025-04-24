@@ -18,6 +18,7 @@ type GroupByCountryAndSumConfig struct {
 type GroupByCountryAndSum struct {
 	worker.Worker
 	messages_before_commit int
+	eof_counter            int
 }
 
 // ---------------------------------
@@ -55,7 +56,7 @@ func getGroupedElements() map[string]int {
 	return nil
 }
 
-func NewGroupByCountryAndSum(config GroupByCountryAndSumConfig, messages_before_commit int) *GroupByCountryAndSum {
+func NewGroupByCountryAndSum(config GroupByCountryAndSumConfig, messages_before_commit int, eof_counter int) *GroupByCountryAndSum {
 	log.Infof("GroupByCountryAndSum: %+v", config)
 	return &GroupByCountryAndSum{
 		Worker: worker.Worker{
@@ -64,6 +65,7 @@ func NewGroupByCountryAndSum(config GroupByCountryAndSumConfig, messages_before_
 			MessageBroker:  config.MessageBroker,
 		},
 		messages_before_commit: messages_before_commit,
+		eof_counter:            eof_counter,
 	}
 }
 
@@ -82,7 +84,11 @@ func (f *GroupByCountryAndSum) RunWorker() error {
 	for message := range msgs {
 		message := string(message.Body)
 		if message == worker.MESSAGE_EOF {
-			break
+			f.eof_counter--
+			if f.eof_counter <= 0 {
+
+				break
+			}
 		}
 		messages_before_commit += 1
 		lines := strings.Split(strings.TrimSpace(message), "\n")

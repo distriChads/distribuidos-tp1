@@ -41,6 +41,10 @@ func main() {
 		log.Criticalf("%s", err)
 		return
 	}
+	expectedEof := v.GetInt("worker.expectedeof")
+	if expectedEof == 0 {
+		expectedEof = 1
+	}
 
 	filter := filter.NewFilterByArgentina(filter.FilterByArgentinaConfig{
 		WorkerConfig: worker.WorkerConfig{
@@ -48,7 +52,7 @@ func main() {
 			OutputExchange: outputExchangeSpec,
 			MessageBroker:  messageBroker,
 		},
-	})
+	}, expectedEof)
 
 	defer filter.CloseWorker()
 

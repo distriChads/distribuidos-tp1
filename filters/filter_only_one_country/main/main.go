@@ -42,13 +42,18 @@ func main() {
 		return
 	}
 
+	expectedEof := v.GetInt("worker.expectedeof")
+	if expectedEof == 0 {
+		expectedEof = 1
+	}
+
 	filter := filter.NewFilterByOnlyOneCountry(filter.FilterByOnlyOneCountryConfig{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange:  inputExchangeSpec,
 			OutputExchange: outputExchangeSpec,
 			MessageBroker:  messageBroker,
 		},
-	})
+	}, expectedEof)
 
 	defer filter.CloseWorker()
 

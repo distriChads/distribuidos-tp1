@@ -18,6 +18,7 @@ var log = logging.MustGetLogger("group_by_movie_average")
 type GroupByMovieAndAvg struct {
 	worker.Worker
 	messages_before_commit int
+	eof_counter            int
 }
 
 type ScoreAndCount struct {
@@ -66,7 +67,7 @@ func getGroupedElements() map[string]int {
 	return nil
 }
 
-func NewGroupByMovieAndAvg(config GroupByMovieAndAvgConfig, messages_before_commit int) *GroupByMovieAndAvg {
+func NewGroupByMovieAndAvg(config GroupByMovieAndAvgConfig, messages_before_commit int, eof_counter int) *GroupByMovieAndAvg {
 	log.Infof("GroupByMovieAndAvg: %+v", config)
 	return &GroupByMovieAndAvg{
 		Worker: worker.Worker{
@@ -75,6 +76,7 @@ func NewGroupByMovieAndAvg(config GroupByMovieAndAvgConfig, messages_before_comm
 			MessageBroker:  config.MessageBroker,
 		},
 		messages_before_commit: messages_before_commit,
+		eof_counter:            eof_counter,
 	}
 }
 
@@ -93,7 +95,11 @@ func (f *GroupByMovieAndAvg) RunWorker() error {
 	for message := range msgs {
 		message := string(message.Body)
 		if message == worker.MESSAGE_EOF {
-			break
+			f.eof_counter--
+			if f.eof_counter <= 0 {
+
+				break
+			}
 		}
 		messages_before_commit += 1
 		lines := strings.Split(strings.TrimSpace(message), "\n")

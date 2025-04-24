@@ -51,6 +51,10 @@ func main() {
 	if maxMessages == 0 {
 		maxMessages = 10
 	}
+	expectedEof := v.GetInt("worker.expectedeof")
+	if expectedEof == 0 {
+		expectedEof = 1
+	}
 
 	filter := join.NewJoinMovieRatingById(join.JoinMovieRatingByIdConfig{
 		WorkerConfig: worker.WorkerConfig{
@@ -59,7 +63,7 @@ func main() {
 			OutputExchange:      outputExchangeSpec,
 			MessageBroker:       messageBroker,
 		},
-	}, maxMessages)
+	}, maxMessages, expectedEof)
 
 	defer filter.CloseWorker()
 

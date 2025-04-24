@@ -45,6 +45,10 @@ func main() {
 	if maxMessages == 0 {
 		maxMessages = 10
 	}
+	expectedEof := v.GetInt("worker.expectedeof")
+	if expectedEof == 0 {
+		expectedEof = 1
+	}
 
 	groupByCountrySum := group_by.NewGroupByCountryAndSum(group_by.GroupByCountryAndSumConfig{
 		WorkerConfig: worker.WorkerConfig{
@@ -52,7 +56,7 @@ func main() {
 			OutputExchange: outputExchangeSpec,
 			MessageBroker:  messageBroker,
 		},
-	}, maxMessages)
+	}, maxMessages, expectedEof)
 
 	defer groupByCountrySum.CloseWorker()
 

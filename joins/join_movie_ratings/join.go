@@ -17,6 +17,7 @@ type JoinMovieRatingById struct {
 	worker.Worker
 	messages_before_commit int
 	queue_to_send          int
+	eof_counter            int
 }
 
 // ---------------------------------
@@ -58,7 +59,7 @@ func getGroupedElements() map[string]string {
 	return nil
 }
 
-func NewJoinMovieRatingById(config JoinMovieRatingByIdConfig, messages_before_commit int) *JoinMovieRatingById {
+func NewJoinMovieRatingById(config JoinMovieRatingByIdConfig, messages_before_commit int, eof_counter int) *JoinMovieRatingById {
 	log.Infof("JoinMovieRatingById: %+v", config)
 	return &JoinMovieRatingById{
 		Worker: worker.Worker{
@@ -68,6 +69,7 @@ func NewJoinMovieRatingById(config JoinMovieRatingByIdConfig, messages_before_co
 			MessageBroker:       config.MessageBroker,
 		},
 		messages_before_commit: messages_before_commit,
+		eof_counter:            eof_counter,
 	}
 }
 
@@ -87,7 +89,11 @@ func (f *JoinMovieRatingById) RunWorker() error {
 	for message := range msgs {
 		message := string(message.Body)
 		if message == worker.MESSAGE_EOF {
-			break
+			f.eof_counter--
+			if f.eof_counter <= 0 {
+
+				break
+			}
 		}
 		messages_before_commit += 1
 		lines := strings.Split(strings.TrimSpace(message), "\n")
