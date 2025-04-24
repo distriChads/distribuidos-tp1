@@ -24,7 +24,7 @@ def load_config(config_file="./config.ini"):
         "worker.exchange.input.name",
         "worker.exchange.output.name",
         "worker.broker",
-        # "worker.maxmessages",
+        "worker.queue.name",
     ]
 
     final_config["worker.exchange.input.routingkeys"] = load_worker_routingkeys(

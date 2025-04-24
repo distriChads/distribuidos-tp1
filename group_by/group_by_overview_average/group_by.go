@@ -107,7 +107,7 @@ func (f *GroupByOverviewAndAvg) RunWorker() error {
 	for message := range msgs {
 		message := string(message.Body)
 		i++
-		log.Infof("Received batch Number %d", i)
+		log.Infof("Received batch Number %d with message: %s", i, message)
 		if message == worker.MESSAGE_EOF {
 			f.eof_counter--
 			if f.eof_counter <= 0 {

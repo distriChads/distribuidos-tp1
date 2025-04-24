@@ -11,7 +11,6 @@ from common.communication import Socket
 from common.fileProcessor import MoviesProcessor, CreditsProcessor, RatingsProcessor
 
 FILES_TO_RECEIVE = 3
-MAX_BATCH_SIZE = 8000 - 4  # 4 bytes for the file size
 
 
 class ClientHandlerConfig(WorkerConfig):
