@@ -24,20 +24,21 @@ func main() {
 	println(("first exchange name: " + v.GetString("worker.exchange.input.name")))
 	println(("second exchange name: " + v.GetString("worker.exchange.secondinput.name")))
 
+	queueName := v.GetString("worker.queue.name")
 	inputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.input.name"),
 		RoutingKeys: []string{v.GetString("worker.exchange.input.routingkeys")},
-		QueueName:   "join_movie_credits_queue1",
+		QueueName:   queueName,
 	}
 	secondInputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.secondinput.name"),
 		RoutingKeys: []string{v.GetString("worker.exchange.secondinput.routingkeys")},
-		QueueName:   "join_movie_credits_queue2",
+		QueueName:   queueName + "2",
 	}
 	outputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.output.name"),
 		RoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
-		QueueName:   "join_movie_credits_queue",
+		QueueName:   queueName,
 	}
 	messageBroker := v.GetString("worker.broker")
 

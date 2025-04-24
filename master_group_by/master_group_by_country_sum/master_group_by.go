@@ -89,6 +89,7 @@ func (f *MasterGroupByCountryAndSum) RunWorker() error {
 			if eof_counter == f.expected_eof {
 				break
 			}
+			continue
 		}
 		messages_before_commit += 1
 		lines := strings.Split(strings.TrimSpace(message), "\n")

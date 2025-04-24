@@ -19,27 +19,28 @@ func main() {
 		return
 	}
 
-	log_level := v.GetString("log.level")
-
-	println(("first exchange name: " + v.GetString("worker.exchange.input.name")))
-	println(("second exchange name: " + v.GetString("worker.exchange.secondinput.name")))
-
+	queueName := v.GetString("worker.queue.name")
 	inputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.input.name"),
 		RoutingKeys: []string{v.GetString("worker.exchange.input.routingkeys")},
-		QueueName:   "join_movie_credits_queue1",
+		QueueName:   queueName,
 	}
 	secondInputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.secondinput.name"),
 		RoutingKeys: []string{v.GetString("worker.exchange.secondinput.routingkeys")},
-		QueueName:   "join_movie_credits_queue2",
+		QueueName:   queueName + "2",
 	}
 	outputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.output.name"),
 		RoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
-		QueueName:   "join_movie_credits_queue",
+		QueueName:   queueName,
 	}
 	messageBroker := v.GetString("worker.broker")
+
+	log_level := v.GetString("log.level")
+
+	println(("first exchange name: " + v.GetString("worker.exchange.input.name")))
+	println(("second exchange name: " + v.GetString("worker.exchange.secondinput.name")))
 
 	if inputExchangeSpec.Name == "" || inputExchangeSpec.RoutingKeys[0] == "" || outputExchangeSpec.Name == "" || outputExchangeSpec.RoutingKeys[0] == "" || messageBroker == "" {
 		log.Criticalf("Error: one or more environment variables are empty")

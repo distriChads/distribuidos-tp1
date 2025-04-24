@@ -75,6 +75,7 @@ func (f *FilterByArgentina) RunWorker() error {
 				}
 				break
 			}
+			continue
 		}
 		lines := strings.Split(strings.TrimSpace(message), "\n")
 		filtered_lines := filterByArgentina(lines)
