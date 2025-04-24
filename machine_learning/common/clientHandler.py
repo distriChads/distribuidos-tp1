@@ -8,19 +8,24 @@ logging.basicConfig(level=logging.INFO)
 
 COUNTRIES = 3
 
+
 class MachineLearningConfig(WorkerConfig):
     pass
 
 
 class MachineLearning:
-    def __init__(self, config: MachineLearningConfig):
+    def __init__(self, config: MachineLearningConfig, output_routing_keys: list[str]):
         log.info(f"NewMachineLearning: {config.__dict__}")
         self.worker = Worker(config)
-        self.sentiment_analyzer = pipeline('sentiment-analysis', model='distilbert-base-uncased-finetuned-sst-2-english')
+        self.sentiment_analyzer = pipeline(
+            'sentiment-analysis', model='distilbert-base-uncased-finetuned-sst-2-english')
+        self.output_routing_keys = output_routing_keys
+        self.queue_to_send = 0
 
     def __process_with_machine_learning(self, message_to_analyze: str):
         result = self.sentiment_analyzer(message_to_analyze, truncation=True)
-        return result[0]['label']   #Aca esta guardado si es positive o negative
+        # Aca esta guardado si es positive o negative
+        return result[0]['label']
     # 5 -> budget
     # 6 -> overview
     # 7 -> revenue
@@ -32,7 +37,6 @@ class MachineLearning:
         parts = rabbit_msg.split(MESSAGE_SEPARATOR)
         positive_or_negative = self.__process_with_machine_learning(parts[6])
         return self.__create_message_to_send(positive_or_negative, parts)
-       
 
     def run_worker(self):
         log.info("Starting FilterByArgentina worker")
@@ -59,12 +63,12 @@ class MachineLearning:
                     log.info(f"SE TERMINO GENERADO ESTO {message}")
                     messages.append(message)
                 message_to_send = "\n".join(messages)
-                self.worker.send_message(message_to_send)
+                self.worker.send_message(
+                    message_to_send, self.output_routing_keys[self.queue_to_send])
+                self.queue_to_send = (self.queue_to_send + 1) % COUNTRIES
         except Exception as e:
             log.error(f"Error during message processing: {e}")
             return e
 
         log.info("FilterByArgentina worker finished")
         return None
-
-    

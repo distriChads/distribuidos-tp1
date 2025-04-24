@@ -9,28 +9,28 @@ def init_config():
     return load_config()
 
 
-
-
 def load_config(config_file="./config.ini"):
     config = ConfigParser()
     if os.path.exists(config_file):
         config.read(config_file)
         print(f"Configuración leída desde {config_file}")
     else:
-        print("No se pudo leer el archivo de configuración. Usando solo variables de entorno.")
+        print(
+            "No se pudo leer el archivo de configuración. Usando solo variables de entorno.")
 
     final_config = {}
     keys = [
         "log.level",
         "worker.exchange.input.name",
-        "worker.exchange.input.routingkeys",
-        "worker.exchange.secondinput.name",
-        "worker.exchange.secondinput.routingkeys",
         "worker.exchange.output.name",
-        "worker.exchange.output.routingkeys",
         "worker.broker",
-        "worker.maxmessages",
+        # "worker.maxmessages",
     ]
+
+    final_config["worker.exchange.input.routingkeys"] = load_worker_routingkeys(
+        "INPUT")
+    final_config["worker.exchange.output.routingkeys"] = load_worker_routingkeys(
+        "OUTPUT")
 
     for full_key in keys:
         env_key = "CLI_" + full_key.upper().replace(".", "_")
@@ -46,5 +46,17 @@ def load_config(config_file="./config.ini"):
         if config.has_section(section) and config.has_option(section, subkey):
             final_config[full_key] = config.get(section, subkey)
 
-
     return final_config
+
+
+def load_worker_routingkeys(type):
+    worker_routingkeys = os.getenv(
+        f"CLI_WORKER_EXCHANGE_{type}_ROUTINGKEYS")
+    worker_routingkeys = worker_routingkeys.split(
+        ",") if worker_routingkeys else []
+    if not worker_routingkeys:
+        raise ValueError(
+            "No se ha proporcionado la variable de entorno CLI_WORKER_EXCHANGE_{type}_ROUTINGKEYS"
+        )
+
+    return worker_routingkeys

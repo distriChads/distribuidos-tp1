@@ -54,10 +54,12 @@ class Worker:
 
         for i in range(max_retries):
             try:
-                conn = pika.BlockingConnection(pika.URLParameters(self.message_broker))
+                conn = pika.BlockingConnection(
+                    pika.URLParameters(self.message_broker))
                 return conn
             except Exception as e:
-                log.warning(f"Failed to connect to broker on attempt {i+1}: {e}")
+                log.warning(
+                    f"Failed to connect to broker on attempt {i+1}: {e}")
                 if i < max_retries - 1:
                     time.sleep(i * backoff_factor + retry_sleep)
         log.error("Failed to connect to broker")
@@ -81,7 +83,6 @@ class Worker:
         self.receiver = self._init_generic_receiver(self.input_exchange)
         log.info("Receiver initialized")
 
-
     def _init_generic_receiver(self, exchange_spec):
         conn = self._init_connection()
         ch = conn.channel()
@@ -93,7 +94,8 @@ class Worker:
             auto_delete=True
         )
 
-        result = ch.queue_declare(queue=exchange_spec.queue_name, exclusive=True, auto_delete=True)
+        result = ch.queue_declare(
+            queue=exchange_spec.queue_name, exclusive=True, auto_delete=True)
         queue_name = result.method.queue
 
         for routing_key in exchange_spec.routing_keys:
@@ -106,25 +108,23 @@ class Worker:
         messages = ch.consume(queue=queue_name, auto_ack=True)
         return Receiver(conn, ch, queue_name, messages)
 
-    def send_message(self, message):
+    def send_message(self, message, routing_key):
         if not self.sender:
             raise Exception("Sender not initialized")
 
-        for routing_key in self.output_exchange.routing_keys:
-            self.sender.ch.basic_publish(
-                exchange=self.output_exchange.name,
-                routing_key=routing_key,
-                body=message,
-                properties=pika.BasicProperties(content_type="text/plain")
-            )
-            log.debug(f"Sent message to exchange {self.output_exchange.name} "
-                      f"(routing key: {routing_key}): {message}")
+        self.sender.ch.basic_publish(
+            exchange=self.output_exchange.name,
+            routing_key=routing_key,
+            body=message,
+            properties=pika.BasicProperties(content_type="text/plain")
+        )
+        log.debug(f"Sent message to exchange {self.output_exchange.name} "
+                  f"(routing key: {routing_key}): {message}")
 
     def received_messages(self):
         if not self.receiver:
             raise Exception("Receiver not initialized")
         return self.receiver.messages
-
 
     def close_worker(self):
         self._close_sender()

@@ -4,17 +4,20 @@ from tools.config import load_config
 
 
 def main():
-    
     config = load_config()
     log_level = config["log.level"]
+
+    input_routing_keys = config["worker.exchange.input.routingkeys"]
+    output_routing_keys = config["worker.exchange.output.routingkeys"]
+
     input_exchange_spec = ExchangeSpec(
         name=config["worker.exchange.input.name"],
-        routing_keys=[config["worker.exchange.input.routingKeys"]],
+        routing_keys=input_routing_keys,
         queue_name="machine_learning_queue"
     )
     output_exchange_spec = ExchangeSpec(
         name=config["worker.exchange.output.name"],
-        routing_keys=[config["worker.exchange.output.routingKeys"]],
+        routing_keys=output_routing_keys,
         queue_name="machine_learning_queue"
     )
     message_broker = config["worker.broker"]
@@ -25,7 +28,7 @@ def main():
         message_broker=message_broker
     )
 
-    worker = MachineLearning(filter_config)
+    worker = MachineLearning(filter_config, output_routing_keys)
 
     try:
         worker.run_worker()
@@ -33,6 +36,7 @@ def main():
         print("Triste")
     finally:
         worker.worker.close_worker()
+
 
 if __name__ == "__main__":
     main()
