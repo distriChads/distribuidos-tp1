@@ -155,6 +155,8 @@ services:
       dockerfile: machine_learning/Dockerfile
     container_name: machine_learning
     image: machine_learning:latest
+    volumes:
+      - ./machine_learning:/app
     environment:
       - CLI_LOG_LEVEL=info
       - CLI_WORKER_EXCHANGE_INPUT_NAME=query_exchange
