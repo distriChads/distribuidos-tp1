@@ -47,7 +47,7 @@ func run_test_for_query_1() {
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
-	})
+	}, 1)
 
 	filterSpain := filter_spain_2000.NewFilterBySpainAndOf2000(filter_spain_2000.FilterBySpainAndOf2000Config{
 		WorkerConfig: worker.WorkerConfig{
@@ -61,7 +61,7 @@ func run_test_for_query_1() {
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
-	})
+	}, 1)
 
 	defer filterArgentina.CloseWorker()
 	defer filterSpain.CloseWorker()
@@ -149,7 +149,7 @@ func run_test_for_query_2() {
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
-	})
+	}, 1)
 
 	groupByCountry := group_by_country_sum.NewGroupByCountryAndSum(group_by_country_sum.GroupByCountryAndSumConfig{
 		WorkerConfig: worker.WorkerConfig{
@@ -163,7 +163,7 @@ func run_test_for_query_2() {
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
-	}, 10)
+	}, 10, 1)
 
 	getTop5 := top_five_country_budget.NewTopFiveCountryBudget(top_five_country_budget.TopFiveCountryBudgetConfig{
 		WorkerConfig: worker.WorkerConfig{
@@ -250,7 +250,7 @@ func run_test_for_query_3() {
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
-	})
+	}, 1)
 
 	filterAfter2000 := filterafter2000.NewFilterByAfterYear2000(filterafter2000.FilterByAfterYear2000Config{
 		WorkerConfig: worker.WorkerConfig{
@@ -264,7 +264,7 @@ func run_test_for_query_3() {
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
-	})
+	}, 1)
 
 	joinMovieRating := join_movie_ratings.NewJoinMovieRatingById(join_movie_ratings.JoinMovieRatingByIdConfig{
 		WorkerConfig: worker.WorkerConfig{
@@ -282,7 +282,7 @@ func run_test_for_query_3() {
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
-	}, 10)
+	}, 10, 1)
 
 	groupByMovie := group_by_movie_avg.NewGroupByMovieAndAvg(group_by_movie_avg.GroupByMovieAndAvgConfig{
 		WorkerConfig: worker.WorkerConfig{
@@ -296,7 +296,7 @@ func run_test_for_query_3() {
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
-	}, 10)
+	}, 10, 1)
 
 	firstAndLast := first_and_last.NewFirstAndLast(first_and_last.FirstAndLastConfig{
 		WorkerConfig: worker.WorkerConfig{
@@ -386,7 +386,7 @@ func run_test_for_query_4() {
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
-	})
+	}, 1)
 
 	filterAfter2000 := filterafter2000.NewFilterByAfterYear2000(filterafter2000.FilterByAfterYear2000Config{
 		WorkerConfig: worker.WorkerConfig{
@@ -400,7 +400,7 @@ func run_test_for_query_4() {
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
-	})
+	}, 1)
 
 	joinMovieCredits := join_movie_credits.NewJoinMovieCreditsById(join_movie_credits.JoinMovieCreditsByIdConfig{
 		WorkerConfig: worker.WorkerConfig{
@@ -418,7 +418,7 @@ func run_test_for_query_4() {
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
-	}, 10)
+	}, 10, 1)
 
 	groupByActor := group_by_actor_count.NewGroupByActorAndCount(group_by_actor_count.GroupByActorAndCountConfig{
 		WorkerConfig: worker.WorkerConfig{
@@ -432,7 +432,7 @@ func run_test_for_query_4() {
 			},
 			MessageBroker: "amqp://guest:guest@localhost:5672/",
 		},
-	}, 10)
+	}, 10, 1)
 
 	topTen := top_ten_cast_movie.NewTopTenCastMovie(top_ten_cast_movie.TopTenCastMovieConfig{
 		WorkerConfig: worker.WorkerConfig{
