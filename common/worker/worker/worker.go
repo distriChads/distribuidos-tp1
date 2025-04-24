@@ -254,7 +254,7 @@ func InitSecondReceiver(worker *Worker) error {
 	return nil
 }
 
-func SendMessage(worker Worker, message string) error {
+func SendMessage(worker Worker, message string, routingKey string) error {
 	if worker.sender == nil {
 		return errors.New("sender not initialized")
 	}
@@ -262,21 +262,19 @@ func SendMessage(worker Worker, message string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	for _, routingKey := range worker.OutputExchange.RoutingKeys {
-		err := worker.sender.ch.PublishWithContext(ctx,
-			worker.OutputExchange.Name, // exchange
-			routingKey,                 // routing key
-			false,                      // mandatory
-			false,                      // immediate
-			amqp.Publishing{
-				ContentType: "text/plain",
-				Body:        []byte(message),
-			})
-		if err != nil {
-			return err
-		}
-		log.Debugf("Sent message to exchange %s (routing key: %s): %s", worker.OutputExchange.Name, routingKey, message)
+	err := worker.sender.ch.PublishWithContext(ctx,
+		worker.OutputExchange.Name, // exchange
+		routingKey,                 // routing key
+		false,                      // mandatory
+		false,                      // immediate
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        []byte(message),
+		})
+	if err != nil {
+		return err
 	}
+	log.Debugf("Sent message to exchange %s (routing key: %s): %s", worker.OutputExchange.Name, routingKey, message)
 
 	return nil
 }
