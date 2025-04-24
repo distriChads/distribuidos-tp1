@@ -1,4 +1,4 @@
-package group_by_movie_avg
+package master_group_by_actor_count
 
 import (
 	worker "distribuidos-tp1/common/worker/worker"
@@ -9,64 +9,43 @@ import (
 	"github.com/op/go-logging"
 )
 
-type GroupByOverviewAndAvgConfig struct {
+type MasterGroupByActorAndCountConfig struct {
 	worker.WorkerConfig
 }
 
-var log = logging.MustGetLogger("group_by_movie_average")
-
-type GroupByOverviewAndAvg struct {
+type MasterGroupByActorAndCount struct {
 	worker.Worker
 	messages_before_commit int
+	expected_eof           int
 }
 
-type RevenueBudgetCount struct {
-	count   int
-	revenue float64
-	budget  float64
-}
+var log = logging.MustGetLogger("master_group_by_actor_count")
 
 // ---------------------------------
-// MESSAGE FORMAT: OVERVIEW|BUDGET|REVENUE
+// MESSAGE FORMAT: ACTOR|COUNT
 // ---------------------------------
-const OVERVIEW = 0
-const BUDGET = 1
-const REVENUE = 2
+const ACTOR = 0
+const COUNT = 1
 
-func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]RevenueBudgetCount) {
+func groupByActorAndUpdate(lines []string, grouped_elements map[string]int) {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
-		budget, err := strconv.ParseFloat(parts[BUDGET], 64)
+		count, err := strconv.Atoi(parts[COUNT])
 		if err != nil {
 			continue
 		}
-		revenue, err := strconv.ParseFloat(parts[REVENUE], 64)
-		if err != nil {
-			continue
-		}
-
-		current := grouped_elements[parts[OVERVIEW]]
-		current.budget += budget
-		current.revenue += revenue
-		current.count += 1
-		grouped_elements[parts[OVERVIEW]] = current
-
+		grouped_elements[parts[ACTOR]] += count
 	}
 }
 
-func storeGroupedElements(results map[string]RevenueBudgetCount) {
+func storeGroupedElements(results map[string]int) {
 	// TODO: Dumpear el hashmap a un archivo
 }
 
-func mapToLines(grouped_elements map[string]RevenueBudgetCount) string {
+func mapToLines(grouped_elements map[string]int) string {
 	var lines []string
-	for overview, value := range grouped_elements {
-		result := 0.0
-		if value.budget > 0 {
-			result = value.revenue / value.budget
-		}
-		average := result / float64(value.count)
-		line := fmt.Sprintf("%s%s%f", overview, worker.MESSAGE_SEPARATOR, average)
+	for actor, count := range grouped_elements {
+		line := fmt.Sprintf("%s%s%d", actor, worker.MESSAGE_SEPARATOR, count)
 		lines = append(lines, line)
 	}
 	return strings.Join(lines, "\n")
@@ -77,20 +56,21 @@ func getGroupedElements() map[string]int {
 	return nil
 }
 
-func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_before_commit int) *GroupByOverviewAndAvg {
-	log.Infof("GroupByOverviewAndAvg: %+v", config)
-	return &GroupByOverviewAndAvg{
+func NewGroupByActorAndCount(config MasterGroupByActorAndCountConfig, messages_before_commit int, expected_eof int) *MasterGroupByActorAndCount {
+	log.Infof("MasterGroupByActorAndCount: %+v", config)
+	return &MasterGroupByActorAndCount{
 		Worker: worker.Worker{
 			InputExchange:  config.InputExchange,
 			OutputExchange: config.OutputExchange,
 			MessageBroker:  config.MessageBroker,
 		},
 		messages_before_commit: messages_before_commit,
+		expected_eof:           expected_eof,
 	}
 }
 
-func (f *GroupByOverviewAndAvg) RunWorker() error {
-	log.Info("Starting GroupByOverviewAndAvg worker")
+func (f *MasterGroupByActorAndCount) RunWorker() error {
+	log.Info("Starting MasterGroupByActorAndCount worker")
 	worker.InitSender(&f.Worker)
 	worker.InitReceiver(&f.Worker)
 
@@ -99,21 +79,27 @@ func (f *GroupByOverviewAndAvg) RunWorker() error {
 		log.Errorf("Error initializing receiver: %s", err.Error())
 		return err
 	}
+
 	messages_before_commit := 0
-	grouped_elements := make(map[string]RevenueBudgetCount)
+	grouped_elements := make(map[string]int)
+	eof_counter := 0
 	for message := range msgs {
 		message := string(message.Body)
 		if message == worker.MESSAGE_EOF {
-			break
+			eof_counter++
+			if eof_counter == f.expected_eof {
+				break
+			}
 		}
 		messages_before_commit += 1
 		lines := strings.Split(strings.TrimSpace(message), "\n")
-		groupByOverviewAndUpdate(lines, grouped_elements)
+		groupByActorAndUpdate(lines, grouped_elements)
 		if messages_before_commit >= f.messages_before_commit {
 			storeGroupedElements(grouped_elements)
 			messages_before_commit = 0
 		}
 	}
+
 	message_to_send := mapToLines(grouped_elements)
 	send_queue_key := f.Worker.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
 	err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
