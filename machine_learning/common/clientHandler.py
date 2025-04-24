@@ -1,12 +1,11 @@
 
 from transformers import pipeline
 import logging
-from .worker import Worker, WorkerConfig, MESSAGE_SEPARATOR, MESSAGE_ARRAY_SEPARATOR, MESSAGE_EOF
+from .worker import Worker, WorkerConfig, MESSAGE_SEPARATOR, MESSAGE_EOF
 
 log = logging.getLogger("machine_learning")
 logging.basicConfig(level=logging.INFO)
 
-COUNTRIES = 3
 
 
 class MachineLearningConfig(WorkerConfig):
@@ -60,12 +59,11 @@ class MachineLearning:
                 messages = []
                 for line in lines:
                     message = self.__receive_message(line)
-                    log.info(f"SE TERMINO GENERADO ESTO {message}")
                     messages.append(message)
                 message_to_send = "\n".join(messages)
                 self.worker.send_message(
                     message_to_send, self.output_routing_keys[self.queue_to_send])
-                self.queue_to_send = (self.queue_to_send + 1) % COUNTRIES
+                self.queue_to_send = (self.queue_to_send + 1) % len(self.output_routing_keys)
         except Exception as e:
             log.error(f"Error during message processing: {e}")
             return e
