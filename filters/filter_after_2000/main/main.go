@@ -3,6 +3,7 @@ package main
 import (
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
+	"strings"
 
 	filter "distribuidos-tp1/filters/filter_after_2000"
 
@@ -26,7 +27,7 @@ func main() {
 	}
 	outputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.output.name"),
-		RoutingKeys: []string{v.GetString("worker.exchange.output.routingKeys")},
+		RoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
 		QueueName:   "filter_after_2000_queue",
 	}
 	messageBroker := v.GetString("worker.broker")
