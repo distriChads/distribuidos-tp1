@@ -133,6 +133,7 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 		result := joinMovieWithCredits(lines, movies_by_id)
 		message_to_send := strings.Join(result, "\n")
 		if len(message_to_send) != 0 {
+			log.Infof("Message to send: %s", message_to_send)
 			send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
 			err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
 			f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)

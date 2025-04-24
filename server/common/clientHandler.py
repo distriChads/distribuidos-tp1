@@ -127,13 +127,18 @@ class ClientHandler:
                 for routing_key in self.routing_keys1:
                     self.worker.send_message(data_send, routing_key, exchange)
         elif type(self.batch_processor) == CreditsProcessor:
-            self.queue_to_send = (
-                self.queue_to_send + 1) % len(self.routing_keys2)
             exchange = self.worker.output_exchange2
-            routing_key = self.routing_keys2[self.queue_to_send]
             if data_send == "EOF":
                 for routing_key in self.routing_keys2:
                     self.worker.send_message(data_send, routing_key, exchange)
+            id = data_send.split("|")[0]
+            hash = int(id) % len(self.routing_keys2)
+            routing_key = self.routing_keys2[hash]
+
+            self.worker.send_message(data_send, routing_key, exchange)
+
+            # for routing_key in self.routing_keys2:
+            #     self.worker.send_message(data_send, routing_key, exchange)
         else:  # RatingsProcessor
             self.queue_to_send = (
                 self.queue_to_send + 1) % len(self.routing_keys3)
