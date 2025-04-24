@@ -118,7 +118,7 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 	}
 	i := 0
 	for message := range msgs {
-		log.Infof("Batch received Number: %d", i)
+		log.Debugf("Batch received Number: %d", i)
 		message := string(message.Body)
 		if message == worker.MESSAGE_EOF {
 			for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {

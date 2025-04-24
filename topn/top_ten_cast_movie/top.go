@@ -93,7 +93,7 @@ func (f *TopTenCastMovie) RunWorker() error {
 	var top_ten []TopTenCastCount
 	i := 0
 	for message := range msgs {
-		log.Infof("Batch received Number: %d", i)
+		log.Debugf("Batch received Number: %d", i)
 		i++
 		message := string(message.Body)
 		if message == worker.MESSAGE_EOF {
