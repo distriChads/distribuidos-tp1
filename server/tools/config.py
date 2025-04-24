@@ -25,14 +25,24 @@ def load_environmental_variables(config: ConfigParser, config_params: dict[str, 
             'LOGGING_LEVEL') or config["DEFAULT"]["LOGGING_LEVEL"]
         config_params["CLI_WORKER_BROKER"] = os.getenv(
             'CLI_WORKER_BROKER') or config["DEFAULT"]["CLI_WORKER_BROKER"]
+
         config_params["CLI_WORKER_EXCHANGE_INPUT_NAME"] = os.getenv(
             'CLI_WORKER_EXCHANGE_INPUT_NAME') or config["DEFAULT"]["CLI_WORKER_EXCHANGE_INPUT_NAME"]
         config_params["CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS"] = os.getenv(
             'CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS') or config["DEFAULT"]["CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS"]
-        config_params["CLI_WORKER_EXCHANGE_OUTPUT_NAME"] = os.getenv(
-            'CLI_WORKER_EXCHANGE_OUTPUT_NAME') or config["DEFAULT"]["CLI_WORKER_EXCHANGE_OUTPUT_NAME"]
-        config_params["CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS"] = os.getenv(
-            'CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS') or config["DEFAULT"]["CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS"]
+
+        config_params["CLI_WORKER_EXCHANGE1_OUTPUT_NAME"] = os.getenv(
+            'CLI_WORKER_EXCHANGE1_OUTPUT_NAME') or config["DEFAULT"]["CLI_WORKER_EXCHANGE1_OUTPUT_NAME"]
+        config_params["CLI_WORKER_EXCHANGE1_OUTPUT_ROUTINGKEYS"] = os.getenv(
+            'CLI_WORKER_EXCHANGE1_OUTPUT_ROUTINGKEYS') or config["DEFAULT"]["CLI_WORKER_EXCHANGE1_OUTPUT_ROUTINGKEYS"]
+        config_params["CLI_WORKER_EXCHANGE2_OUTPUT_NAME"] = os.getenv(
+            'CLI_WORKER_EXCHANGE2_OUTPUT_NAME') or config["DEFAULT"]["CLI_WORKER_EXCHANGE2_OUTPUT_NAME"]
+        config_params["CLI_WORKER_EXCHANGE2_OUTPUT_ROUTINGKEYS"] = os.getenv(
+            'CLI_WORKER_EXCHANGE2_OUTPUT_ROUTINGKEYS') or config["DEFAULT"]["CLI_WORKER_EXCHANGE2_OUTPUT_ROUTINGKEYS"]
+        config_params["CLI_WORKER_EXCHANGE3_OUTPUT_NAME"] = os.getenv(
+            'CLI_WORKER_EXCHANGE3_OUTPUT_NAME') or config["DEFAULT"]["CLI_WORKER_EXCHANGE3_OUTPUT_NAME"]
+        config_params["CLI_WORKER_EXCHANGE3_OUTPUT_ROUTINGKEYS"] = os.getenv(
+            'CLI_WORKER_EXCHANGE3_OUTPUT_ROUTINGKEYS') or config["DEFAULT"]["CLI_WORKER_EXCHANGE3_OUTPUT_ROUTINGKEYS"]
     except KeyError as e:
         raise KeyError(
             "Key was not found. Error: {} .Aborting server".format(e))
