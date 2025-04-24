@@ -11,62 +11,62 @@ services:
     logging:
       driver: none
 
-  # filter-after-2000:
-  #   build:
-  #     context: .
-  #     dockerfile: filters/filter_after_2000/Dockerfile
-  #   container_name: filter-after-2000
-  #   image: filter-after-2000:latest
-  #   environment:
-  #     - CLI_LOG_LEVEL=info
-  #     - CLI_WORKER_EXCHANGE_INPUT_NAME=query_exchange
-  #     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=filter.argentina.output
-  #     - CLI_WORKER_EXCHANGE_OUTPUT_NAME=query_exchange
-  #     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=filter.after-2000.output
-  #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-  #   entrypoint: ./run_worker
-  #   networks:
-  #     - movies_net
-  #   depends_on:
-  #     - rabbitmq
+  filter-argentina:
+    build:
+      context: .
+      dockerfile: filters/filter_argentina/Dockerfile
+    container_name: filter-argentina
+    image: filter-argentina:latest
+    environment:
+      - CLI_LOG_LEVEL=info
+      - CLI_WORKER_EXCHANGE_INPUT_NAME=first_layer_exchange
+      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.filter_argentina.input
+      - CLI_WORKER_EXCHANGE_OUTPUT_NAME=movies_filtered_by_argentina_exchange
+      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=filter.made_after_2000.input,filter.spain_2000.input
+      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    entrypoint: ./run_worker
+    networks:
+      - movies_net
+    depends_on:
+      - rabbitmq
 
-  # filter-argentina:
-  #   build:
-  #     context: .
-  #     dockerfile: filters/filter_argentina/Dockerfile
-  #   container_name: filter-argentina
-  #   image: filter-argentina:latest
-  #   environment:
-  #     - CLI_LOG_LEVEL=info
-  #     - CLI_WORKER_EXCHANGE_INPUT_NAME=query_exchange
-  #     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.input
-  #     - CLI_WORKER_EXCHANGE_OUTPUT_NAME=query_exchange
-  #     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=filter.argentina.output
-  #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-  #   entrypoint: ./run_worker
-  #   networks:
-  #     - movies_net
-  #   depends_on:
-  #     - rabbitmq
+  filter-after-2000:
+    build:
+      context: .
+      dockerfile: filters/filter_after_2000/Dockerfile
+    container_name: filter-after-2000
+    image: filter-after-2000:latest
+    environment:
+      - CLI_LOG_LEVEL=info
+      - CLI_WORKER_EXCHANGE_INPUT_NAME=movies_filtered_by_argentina_exchange
+      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=filter.made_after_2000.input
+      - CLI_WORKER_EXCHANGE_OUTPUT_NAME=movies_filtered_by_arg_and_2000_exchange
+      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join_movie_credits.movies.input,join_movie_ratings.movies.input
+      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    entrypoint: ./run_worker
+    networks:
+      - movies_net
+    depends_on:
+      - rabbitmq
 
-  # filter-spain-2000:
-  #   build:
-  #     context: .
-  #     dockerfile: filters/filter_spain_2000/Dockerfile
-  #   container_name: filter-spain-2000
-  #   image: filter-spain-2000:latest
-  #   environment:
-  #     - CLI_LOG_LEVEL=info
-  #     - CLI_WORKER_EXCHANGE_INPUT_NAME=query_exchange
-  #     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=filter.argentina.output
-  #     - CLI_WORKER_EXCHANGE_OUTPUT_NAME=query_exchange
-  #     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=filter.spain-2000.output
-  #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-  #   entrypoint: ./run_worker
-  #   networks:
-  #     - movies_net
-  #   depends_on:
-  #     - rabbitmq
+  filter-spain-2000:
+    build:
+      context: .
+      dockerfile: filters/filter_spain_2000/Dockerfile
+    container_name: filter-spain-2000
+    image: filter-spain-2000:latest
+    environment:
+      - CLI_LOG_LEVEL=info
+      - CLI_WORKER_EXCHANGE_INPUT_NAME=movies_filtered_by_argentina_exchange
+      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.spain_2000.input
+      - CLI_WORKER_EXCHANGE_OUTPUT_NAME=results_exchange
+      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query1_partial_results.input
+      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    entrypoint: ./run_worker
+    networks:
+      - movies_net
+    depends_on:
+      - rabbitmq
 
   # filter-only-one-country:
   #   build:
@@ -189,27 +189,27 @@ services:
   #   depends_on:
   #     - rabbitmq
 
-  join_movie_credits:
-    build:
-      context: .
-      dockerfile: joins/join_movie_credits/Dockerfile
-    volumes:
-      - ./joins/join_movie_credits/main/config.yaml:/config.yaml
-    container_name: join_movie_credits
-    image: join_movie_credits:latest
-    environment:
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_NAME=query_exchange
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=filter.after-2000.output
-      - CLI_WORKER_EXCHANGE_OUTPUT_NAME=query_exchange
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join.movie-credits.output
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_WORKER_MAXMESSAGES=10
-    entrypoint: ./run_worker
-    networks:
-      - movies_net
-    depends_on:
-      - rabbitmq
+  # join_movie_credits:
+  #   build:
+  #     context: .
+  #     dockerfile: joins/join_movie_credits/Dockerfile
+  #   volumes:
+  #     - ./joins/join_movie_credits/main/config.yaml:/config.yaml
+  #   container_name: join_movie_credits
+  #   image: join_movie_credits:latest
+  #   environment:
+  #     - CLI_LOG_LEVEL=info
+  #     - CLI_WORKER_EXCHANGE_INPUT_NAME=query_exchange
+  #     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=filter.after-2000.output
+  #     - CLI_WORKER_EXCHANGE_OUTPUT_NAME=query_exchange
+  #     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join.movie-credits.output
+  #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+  #     - CLI_WORKER_MAXMESSAGES=10
+  #   entrypoint: ./run_worker
+  #   networks:
+  #     - movies_net
+  #   depends_on:
+  #     - rabbitmq
 
   # join_movie_ratings:
   #   build:
@@ -292,30 +292,30 @@ services:
   #   depends_on:
   #     - rabbitmq
 
-  # server:
-  #   build:
-  #     context: .
-  #     dockerfile: server/Dockerfile
-  #   environment:
-  #     - SERVER_PORT=3000
-  #     - SERVER_LISTEN_BACKLOG=1
-  #     - LOGGING_LEVEL=INFO
-  #     - RABBITMQ_HOST=rabbitmq
-  #     - QUEUES_SEND=movies,credits,ratings
-  #     - QUEUE_RECEIVE=query_exchange
-  #     - WORKER_BROKER=rabbitmq
-  #     - EXCHANGE_NAME=query_exchange
-  #   container_name: server
-  #   image: server:latest
-  #   entrypoint: python main.py
-  #   networks:
-  #     - movies_net
-  #   ports:
-  #     - 3000:3000
-  #   depends_on:
-  #     - rabbitmq
-  #   logging:
-  #     driver: none
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    environment:
+      - CLI_LOG_LEVEL=info
+      - SERVER_PORT=3000
+      - SERVER_LISTEN_BACKLOG=1
+      - CLI_WORKER_EXCHANGE_INPUT_NAME=query_exchange
+      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=groupby.actor.output
+      - CLI_WORKER_EXCHANGE_OUTPUT_NAME=first_layer_exchange
+      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.filter_argentina.input,movies.filter_only_one_country.input,movies.machine_learning.input,credits.input,ratings.input
+      - CLI_WORKER_BROKER=rabbitmq
+    container_name: server
+    image: server:latest
+    entrypoint: python main.py
+    networks:
+      - movies_net
+    ports:
+      - 3000:3000
+    depends_on:
+      - rabbitmq
+    logging:
+      driver: none
 
 networks:
   movies_net:

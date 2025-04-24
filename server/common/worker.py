@@ -1,150 +1,143 @@
-import time
 import pika
+import time
 import logging
+from contextlib import contextmanager
 
-from typing import Callable
-import pika.adapters.blocking_connection
-import pika.exceptions
+MESSAGE_SEPARATOR = "|"
+MESSAGE_ARRAY_SEPARATOR = ","
+MESSAGE_EOF = "EOF"
 
-
-class RabbitWorker:
-    def __init__(self,
-                 rabbitmq_host: str,
-                 queues_send: set[str],
-                 queue_callbacks: dict[str, Callable[[str], None]],
-                 exchange_name: str
-        ):
-        self.rabbitmq_host = rabbitmq_host
-        self._sender = Sender(rabbitmq_host, queues_send, exchange_name, "server_sender_queue")
-        self._receiver = Receiver(rabbitmq_host, queue_callbacks, exchange_name, "server_receiver_queue")
-        
-    def start_listening(self):
-        try:
-            self._receiver.run()
-            logging.info(
-                f"Worker started, listening on queue: {self._receiver.routings}")
-        except Exception as e:
-            logging.critical(f"Failed worker: {e}")
-            self._sender.close()
-            self._receiver.close()
-
-    def close(self):
-        self._sender.close()
-        self._receiver.close()
-
-    def send_message_to(self, exchange_name: str, routing_key: str, message: str):
-        try:
-            self._sender.send_to(exchange_name, routing_key, message)
-        except Exception as e:
-            logging.error(f"Failed to send message: {e}")
-            raise
+log = logging.getLogger("worker")
+logging.basicConfig(level=logging.INFO)
 
 
-class RabbitClient:
-    def __init__(self, rabbitmq_host: str, routings: set[str], exchange_name: str, queue_name: str):
-        self.rabbitmq_host = rabbitmq_host
-        self.routings = routings
-        self.exchange_name = exchange_name
+class ExchangeSpec:
+    def __init__(self, name, routing_keys, queue_name):
+        self.name = name
+        self.routing_keys = routing_keys
         self.queue_name = queue_name
-        self.connection: pika.BlockingConnection | None = None
-        self.channel: pika.adapters.blocking_connection.BlockingChannel | None = None
 
-        self.__connect()
 
-    def __connect(self):
-        for _ in range(5):
+class WorkerConfig:
+    def __init__(self, input_exchange, output_exchange, message_broker):
+        self.input_exchange = input_exchange
+        self.output_exchange = output_exchange
+        self.message_broker = message_broker
+
+
+class Sender:
+    def __init__(self, conn, ch):
+        self.conn = conn
+        self.ch = ch
+
+
+class Receiver:
+    def __init__(self, conn, ch, queue, messages):
+        self.conn = conn
+        self.ch = ch
+        self.queue = queue
+        self.messages = messages
+
+
+class Worker:
+    def __init__(self, config: WorkerConfig):
+        self.input_exchange = config.input_exchange
+        self.output_exchange = config.output_exchange
+        self.message_broker = config.message_broker
+        self.sender = None
+        self.receiver = None
+
+    def _init_connection(self):
+        max_retries = 3
+        retry_sleep = 10
+        backoff_factor = 2
+
+        for i in range(max_retries):
             try:
-                self.connection = pika.BlockingConnection(
-                    pika.ConnectionParameters(host=self.rabbitmq_host))
-                self.channel = self.connection.channel()
-                if not self.channel:
-                    raise Exception("Failed to create channel for RabbitMQ")
-                for route in self.routings:
-                    # TODO: change to durable=True for persistent messages
-                    result = self.channel.queue_declare(
-                        queue=self.queue_name,
-                        durable=False,
-                        auto_delete=True,
-                        exclusive=True,
-                        arguments=None
-                    )
-                    q_name = result.method.queue
-                    self.channel.exchange_declare(
-                        exchange=self.exchange_name,
-                        exchange_type="topic",
-                        durable=False,
-                        auto_delete=True,
-                        internal=False,
-                        arguments=None
-                    )
-                    self.channel.queue_bind(
-                        queue=q_name, exchange=self.exchange_name, routing_key=f"{route}.input"
-                    )
-                logging.info("Connected to RabbitMQ")
-                return
-            except pika.exceptions.AMQPConnectionError as e:
-                logging.info("Waiting for RabbitMQ to start...")
-                time.sleep(3)
+                conn = pika.BlockingConnection(
+                    pika.URLParameters(self.message_broker))
+                return conn
             except Exception as e:
-                logging.error(
-                    f"Failed to connect RabbitClient to RabbitMQ: {e}")
-                raise
-        raise Exception("Failed to connect to RabbitMQ after 5 attempts")
+                log.warning(
+                    f"Failed to connect to broker on attempt {i+1}: {e}")
+                if i < max_retries - 1:
+                    time.sleep(i * backoff_factor + retry_sleep)
+        log.error("Failed to connect to broker")
+        raise ConnectionError("Failed to connect to broker")
 
-    def close(self):
-        if self.connection:
-            self.connection.close()
+    def init_sender(self):
+        conn = self._init_connection()
+        ch = conn.channel()
 
+        ch.exchange_declare(
+            exchange=self.output_exchange.name,
+            exchange_type='topic',
+            durable=False,
+            auto_delete=True
+        )
 
-class Sender(RabbitClient):
-    def send_to(self, exchange_name: str, routing_key: str, message: str):
-        if routing_key not in self.routings:
-            raise Exception(
-                f"Exchange {exchange_name} is not in the sender's exchanges: {self.routings}")
-        if not self.connection or not self.channel:
-            raise Exception("Sender is not connected to RabbitMQ")
-        try:
-            self.channel.basic_publish(
-                exchange=exchange_name,
-                routing_key=f"{routing_key}.input",
-                body=message,
-                # TODO: change to durable=True for persistent messages
-                # properties=pika.BasicProperties(
-                #     delivery_mode=2,  # make message persistent
-                # )
+        self.sender = Sender(conn, ch)
+        log.info("Sender initialized")
+
+    def init_receiver(self):
+        self.receiver = self._init_generic_receiver(self.input_exchange)
+        log.info("Receiver initialized")
+
+    def _init_generic_receiver(self, exchange_spec):
+        conn = self._init_connection()
+        ch = conn.channel()
+
+        ch.exchange_declare(
+            exchange=exchange_spec.name,
+            exchange_type='topic',
+            durable=False,
+            auto_delete=True
+        )
+
+        result = ch.queue_declare(
+            queue=exchange_spec.queue_name, exclusive=True, auto_delete=True)
+        queue_name = result.method.queue
+
+        for routing_key in exchange_spec.routing_keys:
+            ch.queue_bind(
+                exchange=exchange_spec.name,
+                queue=queue_name,
+                routing_key=routing_key
             )
-            logging.debug(f"Sent message from Sender to RabbitMQ: {message}")
-        except Exception as e:
-            logging.error(f"Failed to send message: {e}")
-            raise
 
+        messages = ch.consume(queue=queue_name, auto_ack=True)
+        return Receiver(conn, ch, queue_name, messages)
 
-class Receiver(RabbitClient):
-    def __init__(self,
-                 rabbitmq_host: str,
-                 queue_callbacks: dict[str, Callable[[str], None]],
-                 exchange_name: str,
-                 queue_name: str):
-        # dict[queue_name] = callback
-        self._queue_callbacks: dict[str,
-                                    Callable[[str], None]] = queue_callbacks
-        queues_name = set(queue_callbacks.keys())
-        super().__init__(rabbitmq_host, queues_name, exchange_name, queue_name)
+    def send_message(self, message, routing_key):
+        if not self.sender:
+            raise Exception("Sender not initialized")
 
-    def run(self):
-        queue_name = self.routings.pop()
-        if not self.connection or not self.channel:
-            raise Exception("Receiver is not connected to RabbitMQ")
-        try:
-            for queue_name, callback in self._queue_callbacks.items():
-                self.channel.basic_consume(
-                    queue=queue_name,
-                    on_message_callback=callback,
-                    auto_ack=True  # TODO: change to False for manual ack
-                )
-            logging.info(
-                f"Waiting for messages in {self.routings}. To exit press CTRL+C")
-            self.channel.start_consuming()
-        except Exception as e:
-            logging.error(f"Failed to run Receiver: {e}")
-            raise
+        self.sender.ch.basic_publish(
+            exchange=self.output_exchange.name,
+            routing_key=routing_key,
+            body=message,
+            properties=pika.BasicProperties(content_type="text/plain")
+        )
+        log.debug(f"Sent message to exchange {self.output_exchange.name} "
+                  f"(routing key: {routing_key}): {message}")
+
+    def received_messages(self):
+        if not self.receiver:
+            raise Exception("Receiver not initialized")
+        return self.receiver.messages
+
+    def close_worker(self):
+        self._close_sender()
+        self._close_receiver()
+
+    def _close_sender(self):
+        if self.sender:
+            self.sender.ch.close()
+            self.sender.conn.close()
+            self.sender = None
+
+    def _close_receiver(self):
+        if self.receiver:
+            self.receiver.ch.close()
+            self.receiver.conn.close()
+            self.receiver = None
