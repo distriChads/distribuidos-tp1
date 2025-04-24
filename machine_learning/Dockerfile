@@ -9,7 +9,8 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY ./machine_learning ./app
+# install dependencies before copying the code to avoid reinstalling
+COPY ./machine_learning/requirements.txt ./app/requirements.txt
 WORKDIR /app
 
 ENV PYTHONPATH=/app
@@ -17,5 +18,8 @@ ENV PYTHONUNBUFFERED=1
 
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
+
+# copy the code
+COPY ./machine_learning ./app
 
 ENTRYPOINT ["python3", "main.py"]
