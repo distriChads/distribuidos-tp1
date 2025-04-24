@@ -26,11 +26,10 @@ type JoinMovieRatingById struct {
 const ID = 0
 const SCORE = 1
 
-func storeMovieWithId(lines []string, movies_by_id map[string]string) {
-	for _, line := range lines {
-		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
-		movies_by_id[parts[ID]] = line
-	}
+func storeMovieWithId(line string, movies_by_id map[string]string) {
+	parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+	movies_by_id[parts[ID]] = line
+
 }
 
 // ---------------------------------
@@ -96,8 +95,8 @@ func (f *JoinMovieRatingById) RunWorker() error {
 			}
 		}
 		messages_before_commit += 1
-		lines := strings.Split(strings.TrimSpace(message), "\n")
-		storeMovieWithId(lines, movies_by_id)
+		line := strings.TrimSpace(message)
+		storeMovieWithId(line, movies_by_id) // ahora el filtro after 2000 envia de a una sola linea, por lo tanto puedo hacer esto
 		if messages_before_commit >= f.messages_before_commit {
 			storeGroupedElements(movies_by_id)
 			messages_before_commit = 0
