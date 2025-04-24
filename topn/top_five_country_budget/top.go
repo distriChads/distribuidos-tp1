@@ -97,6 +97,7 @@ func (f *TopFiveCountryBudget) RunWorker() error {
 		top_five = updateTopFive(lines, top_five)
 	}
 	message_to_send := mapToLines(top_five)
+	log.Infof("Top 5 countries by budget: %s", message_to_send)
 	send_queue_key := f.Worker.OutputExchange.RoutingKeys[0] // los topN son nodos unicos, y solo le envian al server
 	err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
 	if err != nil {
