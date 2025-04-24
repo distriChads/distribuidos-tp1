@@ -35,6 +35,7 @@ func InitConfig() (*viper.Viper, error) {
 	v.BindEnv("worker", "exchange", "output", "routingkeys")
 	v.BindEnv("worker", "broker")
 	v.BindEnv("worker", "maxmessages")
+	v.BindEnv("worker", "expectedeof")
 	// Try to read configuration from config file. If config file
 	// does not exists then ReadInConfig will fail but configuration
 	// can be loaded from the environment variables so we shouldn't

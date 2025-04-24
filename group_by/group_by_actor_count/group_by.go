@@ -85,13 +85,13 @@ func (f *GroupByActorAndCount) RunWorker() error {
 		}
 	}
 
-	// TODO: Enviar a una cola de un agrupador "maestro" que haga la ultima agrupacion y este se lo envie al proximo chavoncito
 	message_to_send := mapToLines(grouped_elements)
-	err = worker.SendMessage(f.Worker, message_to_send)
+	send_queue_key := f.Worker.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
+	err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
 	if err != nil {
 		log.Infof("Error sending message: %s", err.Error())
 	}
-	err = worker.SendMessage(f.Worker, worker.MESSAGE_EOF)
+	err = worker.SendMessage(f.Worker, worker.MESSAGE_EOF, send_queue_key)
 	if err != nil {
 		log.Infof("Error sending message: %s", err.Error())
 	}

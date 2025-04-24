@@ -1,4 +1,4 @@
-package group_by_movie_avg
+package master_group_by_country_sum
 
 import (
 	worker "distribuidos-tp1/common/worker/worker"
@@ -9,64 +9,43 @@ import (
 	"github.com/op/go-logging"
 )
 
-type GroupByOverviewAndAvgConfig struct {
+var log = logging.MustGetLogger("master_group_by_country_sum")
+
+type MasterGroupByCountryAndSumConfig struct {
 	worker.WorkerConfig
 }
 
-var log = logging.MustGetLogger("group_by_movie_average")
-
-type GroupByOverviewAndAvg struct {
+type MasterGroupByCountryAndSum struct {
 	worker.Worker
 	messages_before_commit int
-}
-
-type RevenueBudgetCount struct {
-	count   int
-	revenue float64
-	budget  float64
+	expected_eof           int
 }
 
 // ---------------------------------
-// MESSAGE FORMAT: OVERVIEW|BUDGET|REVENUE
+// MESSAGE FORMAT: COUNTRY|BUDGET
 // ---------------------------------
-const OVERVIEW = 0
+const COUNTRY = 0
 const BUDGET = 1
-const REVENUE = 2
 
-func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]RevenueBudgetCount) {
+func groupByCountryAndSum(lines []string, grouped_elements map[string]int) {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
-		budget, err := strconv.ParseFloat(parts[BUDGET], 64)
+		budget, err := strconv.Atoi(parts[BUDGET])
 		if err != nil {
 			continue
 		}
-		revenue, err := strconv.ParseFloat(parts[REVENUE], 64)
-		if err != nil {
-			continue
-		}
-
-		current := grouped_elements[parts[OVERVIEW]]
-		current.budget += budget
-		current.revenue += revenue
-		current.count += 1
-		grouped_elements[parts[OVERVIEW]] = current
-
+		grouped_elements[parts[COUNTRY]] += budget
 	}
 }
 
-func storeGroupedElements(results map[string]RevenueBudgetCount) {
+func storeGroupedElements(results map[string]int) {
 	// TODO: Dumpear el hashmap a un archivo
 }
 
-func mapToLines(grouped_elements map[string]RevenueBudgetCount) string {
+func mapToLines(grouped_elements map[string]int) string {
 	var lines []string
-	for overview, value := range grouped_elements {
-		result := 0.0
-		if value.budget > 0 {
-			result = value.revenue / value.budget
-		}
-		average := result / float64(value.count)
-		line := fmt.Sprintf("%s%s%f", overview, worker.MESSAGE_SEPARATOR, average)
+	for country, budget := range grouped_elements {
+		line := fmt.Sprintf("%s%s%d", country, worker.MESSAGE_SEPARATOR, budget)
 		lines = append(lines, line)
 	}
 	return strings.Join(lines, "\n")
@@ -77,20 +56,21 @@ func getGroupedElements() map[string]int {
 	return nil
 }
 
-func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_before_commit int) *GroupByOverviewAndAvg {
-	log.Infof("GroupByOverviewAndAvg: %+v", config)
-	return &GroupByOverviewAndAvg{
+func NewGroupByCountryAndSum(config MasterGroupByCountryAndSumConfig, messages_before_commit int, expected_eof int) *MasterGroupByCountryAndSum {
+	log.Infof("MasterGroupByCountryAndSum: %+v", config)
+	return &MasterGroupByCountryAndSum{
 		Worker: worker.Worker{
 			InputExchange:  config.InputExchange,
 			OutputExchange: config.OutputExchange,
 			MessageBroker:  config.MessageBroker,
 		},
 		messages_before_commit: messages_before_commit,
+		expected_eof:           expected_eof,
 	}
 }
 
-func (f *GroupByOverviewAndAvg) RunWorker() error {
-	log.Info("Starting GroupByOverviewAndAvg worker")
+func (f *MasterGroupByCountryAndSum) RunWorker() error {
+	log.Info("Starting MasterGroupByCountryAndSum worker")
 	worker.InitSender(&f.Worker)
 	worker.InitReceiver(&f.Worker)
 
@@ -100,15 +80,19 @@ func (f *GroupByOverviewAndAvg) RunWorker() error {
 		return err
 	}
 	messages_before_commit := 0
-	grouped_elements := make(map[string]RevenueBudgetCount)
+	grouped_elements := make(map[string]int)
+	eof_counter := 0
 	for message := range msgs {
 		message := string(message.Body)
 		if message == worker.MESSAGE_EOF {
-			break
+			eof_counter++
+			if eof_counter == f.expected_eof {
+				break
+			}
 		}
 		messages_before_commit += 1
 		lines := strings.Split(strings.TrimSpace(message), "\n")
-		groupByOverviewAndUpdate(lines, grouped_elements)
+		groupByCountryAndSum(lines, grouped_elements)
 		if messages_before_commit >= f.messages_before_commit {
 			storeGroupedElements(grouped_elements)
 			messages_before_commit = 0
