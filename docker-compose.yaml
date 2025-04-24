@@ -51,7 +51,7 @@ services:
       - CLI_WORKER_EXCHANGE_INPUT_NAME=first_layer_exchange
       - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.first.input
       - CLI_WORKER_EXCHANGE_OUTPUT_NAME=movies_filtered_by_argentina_exchange
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=filter.made_after_2000.input,movies.spain_2000.input
+      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=filter.made_after_2000.input
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLI_WORKER_EXPECTEDEOF=1
     entrypoint: ./run_worker
@@ -303,7 +303,7 @@ services:
       - CLI_LOG_LEVEL=info
       - CLI_WORKER_EXCHANGE_INPUT_NAME=first_layer_exchange
       - CLI_WORKER_EXCHANGE_SECONDINPUT_NAME=query4_exchange
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.first.input
+      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=join_movies.input
       - CLI_WORKER_EXCHANGE_SECONDINPUT_ROUTINGKEYS=credits.input
       - CLI_WORKER_EXCHANGE_OUTPUT_NAME=join-group_by
       - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=group_by_actor_count.input
