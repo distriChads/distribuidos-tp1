@@ -47,11 +47,13 @@ class ClientHandler:
         except Exception as e:
             logging.error(f"Error initializing worker: {e}")
             return e
-        threading.Thread(target=self.__send_result_to_client).start()
+        result_thread = threading.Thread(target=self.__send_result_to_client)
+        result_thread.start()
         while self._running:
             client_socket = self.__accept_new_connection()
             self._client_socket = Socket(client_socket)
             self.__receive_datasets()
+        result_thread.join()
 
     def __receive_datasets(self):
         for i in range(FILES_TO_RECEIVE):
@@ -132,8 +134,9 @@ class ClientHandler:
         logging.info(
             f"Waiting message from Exchange {self.worker.input_exchange.name} - {self.worker.input_exchange.routing_keys}")
         for _method_frame, _properties, result_encoded in self.worker.received_messages():
-            logging.info("Received result from worker: %s", result_encoded)
-            self._client_socket.send(result_encoded)
+            result = result_encoded.decode('utf-8')
+            logging.info("Received result from worker: %s", result)
+            self._client_socket.send(result)
 
     def __accept_new_connection(self):
         logging.info('action: accept_connections | result: in_progress')
