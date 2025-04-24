@@ -89,8 +89,8 @@ class ClientHandler:
                     self.batch_processor.process_batch(
                         bytes_received, chunck_received)
 
-                    if j > 0:
-                        sys.stdout.write("\033[F" * 2)
+                    # if j > 0:
+                    #     sys.stdout.write("\033[F" * 2)
                     percent_bytes_received = (
                         self.batch_processor.bytes_read / self.batch_processor.read_until) * 100
                     percent_bytes_received = f"{percent_bytes_received:05.2f}"

@@ -23,6 +23,7 @@ def main():
     )
 
     input_routing_keys = config["CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS"]
+    input_routing_keys = input_routing_keys.split(",")
     output_routing_keys1 = config["CLI_WORKER_EXCHANGE1_OUTPUT_ROUTINGKEYS"]
     output_routing_keys2 = config["CLI_WORKER_EXCHANGE2_OUTPUT_ROUTINGKEYS"]
     output_routing_keys3 = config["CLI_WORKER_EXCHANGE3_OUTPUT_ROUTINGKEYS"]
