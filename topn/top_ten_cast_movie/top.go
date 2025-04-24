@@ -100,7 +100,8 @@ func (f *TopTenCastMovie) RunWorker() error {
 		top_ten = updateTopTen(lines, top_ten)
 	}
 	message_to_send := mapToLines(top_ten)
-	err = worker.SendMessage(f.Worker, message_to_send)
+	send_queue_key := f.Worker.OutputExchange.RoutingKeys[0] // los topN son nodos unicos, y solo le envian al server
+	err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
 	if err != nil {
 		log.Infof("Error sending message: %s", err.Error())
 	}
