@@ -47,11 +47,12 @@ class MachineLearning:
 
         try:
             for method_frame, properties, body in self.worker.received_messages():
-                print(f"Received message: {body}")
                 message = body.decode("utf-8")
+                log.info(f"Received message: {message}")
                 if message == MESSAGE_EOF:
                     try:
-                        self.worker.send_message(MESSAGE_EOF)
+                        for routing_key in self.output_routing_keys:
+                            self.worker.send_message(MESSAGE_EOF, routing_key)
                     except Exception as e:
                         log.warning(f"Error sending EOF: {e}")
                     break
@@ -61,8 +62,8 @@ class MachineLearning:
                     message = self.__receive_message(line)
                     messages.append(message)
                 message_to_send = "\n".join(messages)
-                self.worker.send_message(
-                    message_to_send, self.output_routing_keys[self.queue_to_send])
+                routing_queue = self.output_routing_keys[self.queue_to_send]
+                self.worker.send_message(message_to_send, routing_queue)
                 self.queue_to_send = (
                     self.queue_to_send + 1) % len(self.output_routing_keys)
         except Exception as e:

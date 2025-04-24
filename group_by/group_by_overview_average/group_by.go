@@ -103,8 +103,11 @@ func (f *GroupByOverviewAndAvg) RunWorker() error {
 	}
 	messages_before_commit := 0
 	grouped_elements := make(map[string]RevenueBudgetCount)
+	i := 0
 	for message := range msgs {
 		message := string(message.Body)
+		i++
+		log.Infof("Received batch Number %d", i)
 		if message == worker.MESSAGE_EOF {
 			f.eof_counter--
 			if f.eof_counter <= 0 {
@@ -121,6 +124,7 @@ func (f *GroupByOverviewAndAvg) RunWorker() error {
 		}
 	}
 	message_to_send := mapToLines(grouped_elements)
+	log.Info("Finished GroupByOverviewAndAvg worker with message: ", message_to_send)
 	send_queue_key := f.Worker.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
 	err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
 	if err != nil {
