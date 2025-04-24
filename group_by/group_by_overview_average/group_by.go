@@ -105,10 +105,10 @@ func (f *GroupByOverviewAndAvg) RunWorker() error {
 	grouped_elements := make(map[string]RevenueBudgetCount)
 	i := 0
 	for message := range msgs {
-		message := string(message.Body)
+		message_str := string(message.Body)
 		i++
-		log.Infof("Received batch Number %d with message: %s", i, message)
-		if message == worker.MESSAGE_EOF {
+		log.Infof("Received batch Number %d with message: %s", i, message_str)
+		if message_str == worker.MESSAGE_EOF {
 			f.eof_counter--
 			if f.eof_counter <= 0 {
 				break
@@ -116,12 +116,13 @@ func (f *GroupByOverviewAndAvg) RunWorker() error {
 			continue
 		}
 		messages_before_commit += 1
-		lines := strings.Split(strings.TrimSpace(message), "\n")
+		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		groupByOverviewAndUpdate(lines, grouped_elements)
 		if messages_before_commit >= f.messages_before_commit {
 			storeGroupedElements(grouped_elements)
 			messages_before_commit = 0
 		}
+		message.Ack(false)
 	}
 	message_to_send := mapToLines(grouped_elements)
 	log.Info("Finished GroupByOverviewAndAvg worker with message: ", message_to_send)

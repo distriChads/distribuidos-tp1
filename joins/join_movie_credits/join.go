@@ -94,8 +94,8 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 	messages_before_commit := 0
 	movies_by_id := make(map[string]bool)
 	for message := range msgs {
-		message := string(message.Body)
-		if message == worker.MESSAGE_EOF {
+		message_str := string(message.Body)
+		if message_str == worker.MESSAGE_EOF {
 			f.eof_counter--
 			if f.eof_counter <= 0 {
 				break
@@ -103,12 +103,13 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 			continue
 		}
 		messages_before_commit += 1
-		line := strings.TrimSpace(message)
+		line := strings.TrimSpace(message_str)
 		storeMovieWithId(line, movies_by_id) // ahora el filtro after 2000 envia de a una sola linea, por lo tanto puedo hacer esto
 		if messages_before_commit >= f.messages_before_commit {
 			storeGroupedElements(movies_by_id)
 			messages_before_commit = 0
 		}
+		message.Ack(false)
 	}
 
 	msgs, err = worker.SecondReceivedMessages(f.Worker)
@@ -119,8 +120,8 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 	i := 0
 	for message := range msgs {
 		log.Debugf("Batch received Number: %d", i)
-		message := string(message.Body)
-		if message == worker.MESSAGE_EOF {
+		message_str := string(message.Body)
+		if message_str == worker.MESSAGE_EOF {
 			for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
 				err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF, queue_name)
 				if err != nil {
@@ -129,7 +130,7 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 			}
 			break
 		}
-		lines := strings.Split(strings.TrimSpace(message), "\n")
+		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		result := joinMovieWithCredits(lines, movies_by_id)
 		message_to_send := strings.Join(result, "\n")
 		if len(message_to_send) != 0 {
@@ -140,6 +141,7 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 				log.Infof("Error sending message: %s", err.Error())
 			}
 		}
+		message.Ack(false)
 	}
 
 	return nil

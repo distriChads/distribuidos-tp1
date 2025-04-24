@@ -89,12 +89,13 @@ func (f *TopFiveCountryBudget) RunWorker() error {
 	}
 	var top_five []TopFiveCountrByBudget
 	for message := range msgs {
-		message := string(message.Body)
-		if message == worker.MESSAGE_EOF {
+		message_str := string(message.Body)
+		if message_str == worker.MESSAGE_EOF {
 			break
 		}
-		lines := strings.Split(strings.TrimSpace(message), "\n")
+		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		top_five = updateTopFive(lines, top_five)
+		message.Ack(false)
 	}
 	message_to_send := mapToLines(top_five)
 	log.Infof("Top 5 countries by budget: %s", message_to_send)

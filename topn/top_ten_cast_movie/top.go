@@ -95,12 +95,13 @@ func (f *TopTenCastMovie) RunWorker() error {
 	for message := range msgs {
 		log.Debugf("Batch received Number: %d", i)
 		i++
-		message := string(message.Body)
-		if message == worker.MESSAGE_EOF {
+		message_str := string(message.Body)
+		if message_str == worker.MESSAGE_EOF {
 			break
 		}
-		lines := strings.Split(strings.TrimSpace(message), "\n")
+		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		top_ten = updateTopTen(lines, top_ten)
+		message.Ack(false)
 	}
 	message_to_send := mapToLines(top_ten)
 	log.Infof("Top 10 actors by movie: %s", message_to_send)

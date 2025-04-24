@@ -84,8 +84,8 @@ func (f *MasterGroupByActorAndCount) RunWorker() error {
 	grouped_elements := make(map[string]int)
 	eof_counter := 0
 	for message := range msgs {
-		message := string(message.Body)
-		if message == worker.MESSAGE_EOF {
+		message_str := string(message.Body)
+		if message_str == worker.MESSAGE_EOF {
 			eof_counter++
 			if eof_counter == f.expected_eof {
 				break
@@ -93,12 +93,13 @@ func (f *MasterGroupByActorAndCount) RunWorker() error {
 			continue
 		}
 		messages_before_commit += 1
-		lines := strings.Split(strings.TrimSpace(message), "\n")
+		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		groupByActorAndUpdate(lines, grouped_elements)
 		if messages_before_commit >= f.messages_before_commit {
 			storeGroupedElements(grouped_elements)
 			messages_before_commit = 0
 		}
+		message.Ack(false)
 	}
 
 	message_to_send := mapToLines(grouped_elements)
