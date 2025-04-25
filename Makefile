@@ -28,8 +28,11 @@ server:
 machine_learning:
 	clear; PYTHONPATH=. python3 ./machine_learning/main.py
 
+generate_compose:
+	clear ; python3 scripts/generate_compose.py -o docker-compose.yaml
+
 run_docker:
-	clear; docker-compose up --build
+	clear; docker compose up --build
 
 stop_docker:
 	clear; docker-compose down
