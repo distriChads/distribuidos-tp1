@@ -1,0 +1,275 @@
+{
+    "name": "tp1",
+    "services": [
+        {
+            "name": "server",
+            "replicas": 1,
+            "movies_exchange_name": "movies_exchange",
+            "credits_exchange_name": "credits_exchange",
+            "ratings_exchange_name": "ratings_exchange",
+            "results_exchange_name": "results_exchange",
+            "results_exchange_routing_keys": ["*.results"]
+        },
+        {
+            "name": "filter-argentina",
+            "replicas": 1,
+            "log_level": "info",
+            "input": {
+                "from": "movies",
+                "type": "seq"
+            },
+            "output": {
+                "exchange_name": "movies_filtered_by_argentina_exchange",
+                "routing_key": "movies.argentina.output%d",
+                "type": "all",
+                "replicas": "filter-argentina"
+            }
+        },
+        {
+            "name": "filter-spain-2000",
+            "replicas": 1,
+            "log_level": "info",
+            "input": {
+                "from": "filter-argentina",
+                "type": "seq"
+            },
+            "output": {
+                "exchange_name": "results_exchange",
+                "routing_key": "query1.results",
+                "type": "unique"
+            }
+        },
+        {
+            "name": "filter-only-one-country",
+            "replicas": 1,
+            "log_level": "info",
+            "input": {
+                "from": "movies",
+                "type": "seq"
+            },
+            "output": {
+                "exchange_name": "one_country_groupby_sum_exchange",
+                "routing_key": "movies.groupby.country-sum.input%d",
+                "type": "all"
+            }
+        },
+        {
+            "name": "group-by-country-sum",
+            "replicas": 1,
+            "log_level": "info",
+            "input": {
+                "from": "filter-only-one-country",
+                "type": "seq"
+            },
+            "output": {
+                "exchange_name": "master_groupby_exchange",
+                "routing_key": "master.country-sum.input",
+                "type": "unique"
+            }
+        },
+        {
+            "name": "master-group-by-country-sum",
+            "replicas": 1,
+            "log_level": "info",
+            "input": {
+                "from": "group-by-country-sum",
+                "type": "all"
+            },
+            "output": {
+                "exchange_name": "master_groupby_exchange",
+                "routing_key": "master.country-sum.output",
+                "type": "unique"
+            }
+        },
+        {
+            "name": "top-five-country-budget",
+            "replicas": 1,
+            "log_level": "info",
+            "input": {
+                "from": "master-group-by-country-sum",
+                "type": "all"
+            },
+            "output": {
+                "exchange_name": "results_exchange",
+                "routing_key": "query2.results",
+                "type": "unique"
+            }
+        },
+        {
+            "name": "filter-after-2000",
+            "replicas": 1,
+            "log_level": "info",
+            "input": {
+                "from": "filter-argentina",
+                "type": "seq"
+            },
+            "output": {
+                "exchange_name": "join_exchange",
+                "routing_key": "join.movies.input",
+                "type": "unique"
+            }
+        },
+        {
+            "name": "join-movie-ratings",
+            "replicas": 1,
+            "log_level": "info",
+            "input": {
+                "from": "filter-after-2000",
+                "type": "all"
+            },
+            "second_input": {
+                "from": "ratings",
+                "type": "all"
+            },
+            "output": {
+                "exchange_name": "group_by_movie_average_exchange",
+                "routing_key": "groupby.movie-avg.input%d",
+                "type": "all"
+            }
+        },
+        {
+            "name": "group-by-movie-average",
+            "replicas": 1,
+            "log_level": "info",
+            "input": {
+                "from": "join-movie-ratings",
+                "type": "seq"
+            },
+            "output": {
+                "exchange_name": "group_by_movie_average_exchange",
+                "routing_key": "groupby.movie-avg.output",
+                "type": "unique"
+            }
+        },
+        {
+            "name": "master-group-by-movie-average",
+            "replicas": 1,
+            "log_level": "info",
+            "input": {
+                "from": "group-by-movie-average",
+                "type": "all"
+            },
+            "output": {
+                "exchange_name": "first_and_last_exchange",
+                "routing_key": "topn.first-last.input",
+                "type": "unique"
+            }
+        },
+        {
+            "name": "first-and-last",
+            "replicas": 1,
+            "log_level": "info",
+            "input": {
+                "from": "master-group-by-movie-average",
+                "type": "all"
+            },
+            "output": {
+                "exchange_name": "results_exchange",
+                "routing_key": "query3.results",
+                "type": "unique"
+            }
+        },
+        {
+            "name": "join-movie-credits",
+            "replicas": 1,
+            "log_level": "info",
+            "input": {
+                "from": "filter-after-2000",
+                "type": "all"
+            },
+            "second_input": {
+                "from": "ratings",
+                "type": "all"
+            },
+            "output": {
+                "exchange_name": "group_by_actor_count_exchange",
+                "routing_key": "groupby.actor.input%d",
+                "type": "all"
+            }
+        },
+        {
+            "name": "group-by-actor-count",
+            "replicas": 1,
+            "log_level": "info",
+            "input": {
+                "from": "join-movie-credits",
+                "type": "seq"
+            },
+            "output": {
+                "exchange_name": "group_by_actor_count_exchange",
+                "routing_key": "groupby.actor.output",
+                "type": "unique"
+            }
+        },
+        {
+            "name": "master-group-by-actor-count",
+            "replicas": 1,
+            "log_level": "info",
+            "input": {
+                "from": "group-by-actor-count",
+                "type": "all"
+            },
+            "output": {
+                "exchange_name": "top_ten_cast_movie_exchange",
+                "routing_key": "topn.top-10-cast.input",
+                "type": "unique"
+            }
+        },
+        {
+            "name": "top-ten-cast-movie",
+            "replicas": 1,
+            "log_level": "info",
+            "input": {
+                "from": "master-group-by-actor-count",
+                "type": "all"
+            },
+            "output": {
+                "exchange_name": "results_exchange",
+                "routing_key": "query4.results",
+                "type": "unique"
+            }
+        },
+        {
+            "name": "machine-learning",
+            "replicas": 1,
+            "log_level": "info",
+            "input": {
+                "from": "movies",
+                "type": "all"
+            },
+            "output": {
+                "exchange_name": "groupby_overview_exchange",
+                "routing_key": "groupby.overview.input%d",
+                "type": "all"
+            }
+        },
+        {
+            "name": "group-by-overview-average",
+            "replicas": 1,
+            "log_level": "info",
+            "input": {
+                "from": "machine-learning",
+                "type": "seq"
+            },
+            "output": {
+                "exchange_name": "groupby_overview_exchange",
+                "routing_key": "groupby.overview.output",
+                "type": "unique"
+            }
+        },
+        {
+            "name": "master-group-by-overview-average",
+            "replicas": 1,
+            "log_level": "info",
+            "input": {
+                "from": "group-by-overview-average",
+                "type": "all"
+            },
+            "output": {
+                "exchange_name": "results_exchange",
+                "routing_key": "query5.results",
+                "type": "unique"
+            }
+        }
+    ]
+}
