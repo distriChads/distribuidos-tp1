@@ -3,6 +3,7 @@
     "services": [
         {
             "name": "server",
+            "log_level": "info",
             "replicas": 1,
             "movies_exchange_name": "movies_exchange",
             "credits_exchange_name": "credits_exchange",
@@ -12,7 +13,7 @@
         },
         {
             "name": "filter-argentina",
-            "replicas": 1,
+            "replicas": 5,
             "log_level": "info",
             "input": {
                 "from": "movies",
@@ -27,7 +28,7 @@
         },
         {
             "name": "filter-spain-2000",
-            "replicas": 1,
+            "replicas": 5,
             "log_level": "info",
             "input": {
                 "from": "filter-argentina",
@@ -50,7 +51,8 @@
             "output": {
                 "exchange_name": "one_country_groupby_sum_exchange",
                 "routing_key": "movies.groupby.country-sum.input%d",
-                "type": "all"
+                "type": "all",
+                "replicas": "group-by-country-sum"
             }
         },
         {
@@ -97,7 +99,7 @@
         },
         {
             "name": "filter-after-2000",
-            "replicas": 1,
+            "replicas": 5,
             "log_level": "info",
             "input": {
                 "from": "filter-argentina",
@@ -124,12 +126,13 @@
             "output": {
                 "exchange_name": "group_by_movie_average_exchange",
                 "routing_key": "groupby.movie-avg.input%d",
-                "type": "all"
+                "type": "all",
+                "replicas": "group-by-movie-average"
             }
         },
         {
             "name": "group-by-movie-average",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
             "input": {
                 "from": "join-movie-ratings",
@@ -184,12 +187,13 @@
             "output": {
                 "exchange_name": "group_by_actor_count_exchange",
                 "routing_key": "groupby.actor.input%d",
-                "type": "all"
+                "type": "all",
+                "replicas": "group-by-actor-count"
             }
         },
         {
             "name": "group-by-actor-count",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
             "input": {
                 "from": "join-movie-credits",
@@ -240,12 +244,13 @@
             "output": {
                 "exchange_name": "groupby_overview_exchange",
                 "routing_key": "groupby.overview.input%d",
-                "type": "all"
+                "type": "all",
+                "replicas": "group-by-overview-average"
             }
         },
         {
             "name": "group-by-overview-average",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
             "input": {
                 "from": "machine-learning",
