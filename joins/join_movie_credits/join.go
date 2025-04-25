@@ -95,6 +95,7 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 	movies_by_id := make(map[string]bool)
 	for message := range msgs {
 		message_str := string(message.Body)
+		log.Debugf("Received message: %s", message_str)
 		if message_str == worker.MESSAGE_EOF {
 			f.eof_counter--
 			if f.eof_counter <= 0 {
@@ -111,7 +112,7 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 		}
 		// message.Ack(false)
 	}
-
+	log.Info("Finished first receiver")
 	msgs, err = worker.SecondReceivedMessages(f.Worker)
 	if err != nil {
 		log.Errorf("Error initializing receiver: %s", err.Error())
@@ -121,6 +122,7 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 	for message := range msgs {
 		log.Infof("Batch received Number: %d", i)
 		message_str := string(message.Body)
+		log.Debugf("Received message: %s", message_str)
 		if message_str == worker.MESSAGE_EOF {
 			for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
 				err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF, queue_name)
@@ -144,7 +146,7 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 		}
 		// message.Ack(false)
 	}
-
+	log.Info("Finished second receiver")
 	return nil
 }
 

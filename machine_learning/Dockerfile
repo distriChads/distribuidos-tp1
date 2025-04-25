@@ -20,6 +20,6 @@ RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
 # copy the code
-COPY ./machine_learning ./app
+COPY ./machine_learning ./
 
 ENTRYPOINT ["python3", "main.py"]

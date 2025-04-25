@@ -64,6 +64,7 @@ func (f *FilterByArgentina) RunWorker() error {
 
 	for message := range msgs {
 		message_str := string(message.Body)
+		log.Debugf("Received message: %s", message_str)
 		if message_str == worker.MESSAGE_EOF {
 			f.eof_counter--
 			if f.eof_counter <= 0 {
