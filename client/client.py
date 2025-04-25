@@ -32,9 +32,12 @@ class Client:
     def __graceful_shutdown_handler(self, signum: Optional[int] = None, frame: Optional[FrameType] = None):
         self.running = False
         self.client_socket.sock.close()
-        if self.results_thread:
-            print("joining thread")
-            self.results_thread.join()
+        try:
+            if self.results_thread:
+                print("joining thread")
+                self.results_thread.join(timeout=2)
+        except Exception as e:
+            logging.error(f"Error joining thread: {e}")
         print("thread joined")
         logging.info("Client socket closed")
 
@@ -56,21 +59,22 @@ class Client:
         except Exception as e:
             logging.error(f"Error: {e}")
 
-
         self.results_thread.join()
         self.__graceful_shutdown_handler()
-        
+
     def __wait_for_results(self):
         while self.running:
             try:
+                self.client_socket.sock.settimeout(2)
                 _bytes_read, result = self.client_socket.read()
-                print(f"asdsadasd try")
                 if not result:
                     break
                 logging.info(f"Received result: {result}")
+            except socket.timeout:
+                logging.info("Socket timeout, no data received")
+                break
             except socket.error as e:
-                print(f"asdsadasd except")
-                logging.error(f"Socket error: {e}")
+                logging.info(f"Closing socket")
                 break
 
     def __send_file_in_chunks(self, file_path: str):

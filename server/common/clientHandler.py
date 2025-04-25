@@ -169,7 +169,8 @@ class ClientHandler:
     def __send_result_to_client(self):
         logging.info(
             f"Waiting message from Exchange {self.worker.input_exchange.name} - {self.worker.input_exchange.routing_keys}")
-        for _method_frame, _properties, result_encoded in self.worker.received_messages():
+        for _method_frame, properties, result_encoded in self.worker.received_messages():
+            logging.info(f"properties: {properties}")
             result = result_encoded.decode('utf-8')
             logging.info("Received result from worker: %s", result)
             self._client_socket.send(result)
