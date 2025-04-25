@@ -3,7 +3,11 @@ package main
 import (
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
+	"os"
+	"os/signal"
 	"strings"
+	"sync"
+	"syscall"
 
 	group_by "distribuidos-tp1/group_by/group_by_movie_average"
 
@@ -60,10 +64,33 @@ func main() {
 		},
 	}, maxMessages, expectedEof)
 
-	defer groupByMovieAverage.CloseWorker()
+	// Set up signal handling
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
 
-	err = groupByMovieAverage.RunWorker()
-	if err != nil {
-		panic(err)
+	// Start client in a goroutine
+	done := make(chan bool)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		groupByMovieAverage.RunWorker()
+		done <- true
+	}()
+
+	// Wait for either completion or signal
+	select {
+	case sig := <-sigChan:
+		if sig == syscall.SIGTERM {
+			groupByMovieAverage.CloseWorker()
+			log.Info("Worker shut down successfully")
+			<-done
+		} else {
+			log.Warning("Signal %v not handled", sig)
+		}
+	case <-done:
+		log.Info("Worker finished successfully")
 	}
+
+	wg.Wait()
 }

@@ -31,7 +31,7 @@ def load_config(config_file="./config.ini"):
         "INPUT")
     final_config["worker.exchange.output.routingkeys"] = load_worker_routingkeys(
         "OUTPUT")
-
+    
     for full_key in keys:
         env_key = "CLI_" + full_key.upper().replace(".", "_")
 
@@ -48,6 +48,8 @@ def load_config(config_file="./config.ini"):
 
     return final_config
 
+def config_string(config):
+    return "\n".join([f"{key}: {value}" for key, value in config.items()])
 
 def load_worker_routingkeys(type):
     worker_routingkeys = os.getenv(

@@ -93,8 +93,8 @@ func (f *GroupByMovieAndAvg) RunWorker() error {
 	messages_before_commit := 0
 	grouped_elements := make(map[string]ScoreAndCount)
 	for message := range msgs {
-		message := string(message.Body)
-		if message == worker.MESSAGE_EOF {
+		message_str := string(message.Body)
+		if message_str == worker.MESSAGE_EOF {
 			f.eof_counter--
 			if f.eof_counter <= 0 {
 				break
@@ -102,12 +102,13 @@ func (f *GroupByMovieAndAvg) RunWorker() error {
 			continue
 		}
 		messages_before_commit += 1
-		lines := strings.Split(strings.TrimSpace(message), "\n")
+		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		groupByMovieAndUpdate(lines, grouped_elements)
 		if messages_before_commit >= f.messages_before_commit {
 			storeGroupedElements(grouped_elements)
 			messages_before_commit = 0
 		}
+		message.Ack(false)
 	}
 	message_to_send := mapToLines(grouped_elements)
 	send_queue_key := f.Worker.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO

@@ -60,8 +60,8 @@ func (f *FilterByOnlyOneCountry) RunWorker() error {
 	}
 
 	for message := range msgs {
-		message := string(message.Body)
-		if message == worker.MESSAGE_EOF {
+		message_str := string(message.Body)
+		if message_str == worker.MESSAGE_EOF {
 			f.eof_counter--
 			if f.eof_counter <= 0 {
 
@@ -75,7 +75,7 @@ func (f *FilterByOnlyOneCountry) RunWorker() error {
 			}
 			continue
 		}
-		lines := strings.Split(strings.TrimSpace(message), "\n")
+		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		filtered_lines := filterByOnlyOneCountry(lines)
 		message_to_send := strings.Join(filtered_lines, "\n")
 		if len(message_to_send) != 0 {
@@ -86,6 +86,7 @@ func (f *FilterByOnlyOneCountry) RunWorker() error {
 				log.Infof("Error sending message: %s", err.Error())
 			}
 		}
+		message.Ack(false)
 	}
 
 	return nil

@@ -63,8 +63,8 @@ func (f *FilterByArgentina) RunWorker() error {
 	}
 
 	for message := range msgs {
-		message := string(message.Body)
-		if message == worker.MESSAGE_EOF {
+		message_str := string(message.Body)
+		if message_str == worker.MESSAGE_EOF {
 			f.eof_counter--
 			if f.eof_counter <= 0 {
 				for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
@@ -77,7 +77,7 @@ func (f *FilterByArgentina) RunWorker() error {
 			}
 			continue
 		}
-		lines := strings.Split(strings.TrimSpace(message), "\n")
+		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		filtered_lines := filterByArgentina(lines)
 		message_to_send := strings.Join(filtered_lines, "\n")
 		if len(message_to_send) != 0 {
@@ -87,9 +87,9 @@ func (f *FilterByArgentina) RunWorker() error {
 			if err != nil {
 				log.Infof("Error sending message: %s", err.Error())
 			}
-			// log.Debugf("Sent message to output exchange: %s", message_to_send)
+			log.Debugf("Sent message to output exchange: %s", message_to_send)
 		}
-
+		message.Ack(false)
 	}
 
 	log.Info("FilterByArgentina worker finished")

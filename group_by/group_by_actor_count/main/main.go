@@ -3,7 +3,11 @@ package main
 import (
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
+	"os"
+	"os/signal"
 	"strings"
+	"sync"
+	"syscall"
 
 	group_by "distribuidos-tp1/group_by/group_by_actor_count"
 
@@ -60,10 +64,33 @@ func main() {
 		},
 	}, maxMessages, expectedEof)
 
-	defer groupByActorCount.CloseWorker()
+	// Set up signal handling
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
 
-	err = groupByActorCount.RunWorker()
-	if err != nil {
-		panic(err)
+	// Start client in a goroutine
+	done := make(chan bool)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		groupByActorCount.RunWorker()
+		done <- true
+	}()
+
+	// Wait for either completion or signal
+	select {
+	case sig := <-sigChan:
+		if sig == syscall.SIGTERM {
+			groupByActorCount.CloseWorker()
+			log.Info("Worker shut down successfully")
+			<-done
+		} else {
+			log.Warning("Signal %v not handled", sig)
+		}
+	case <-done:
+		log.Info("Worker finished successfully")
 	}
+
+	wg.Wait()
 }

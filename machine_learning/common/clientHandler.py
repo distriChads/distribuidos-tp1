@@ -6,7 +6,6 @@ from .worker import Worker, WorkerConfig, MESSAGE_SEPARATOR, MESSAGE_EOF
 import queue
 
 log = logging.getLogger("machine_learning")
-logging.basicConfig(level=logging.INFO)
 
 
 class MachineLearningConfig(WorkerConfig):
@@ -58,7 +57,7 @@ class MachineLearning:
         return self.__create_message_to_send(positive_or_negative, parts)
 
     def run_worker(self):
-        log.info("Starting FilterByArgentina worker")
+        log.info("Starting MachineLearning worker")
         cont = 0
         try:
             while True:

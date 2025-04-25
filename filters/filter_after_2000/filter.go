@@ -66,8 +66,8 @@ func (f *FilterByAfterYear2000) RunWorker() error {
 	}
 
 	for message := range msgs {
-		message := string(message.Body)
-		if message == worker.MESSAGE_EOF {
+		message_str := string(message.Body)
+		if message_str == worker.MESSAGE_EOF {
 			f.eof_counter--
 			if f.eof_counter <= 0 {
 				for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
@@ -80,7 +80,7 @@ func (f *FilterByAfterYear2000) RunWorker() error {
 			}
 			continue
 		}
-		lines := strings.Split(strings.TrimSpace(message), "\n")
+		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		filtered_lines := filterByYearAfter2000(lines)
 		for _, line := range filtered_lines {
 			parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
@@ -92,6 +92,7 @@ func (f *FilterByAfterYear2000) RunWorker() error {
 				}
 				send_queue_key := f.Worker.OutputExchange.RoutingKeys[id%len(f.Worker.OutputExchange.RoutingKeys)]
 				err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
+				message.Ack(false)
 				if err != nil {
 					log.Infof("Error sending message: %s", err.Error())
 				}

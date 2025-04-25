@@ -80,15 +80,15 @@ func (f *FilterBySpainAndOf2000) RunWorker() error {
 	}
 
 	for message := range msgs {
-		message := string(message.Body)
-		if message == worker.MESSAGE_EOF {
+		message_str := string(message.Body)
+		if message_str == worker.MESSAGE_EOF {
 			f.eof_counter--
 			if f.eof_counter <= 0 {
 				break
 			}
 			continue
 		}
-		lines := strings.Split(strings.TrimSpace(message), "\n")
+		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		filtered_lines := filterByCountrySpainAndOf2000(lines)
 		message_to_send := strings.Join(filtered_lines, "\n")
 		if len(message_to_send) != 0 {
@@ -100,6 +100,7 @@ func (f *FilterBySpainAndOf2000) RunWorker() error {
 			}
 			log.Infof("Sent message %s to exchange %s (routing key: %s)", message_to_send, f.Worker.OutputExchange.Name, send_queue_key)
 		}
+		message.Ack(false)
 	}
 
 	log.Info("FilterBySpainAndOf2000 worker finished")
