@@ -74,8 +74,10 @@ func (f *FilterByArgentina) RunWorker() error {
 						log.Infof("Error sending message: %s", err.Error())
 					}
 				}
+				message.Ack(false)
 				break
 			}
+			message.Ack(false)
 			continue
 		}
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")

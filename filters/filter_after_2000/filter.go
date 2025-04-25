@@ -69,16 +69,21 @@ func (f *FilterByAfterYear2000) RunWorker() error {
 		message_str := string(message.Body)
 		log.Debugf("Received message: %s", message_str)
 		if message_str == worker.MESSAGE_EOF {
+			log.Info("Received EOF")
 			f.eof_counter--
 			if f.eof_counter <= 0 {
+				log.Info("Sending EOF")
 				for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
 					err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF, queue_name)
 					if err != nil {
 						log.Infof("Error sending message: %s", err.Error())
 					}
 				}
+				log.Info("Finished sending EOF")
+				message.Ack(false)
 				break
 			}
+			message.Ack(false)
 			continue
 		}
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
@@ -93,13 +98,12 @@ func (f *FilterByAfterYear2000) RunWorker() error {
 				}
 				send_queue_key := f.Worker.OutputExchange.RoutingKeys[id%len(f.Worker.OutputExchange.RoutingKeys)]
 				err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
-				message.Ack(false)
 				if err != nil {
 					log.Infof("Error sending message: %s", err.Error())
 				}
-
 			}
 		}
+		message.Ack(false)
 	}
 
 	return nil
