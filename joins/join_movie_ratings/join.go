@@ -86,6 +86,7 @@ func (f *JoinMovieRatingById) RunWorker() error {
 	messages_before_commit := 0
 	movies_by_id := make(map[string]string)
 	for message := range msgs {
+		log.Debugf("Received message: %s", string(message.Body))
 		message_str := string(message.Body)
 		if message_str == worker.MESSAGE_EOF {
 			f.eof_counter--
@@ -103,6 +104,7 @@ func (f *JoinMovieRatingById) RunWorker() error {
 		}
 		message.Ack(false)
 	}
+	log.Info("Finished first receiver")
 
 	msgs, err = worker.SecondReceivedMessages(f.Worker)
 	if err != nil {
@@ -112,6 +114,7 @@ func (f *JoinMovieRatingById) RunWorker() error {
 
 	for message := range msgs {
 		message_str := string(message.Body)
+		log.Debugf("Received message: %s", message_str)
 		if message_str == worker.MESSAGE_EOF {
 			for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
 				err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF, queue_name)
@@ -134,7 +137,7 @@ func (f *JoinMovieRatingById) RunWorker() error {
 		}
 		message.Ack(false)
 	}
-
+	log.Info("Finished second receiver")
 	return nil
 }
 

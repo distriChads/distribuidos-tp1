@@ -152,11 +152,11 @@ def generate_compose(spec_path, output_path):
       if input_from in ["movies", "credits", "ratings"]:
           # Input comes from the central server
           server_spec = specs['server']
-          # Assume server's output keys for this specific consumer service are pre-calculated
-          # and stored, e.g., in server_spec['output_keys_map'][service['name']]
-          # If not available, use a placeholder logic based on consumer replicas
-          server_keys_for_consumer = server_spec.get('output_keys_map', {}).get(service['name'],
-                                        [f"{input_from}.input{k+1}" for k in range(service['replicas'])]) # Placeholder/Fallback
+          
+          if input_from == "movies":
+            server_keys_for_consumer = [f"{input_from}.input{k+1}" for k in range(service['replicas'])] # Placeholder/Fallback
+          else:
+            server_keys_for_consumer = [f"{input_from}.input"] # Placeholder/Fallback
 
           if input_from == "movies":
               input_exchange = server_spec['movies_exchange_name']
@@ -263,11 +263,10 @@ def generate_compose(spec_path, output_path):
 
           if sec_input_from in ["movies", "credits", "ratings"]:
               server_spec = specs['server']
-              # Assume server_spec['output_keys_map_sec'][service['name']] exists
-              # sec_server_keys_for_consumer = server_spec.get('output_keys_map_sec', {}).get(service['name'],
-              #                           [f"{sec_input_from}.sec.input{k+1}" for k in range(service['replicas'])]) # Placeholder
-              # Using simpler placeholder for now
-              sec_server_keys_for_consumer = [f"{sec_input_from}.sec.input{k+1}" for k in range(service['replicas'])]
+              if sec_input_from == "movies":
+                sec_server_keys_for_consumer = [f"{sec_input_from}.input{k+1}" for k in range(service['replicas'])]
+              else:
+                sec_server_keys_for_consumer = [f"{sec_input_from}.input"]
 
               if sec_input_from == "movies": sec_input_exchange = server_spec['movies_exchange_name']
               elif sec_input_from == "credits": sec_input_exchange = server_spec['credits_exchange_name']
@@ -303,9 +302,9 @@ def generate_compose(spec_path, output_path):
                   sec_expected_eof = sec_input_service_spec.get('replicas', 1)
 
           if sec_input_keys_list:
-              env.append(f"CLI_WORKER_EXCHANGE_INPUT2_NAME={sec_input_exchange}")
-              env.append(f"CLI_WORKER_EXCHANGE_INPUT2_ROUTINGKEYS={','.join(sec_input_keys_list)}")
-              env.append(f"CLI_WORKER_QUEUE2_NAME={ith_service['container_name']}")
+              env.append(f"CLI_WORKER_EXCHANGE_SECONDINPUT_NAME={sec_input_exchange}")
+              env.append(f"CLI_WORKER_EXCHANGE_SECONDINPUT_ROUTINGKEYS={','.join(sec_input_keys_list)}")
+              env.append(f"CLI_WORKER_SECONDQUEUE_NAME={ith_service['container_name']}")
               env.append(f"CLI_WORKER_EXPECTEDEOF2={sec_expected_eof}")
 
       # --- Machine Learning ---
