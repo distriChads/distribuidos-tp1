@@ -24,7 +24,7 @@ def server_service(spec, movies_input_replicas):
   broker = spec.get("broker", DEFAULT_BROKER)
   env.append(f"SERVER_PORT=3000")
   env.append(f"SERVER_LISTEN_BACKLOG=1")
-  env.append(f"CLI_LOG_LEVEL={spec['log_level']}")
+  env.append(f"LOGGING_LEVEL={spec['log_level']}")
   env.append(f"CLI_WORKER_BROKER={broker}")
   env.append(f"CLI_WORKER_EXCHANGE1_OUTPUT_NAME={spec['movies_exchange_name']}")
   env.append(f"CLI_WORKER_EXCHANGE2_OUTPUT_NAME={spec['credits_exchange_name']}")
@@ -136,7 +136,9 @@ def generate_compose(spec_path, output_path):
     srv["environment"] = env
     
     for i in range(service["replicas"]):
-      ith_service = srv.copy()
+      ith_service = {}
+      for k, v in srv.items():
+        ith_service[k] = v
       ith_service["container_name"] = f"{service['name']}-{i+1}"
       env = ith_service["environment"]
       

@@ -9,7 +9,7 @@ from typing import Optional
 from communication import Socket
 
 
-BATCH_SIZE = 8000 - 4  # 4 bytes for the length of the message
+BATCH_SIZE = (1024*8) - 4  # 4 bytes for the length of the message
 
 
 class Client:
@@ -20,7 +20,7 @@ class Client:
         self.client_socket = Socket(client_socket)
 
         self.movies_path = os.path.join(storage_path, "movies_metadata.csv")
-        self.credits_path = os.path.join(storage_path, "credits1.csv")
+        self.credits_path = os.path.join(storage_path, "credits.csv")
         self.ratings_path = os.path.join(storage_path, "ratings.csv")
 
         self.running = True
