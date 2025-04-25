@@ -54,6 +54,11 @@ class Worker:
 
         for i in range(max_retries):
             try:
+                pika.ConnectionParameters(
+                    host=self.message_broker,
+                    heartbeat=60,
+                    blocked_connection_timeout=30
+                )
                 conn = pika.BlockingConnection(
                     pika.URLParameters(self.message_broker))
                 return conn

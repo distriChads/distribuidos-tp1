@@ -22,7 +22,7 @@ services:
       - CLI_WORKER_EXCHANGE_INPUT_NAME=results_exchange
       - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=queries_partial_results.input
       - CLI_WORKER_EXCHANGE1_OUTPUT_NAME=first_layer_exchange
-      - CLI_WORKER_EXCHANGE1_OUTPUT_ROUTINGKEYS=movies.first.input1
+      - CLI_WORKER_EXCHANGE1_OUTPUT_ROUTINGKEYS=movies.first.input1,movies.first.input2,movies.first.input3
       - CLI_WORKER_EXCHANGE2_OUTPUT_NAME=query4_exchange
       - CLI_WORKER_EXCHANGE2_OUTPUT_ROUTINGKEYS=credits.input
       - CLI_WORKER_EXCHANGE3_OUTPUT_NAME=query3_exchange
@@ -57,24 +57,45 @@ services:
       - movies_net
     depends_on:
       - rabbitmq
+    cpus: "2"
 
-  # machine_learning-2:
-  #   container_name: machine_learning-2
-  #   image: machine_learning:latest
-  #   volumes:
-  #     - ./machine_learning:/app
-  #   environment:
-  #     - CLI_LOG_LEVEL=info
-  #     - CLI_WORKER_EXCHANGE_INPUT_NAME=first_layer_exchange
-  #     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.first.input2
-  #     - CLI_WORKER_EXCHANGE_OUTPUT_NAME=ml_group_by_overview_exchange
-  #     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=group_by_movie_average.input1,group_by_movie_average.input2
-  #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-  #     - CLI_WORKER_QUEUE_NAME=movies.only_one_country.input.2
-  #   networks:
-  #     - movies_net
-  #   depends_on:
-  #     - rabbitmq
+  machine_learning-2:
+    container_name: machine_learning-2
+    image: machine_learning:latest
+    volumes:
+      - ./machine_learning:/app
+    environment:
+      - CLI_LOG_LEVEL=info
+      - CLI_WORKER_EXCHANGE_INPUT_NAME=first_layer_exchange
+      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.first.input2
+      - CLI_WORKER_EXCHANGE_OUTPUT_NAME=ml_group_by_overview_exchange
+      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=group_by_movie_average.input1,group_by_movie_average.input2
+      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+      - CLI_WORKER_QUEUE_NAME=movies.only_one_country.input.2
+    networks:
+      - movies_net
+    depends_on:
+      - rabbitmq
+    cpus: "2"
+
+  machine_learning-3:
+    container_name: machine_learning-3
+    image: machine_learning:latest
+    volumes:
+      - ./machine_learning:/app
+    environment:
+      - CLI_LOG_LEVEL=info
+      - CLI_WORKER_EXCHANGE_INPUT_NAME=first_layer_exchange
+      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.first.input3
+      - CLI_WORKER_EXCHANGE_OUTPUT_NAME=ml_group_by_overview_exchange
+      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=group_by_movie_average.input1,group_by_movie_average.input2
+      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+      - CLI_WORKER_QUEUE_NAME=movies.only_one_country.input.3
+    networks:
+      - movies_net
+    depends_on:
+      - rabbitmq
+    cpus: "2"
 
   group_by_overview_average-1:
     build:
@@ -91,7 +112,7 @@ services:
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLI_WORKER_QUEUE_NAME=group_by_country_sum.input1
       - CLI_WORKER_MAXMESSAGES=10
-      - CLI_WORKER_EXPECTEDEOF=1
+      - CLI_WORKER_EXPECTEDEOF=3
     entrypoint: ./run_worker
     networks:
       - movies_net
@@ -113,7 +134,7 @@ services:
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLI_WORKER_QUEUE_NAME=group_by_country_sum.input2
       - CLI_WORKER_MAXMESSAGES=10
-      - CLI_WORKER_EXPECTEDEOF=1
+      - CLI_WORKER_EXPECTEDEOF=3
     entrypoint: ./run_worker
     networks:
       - movies_net

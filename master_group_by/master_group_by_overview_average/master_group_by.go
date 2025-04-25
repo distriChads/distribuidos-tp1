@@ -103,6 +103,7 @@ func (f *MasterGroupByOverviewAndAvg) RunWorker() error {
 	}
 	message_to_send := mapToLines(grouped_elements)
 	send_queue_key := f.Worker.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
+	log.Infof("Sending result: %s", message_to_send)
 	err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
 	if err != nil {
 		log.Infof("Error sending message: %s", err.Error())

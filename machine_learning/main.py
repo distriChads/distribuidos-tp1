@@ -36,8 +36,8 @@ def main():
         worker.run_worker()
     except Exception as e:
         print("Triste")
-    finally:
-        worker.worker.close_worker()
+    # finally:
+        # worker.worker.close_worker()
 
 
 if __name__ == "__main__":
