@@ -27,7 +27,7 @@ func main() {
 	queueName := v.GetString("worker.queue.name")
 	inputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.input.name"),
-		RoutingKeys: []string{v.GetString("worker.exchange.input.routingkeys")},
+		RoutingKeys: strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
 		QueueName:   queueName,
 	}
 	outputExchangeSpec := worker.ExchangeSpec{

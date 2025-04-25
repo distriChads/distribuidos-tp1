@@ -5,6 +5,7 @@ import (
 	"distribuidos-tp1/common/worker/worker"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -25,12 +26,12 @@ func main() {
 	log_level := v.GetString("log.level")
 	inputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.input.name"),
-		RoutingKeys: []string{v.GetString("worker.exchange.input.routingKeys")},
+		RoutingKeys: strings.Split(v.GetString("worker.exchange.input.routingKeys"), ","),
 		QueueName:   "master_group_by_movie_average_queue",
 	}
 	outputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.output.name"),
-		RoutingKeys: []string{v.GetString("worker.exchange.output.routingKeys")},
+		RoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingKeys"), ","),
 		QueueName:   "master_group_by_movie_average_queue",
 	}
 	messageBroker := v.GetString("worker.broker")

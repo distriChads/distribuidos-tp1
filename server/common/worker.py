@@ -8,7 +8,6 @@ MESSAGE_ARRAY_SEPARATOR = ","
 MESSAGE_EOF = "EOF"
 
 log = logging.getLogger("worker")
-logging.basicConfig(level=logging.INFO)
 
 
 class ExchangeSpec:
