@@ -13,7 +13,7 @@
         },
         {
             "name": "filter-argentina",
-            "replicas": 5,
+            "replicas": 1,
             "log_level": "info",
             "input": {
                 "from": "movies",
@@ -28,7 +28,7 @@
         },
         {
             "name": "filter-spain-2000",
-            "replicas": 5,
+            "replicas": 1,
             "log_level": "info",
             "input": {
                 "from": "filter-argentina",
@@ -99,7 +99,7 @@
         },
         {
             "name": "filter-after-2000",
-            "replicas": 5,
+            "replicas": 1,
             "log_level": "info",
             "input": {
                 "from": "filter-argentina",
@@ -132,7 +132,7 @@
         },
         {
             "name": "group-by-movie-average",
-            "replicas": 3,
+            "replicas": 1,
             "log_level": "info",
             "input": {
                 "from": "join-movie-ratings",
@@ -193,7 +193,7 @@
         },
         {
             "name": "group-by-actor-count",
-            "replicas": 3,
+            "replicas": 1,
             "log_level": "info",
             "input": {
                 "from": "join-movie-credits",
@@ -250,7 +250,7 @@
         },
         {
             "name": "group-by-overview-average",
-            "replicas": 3,
+            "replicas": 1,
             "log_level": "info",
             "input": {
                 "from": "machine-learning",
