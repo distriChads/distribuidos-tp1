@@ -172,7 +172,7 @@ class ClientHandler:
         for method_frame, _properties, result_encoded in self.worker.received_messages():
             query_number = method_frame.routing_key.split(".")[0]
             result = result_encoded.decode('utf-8')
-            result = f"{query_number}-{result}"
+            result = f"{query_number}-{result}\n"
 
             logging.info("Received result from worker: %s", result)
             self._client_socket.send(result)
