@@ -100,7 +100,7 @@ func (f *TopTenCastMovie) RunWorker() error {
 		}
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		top_ten = updateTopTen(lines, top_ten)
-		message.Ack(false)
+		// message.Ack(false)
 	}
 	message_to_send := mapToLines(top_ten)
 	log.Infof("Top 10 actors by movie: %s", message_to_send)

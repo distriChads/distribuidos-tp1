@@ -108,7 +108,7 @@ func (f *GroupByMovieAndAvg) RunWorker() error {
 			storeGroupedElements(grouped_elements)
 			messages_before_commit = 0
 		}
-		message.Ack(false)
+		// message.Ack(false)
 	}
 	message_to_send := mapToLines(grouped_elements)
 	send_queue_key := f.Worker.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO

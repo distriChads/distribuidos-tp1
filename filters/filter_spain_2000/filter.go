@@ -100,7 +100,7 @@ func (f *FilterBySpainAndOf2000) RunWorker() error {
 			}
 			log.Infof("Sent message %s to exchange %s (routing key: %s)", message_to_send, f.Worker.OutputExchange.Name, send_queue_key)
 		}
-		message.Ack(false)
+		// message.Ack(false)
 	}
 
 	log.Info("FilterBySpainAndOf2000 worker finished")

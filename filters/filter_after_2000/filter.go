@@ -93,7 +93,7 @@ func (f *FilterByAfterYear2000) RunWorker() error {
 				}
 				send_queue_key := f.Worker.OutputExchange.RoutingKeys[id%len(f.Worker.OutputExchange.RoutingKeys)]
 				err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
-				message.Ack(false)
+				// message.Ack(false)
 				if err != nil {
 					log.Infof("Error sending message: %s", err.Error())
 				}

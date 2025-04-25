@@ -89,7 +89,7 @@ func (f *FilterByArgentina) RunWorker() error {
 			}
 			log.Debugf("Sent message to output exchange: %s", message_to_send)
 		}
-		message.Ack(false)
+		// message.Ack(false)
 	}
 
 	log.Info("FilterByArgentina worker finished")

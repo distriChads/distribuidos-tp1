@@ -86,7 +86,7 @@ func (f *FilterByOnlyOneCountry) RunWorker() error {
 				log.Infof("Error sending message: %s", err.Error())
 			}
 		}
-		message.Ack(false)
+		// message.Ack(false)
 	}
 
 	return nil

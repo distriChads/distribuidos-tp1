@@ -95,7 +95,7 @@ func (f *FirstAndLast) RunWorker() error {
 		}
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		first, last = updateFirstAndLast(lines, first, last)
-		message.Ack(false)
+		// message.Ack(false)
 	}
 	message_to_send := mapToLines(first, last)
 	log.Infof("First and Last: %s", message_to_send)

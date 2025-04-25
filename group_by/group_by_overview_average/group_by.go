@@ -122,7 +122,7 @@ func (f *GroupByOverviewAndAvg) RunWorker() error {
 			storeGroupedElements(grouped_elements)
 			messages_before_commit = 0
 		}
-		message.Ack(false)
+		// message.Ack(false)
 	}
 	message_to_send := mapToLines(grouped_elements)
 	log.Info("Finished GroupByOverviewAndAvg worker with message: ", message_to_send)

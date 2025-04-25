@@ -109,7 +109,7 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 			storeGroupedElements(movies_by_id)
 			messages_before_commit = 0
 		}
-		message.Ack(false)
+		// message.Ack(false)
 	}
 
 	msgs, err = worker.SecondReceivedMessages(f.Worker)
@@ -142,7 +142,7 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 				log.Infof("Error sending message: %s", err.Error())
 			}
 		}
-		message.Ack(false)
+		// message.Ack(false)
 	}
 
 	return nil

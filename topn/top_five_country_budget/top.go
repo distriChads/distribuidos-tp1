@@ -95,7 +95,7 @@ func (f *TopFiveCountryBudget) RunWorker() error {
 		}
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		top_five = updateTopFive(lines, top_five)
-		message.Ack(false)
+		// message.Ack(false)
 	}
 	message_to_send := mapToLines(top_five)
 	log.Infof("Top 5 countries by budget: %s", message_to_send)

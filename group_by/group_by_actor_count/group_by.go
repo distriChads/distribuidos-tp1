@@ -89,7 +89,7 @@ func (f *GroupByActorAndCount) RunWorker() error {
 			storeGroupedElements(grouped_elements)
 			messages_before_commit = 0
 		}
-		message.Ack(false)
+		// message.Ack(false)
 	}
 
 	message_to_send := mapToLines(grouped_elements)
