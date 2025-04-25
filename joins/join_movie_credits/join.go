@@ -16,6 +16,8 @@ type JoinMovieCreditsByIdConfig struct {
 type JoinMovieCreditsById struct {
 	worker.Worker
 	messages_before_commit int
+	queue_to_send          int
+	eof_counter            int
 }
 
 // ---------------------------------
@@ -24,11 +26,9 @@ type JoinMovieCreditsById struct {
 const ID = 0
 const ACTORS = 1
 
-func storeMovieWithId(lines []string, movies_by_id map[string]bool) {
-	for _, line := range lines {
-		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
-		movies_by_id[parts[ID]] = true
-	}
+func storeMovieWithId(line string, movies_by_id map[string]bool) {
+	parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+	movies_by_id[parts[ID]] = true
 }
 
 // ---------------------------------
@@ -57,7 +57,7 @@ func getGroupedElements() map[string]bool {
 	return nil
 }
 
-func NewJoinMovieCreditsById(config JoinMovieCreditsByIdConfig, messages_before_commit int) *JoinMovieCreditsById {
+func NewJoinMovieCreditsById(config JoinMovieCreditsByIdConfig, messages_before_commit int, eof_counter int) *JoinMovieCreditsById {
 	log.Infof("JoinMovieCreditsById: %+v", config)
 	return &JoinMovieCreditsById{
 		Worker: worker.Worker{
@@ -67,14 +67,24 @@ func NewJoinMovieCreditsById(config JoinMovieCreditsByIdConfig, messages_before_
 			MessageBroker:       config.MessageBroker,
 		},
 		messages_before_commit: messages_before_commit,
+		eof_counter:            eof_counter,
 	}
 }
 
 func (f *JoinMovieCreditsById) RunWorker() error {
 	log.Info("Starting JoinMovieCreditsById worker")
 	worker.InitSender(&f.Worker)
-	worker.InitReceiver(&f.Worker)
-	worker.InitSecondReceiver(&f.Worker)
+	err := worker.InitReceiver(&f.Worker)
+	if err != nil {
+		log.Errorf("Error initializing receiver: %s", err.Error())
+		return err
+	}
+	err = worker.InitSecondReceiver(&f.Worker)
+	if err != nil {
+		log.Errorf("Error initializing second receiver: %s", err.Error())
+		return err
+	}
+	log.Infof("JoinMovieCreditsById worker initialized")
 
 	msgs, err := worker.ReceivedMessages(f.Worker)
 	if err != nil {
@@ -84,17 +94,22 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 	messages_before_commit := 0
 	movies_by_id := make(map[string]bool)
 	for message := range msgs {
-		message := string(message.Body)
-		if message == worker.MESSAGE_EOF {
-			break
+		message_str := string(message.Body)
+		if message_str == worker.MESSAGE_EOF {
+			f.eof_counter--
+			if f.eof_counter <= 0 {
+				break
+			}
+			continue
 		}
 		messages_before_commit += 1
-		lines := strings.Split(strings.TrimSpace(message), "\n")
-		storeMovieWithId(lines, movies_by_id)
+		line := strings.TrimSpace(message_str)
+		storeMovieWithId(line, movies_by_id) // ahora el filtro after 2000 envia de a una sola linea, por lo tanto puedo hacer esto
 		if messages_before_commit >= f.messages_before_commit {
 			storeGroupedElements(movies_by_id)
 			messages_before_commit = 0
 		}
+		message.Ack(false)
 	}
 
 	msgs, err = worker.SecondReceivedMessages(f.Worker)
@@ -102,24 +117,32 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 		log.Errorf("Error initializing receiver: %s", err.Error())
 		return err
 	}
+	i := 0
 	for message := range msgs {
-		message := string(message.Body)
-		if message == worker.MESSAGE_EOF {
-			err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF)
-			if err != nil {
-				log.Infof("Error sending message: %s", err.Error())
+		log.Debugf("Batch received Number: %d", i)
+		message_str := string(message.Body)
+		if message_str == worker.MESSAGE_EOF {
+			for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
+				err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF, queue_name)
+				if err != nil {
+					log.Infof("Error sending message: %s", err.Error())
+				}
 			}
 			break
 		}
-		lines := strings.Split(strings.TrimSpace(message), "\n")
+		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		result := joinMovieWithCredits(lines, movies_by_id)
 		message_to_send := strings.Join(result, "\n")
 		if len(message_to_send) != 0 {
-			err := worker.SendMessage(f.Worker, message_to_send)
+			log.Infof("Message to send: %s", message_to_send)
+			send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
+			err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
+			f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
 			if err != nil {
 				log.Infof("Error sending message: %s", err.Error())
 			}
 		}
+		message.Ack(false)
 	}
 
 	return nil

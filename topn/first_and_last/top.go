@@ -89,17 +89,21 @@ func (f *FirstAndLast) RunWorker() error {
 	var last MovieAvgByScore
 	for message := range msgs {
 		log.Infof("Received message in top five: %s", string(message.Body))
-		message := string(message.Body)
-		if message == worker.MESSAGE_EOF {
+		message_str := string(message.Body)
+		if message_str == worker.MESSAGE_EOF {
 			break
 		}
-		lines := strings.Split(strings.TrimSpace(message), "\n")
+		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		first, last = updateFirstAndLast(lines, first, last)
+		message.Ack(false)
 	}
 	message_to_send := mapToLines(first, last)
-	err = worker.SendMessage(f.Worker, message_to_send)
+	log.Infof("First and Last: %s", message_to_send)
+	send_queue_key := f.Worker.OutputExchange.RoutingKeys[0] // los topN son nodos unicos, y solo le envian al server
+	err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
 	if err != nil {
 		log.Infof("Error sending message: %s", err.Error())
 	}
+
 	return nil
 }

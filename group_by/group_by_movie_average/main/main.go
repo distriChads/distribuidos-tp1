@@ -3,6 +3,11 @@ package main
 import (
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
+	"os"
+	"os/signal"
+	"strings"
+	"sync"
+	"syscall"
 
 	group_by "distribuidos-tp1/group_by/group_by_movie_average"
 
@@ -19,15 +24,16 @@ func main() {
 	}
 
 	log_level := v.GetString("log.level")
+	queueName := v.GetString("worker.queue.name")
 	inputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.input.name"),
-		RoutingKeys: []string{v.GetString("worker.exchange.input.routingKeys")},
-		QueueName:   "group_by_movie_average_queue",
+		RoutingKeys: []string{v.GetString("worker.exchange.input.routingkeys")},
+		QueueName:   queueName,
 	}
 	outputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.output.name"),
-		RoutingKeys: []string{v.GetString("worker.exchange.output.routingKeys")},
-		QueueName:   "group_by_movie_average_queue",
+		RoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
+		QueueName:   queueName,
 	}
 	messageBroker := v.GetString("worker.broker")
 
@@ -45,6 +51,10 @@ func main() {
 	if maxMessages == 0 {
 		maxMessages = 10
 	}
+	expectedEof := v.GetInt("worker.expectedeof")
+	if expectedEof == 0 {
+		expectedEof = 1
+	}
 
 	groupByMovieAverage := group_by.NewGroupByMovieAndAvg(group_by.GroupByMovieAndAvgConfig{
 		WorkerConfig: worker.WorkerConfig{
@@ -52,12 +62,35 @@ func main() {
 			OutputExchange: outputExchangeSpec,
 			MessageBroker:  messageBroker,
 		},
-	}, maxMessages)
+	}, maxMessages, expectedEof)
 
-	defer groupByMovieAverage.CloseWorker()
+	// Set up signal handling
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
 
-	err = groupByMovieAverage.RunWorker()
-	if err != nil {
-		panic(err)
+	// Start client in a goroutine
+	done := make(chan bool)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		groupByMovieAverage.RunWorker()
+		done <- true
+	}()
+
+	// Wait for either completion or signal
+	select {
+	case sig := <-sigChan:
+		if sig == syscall.SIGTERM {
+			groupByMovieAverage.CloseWorker()
+			log.Info("Worker shut down successfully")
+			<-done
+		} else {
+			log.Warning("Signal %v not handled", sig)
+		}
+	case <-done:
+		log.Info("Worker finished successfully")
 	}
+
+	wg.Wait()
 }

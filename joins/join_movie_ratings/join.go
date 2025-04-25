@@ -16,6 +16,8 @@ type JoinMovieRatingByIdConfig struct {
 type JoinMovieRatingById struct {
 	worker.Worker
 	messages_before_commit int
+	queue_to_send          int
+	eof_counter            int
 }
 
 // ---------------------------------
@@ -24,11 +26,10 @@ type JoinMovieRatingById struct {
 const ID = 0
 const SCORE = 1
 
-func storeMovieWithId(lines []string, movies_by_id map[string]string) {
-	for _, line := range lines {
-		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
-		movies_by_id[parts[ID]] = line
-	}
+func storeMovieWithId(line string, movies_by_id map[string]string) {
+	parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+	movies_by_id[parts[ID]] = line
+
 }
 
 // ---------------------------------
@@ -57,7 +58,7 @@ func getGroupedElements() map[string]string {
 	return nil
 }
 
-func NewJoinMovieRatingById(config JoinMovieRatingByIdConfig, messages_before_commit int) *JoinMovieRatingById {
+func NewJoinMovieRatingById(config JoinMovieRatingByIdConfig, messages_before_commit int, eof_counter int) *JoinMovieRatingById {
 	log.Infof("JoinMovieRatingById: %+v", config)
 	return &JoinMovieRatingById{
 		Worker: worker.Worker{
@@ -67,6 +68,7 @@ func NewJoinMovieRatingById(config JoinMovieRatingByIdConfig, messages_before_co
 			MessageBroker:       config.MessageBroker,
 		},
 		messages_before_commit: messages_before_commit,
+		eof_counter:            eof_counter,
 	}
 }
 
@@ -84,17 +86,22 @@ func (f *JoinMovieRatingById) RunWorker() error {
 	messages_before_commit := 0
 	movies_by_id := make(map[string]string)
 	for message := range msgs {
-		message := string(message.Body)
-		if message == worker.MESSAGE_EOF {
-			break
+		message_str := string(message.Body)
+		if message_str == worker.MESSAGE_EOF {
+			f.eof_counter--
+			if f.eof_counter <= 0 {
+				break
+			}
+			continue
 		}
 		messages_before_commit += 1
-		lines := strings.Split(strings.TrimSpace(message), "\n")
-		storeMovieWithId(lines, movies_by_id)
+		line := strings.TrimSpace(message_str)
+		storeMovieWithId(line, movies_by_id) // ahora el filtro after 2000 envia de a una sola linea, por lo tanto puedo hacer esto
 		if messages_before_commit >= f.messages_before_commit {
 			storeGroupedElements(movies_by_id)
 			messages_before_commit = 0
 		}
+		message.Ack(false)
 	}
 
 	msgs, err = worker.SecondReceivedMessages(f.Worker)
@@ -104,23 +111,28 @@ func (f *JoinMovieRatingById) RunWorker() error {
 	}
 
 	for message := range msgs {
-		message := string(message.Body)
-		if message == worker.MESSAGE_EOF {
-			err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF)
-			if err != nil {
-				log.Infof("Error sending message: %s", err.Error())
+		message_str := string(message.Body)
+		if message_str == worker.MESSAGE_EOF {
+			for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
+				err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF, queue_name)
+				if err != nil {
+					log.Infof("Error sending message: %s", err.Error())
+				}
 			}
 			break
 		}
-		lines := strings.Split(strings.TrimSpace(message), "\n")
+		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		result := joinMovieWithRating(lines, movies_by_id)
 		message_to_send := strings.Join(result, "\n")
 		if len(message_to_send) != 0 {
-			err := worker.SendMessage(f.Worker, message_to_send)
+			send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
+			err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
+			f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
 			if err != nil {
 				log.Infof("Error sending message: %s", err.Error())
 			}
 		}
+		message.Ack(false)
 	}
 
 	return nil

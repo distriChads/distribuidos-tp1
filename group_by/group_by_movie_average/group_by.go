@@ -18,6 +18,7 @@ var log = logging.MustGetLogger("group_by_movie_average")
 type GroupByMovieAndAvg struct {
 	worker.Worker
 	messages_before_commit int
+	eof_counter            int
 }
 
 type ScoreAndCount struct {
@@ -66,7 +67,7 @@ func getGroupedElements() map[string]int {
 	return nil
 }
 
-func NewGroupByMovieAndAvg(config GroupByMovieAndAvgConfig, messages_before_commit int) *GroupByMovieAndAvg {
+func NewGroupByMovieAndAvg(config GroupByMovieAndAvgConfig, messages_before_commit int, eof_counter int) *GroupByMovieAndAvg {
 	log.Infof("GroupByMovieAndAvg: %+v", config)
 	return &GroupByMovieAndAvg{
 		Worker: worker.Worker{
@@ -75,6 +76,7 @@ func NewGroupByMovieAndAvg(config GroupByMovieAndAvgConfig, messages_before_comm
 			MessageBroker:  config.MessageBroker,
 		},
 		messages_before_commit: messages_before_commit,
+		eof_counter:            eof_counter,
 	}
 }
 
@@ -91,25 +93,30 @@ func (f *GroupByMovieAndAvg) RunWorker() error {
 	messages_before_commit := 0
 	grouped_elements := make(map[string]ScoreAndCount)
 	for message := range msgs {
-		message := string(message.Body)
-		if message == worker.MESSAGE_EOF {
-			break
+		message_str := string(message.Body)
+		if message_str == worker.MESSAGE_EOF {
+			f.eof_counter--
+			if f.eof_counter <= 0 {
+				break
+			}
+			continue
 		}
 		messages_before_commit += 1
-		lines := strings.Split(strings.TrimSpace(message), "\n")
+		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		groupByMovieAndUpdate(lines, grouped_elements)
 		if messages_before_commit >= f.messages_before_commit {
 			storeGroupedElements(grouped_elements)
 			messages_before_commit = 0
 		}
+		message.Ack(false)
 	}
 	message_to_send := mapToLines(grouped_elements)
-	err = worker.SendMessage(f.Worker, message_to_send)
-	// TODO: Enviar a una cola de un agrupador "maestro" que haga la ultima agrupacion y este se lo envie al proximo chavoncito
+	send_queue_key := f.Worker.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
+	err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
 	if err != nil {
 		log.Infof("Error sending message: %s", err.Error())
 	}
-	err = worker.SendMessage(f.Worker, worker.MESSAGE_EOF)
+	err = worker.SendMessage(f.Worker, worker.MESSAGE_EOF, send_queue_key)
 	if err != nil {
 		log.Infof("Error sending message: %s", err.Error())
 	}

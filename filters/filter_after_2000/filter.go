@@ -16,6 +16,7 @@ type FilterByAfterYear2000Config struct {
 
 type FilterByAfterYear2000 struct {
 	worker.Worker
+	eof_counter int
 }
 
 // ---------------------------------
@@ -41,7 +42,7 @@ func filterByYearAfter2000(lines []string) []string {
 	return result
 }
 
-func NewFilterByAfterYear2000(config FilterByAfterYear2000Config) *FilterByAfterYear2000 {
+func NewFilterByAfterYear2000(config FilterByAfterYear2000Config, eof_counter int) *FilterByAfterYear2000 {
 	log.Infof("FilterByAfterYear2000: %+v", config)
 	return &FilterByAfterYear2000{
 		Worker: worker.Worker{
@@ -49,6 +50,7 @@ func NewFilterByAfterYear2000(config FilterByAfterYear2000Config) *FilterByAfter
 			OutputExchange: config.OutputExchange,
 			MessageBroker:  config.MessageBroker,
 		},
+		eof_counter: eof_counter,
 	}
 }
 
@@ -64,21 +66,37 @@ func (f *FilterByAfterYear2000) RunWorker() error {
 	}
 
 	for message := range msgs {
-		message := string(message.Body)
-		if message == worker.MESSAGE_EOF {
-			err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF)
-			if err != nil {
-				log.Infof("Error sending message: %s", err.Error())
+		message_str := string(message.Body)
+		if message_str == worker.MESSAGE_EOF {
+			f.eof_counter--
+			if f.eof_counter <= 0 {
+				for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
+					err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF, queue_name)
+					if err != nil {
+						log.Infof("Error sending message: %s", err.Error())
+					}
+				}
+				break
 			}
-			break
+			continue
 		}
-		lines := strings.Split(strings.TrimSpace(message), "\n")
+		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		filtered_lines := filterByYearAfter2000(lines)
-		message_to_send := strings.Join(filtered_lines, "\n")
-		if len(message_to_send) != 0 {
-			err := worker.SendMessage(f.Worker, message_to_send)
-			if err != nil {
-				log.Infof("Error sending message: %s", err.Error())
+		for _, line := range filtered_lines {
+			parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+			message_to_send := line
+			if len(message_to_send) != 0 {
+				id, err := strconv.Atoi(parts[ID])
+				if err != nil {
+					continue
+				}
+				send_queue_key := f.Worker.OutputExchange.RoutingKeys[id%len(f.Worker.OutputExchange.RoutingKeys)]
+				err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
+				message.Ack(false)
+				if err != nil {
+					log.Infof("Error sending message: %s", err.Error())
+				}
+
 			}
 		}
 	}

@@ -1,7 +1,7 @@
 import logging
 
 
-def init_log(logging_level: str = "INFO") -> None:
+def init_log(logging_level: str = "DEBUG") -> None:
     """
     Python custom logging initialization
 
@@ -10,6 +10,7 @@ def init_log(logging_level: str = "INFO") -> None:
     """
     logging.basicConfig(
         format='%(asctime)s %(levelname)-8s %(message)s',
-        level=logging_level,
+        level=logging_level.upper(),
         datefmt='%Y-%m-%d %H:%M:%S',
     )
+    logging.getLogger("pika").setLevel(logging.WARNING) # Suppress pika logs

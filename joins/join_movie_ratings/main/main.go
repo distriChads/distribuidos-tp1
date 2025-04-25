@@ -3,6 +3,11 @@ package main
 import (
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
+	"os"
+	"os/signal"
+	"strings"
+	"sync"
+	"syscall"
 
 	join "distribuidos-tp1/joins/join_movie_ratings"
 
@@ -18,23 +23,28 @@ func main() {
 		return
 	}
 
-	log_level := v.GetString("log.level")
+	queueName := v.GetString("worker.queue.name")
 	inputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.input.name"),
 		RoutingKeys: []string{v.GetString("worker.exchange.input.routingkeys")},
-		QueueName:   "join_movie_ratings_queue",
+		QueueName:   queueName,
 	}
 	secondInputExchangeSpec := worker.ExchangeSpec{
-		Name:        v.GetString("worker.exchange.second_input.name"),
+		Name:        v.GetString("worker.exchange.secondinput.name"),
 		RoutingKeys: []string{v.GetString("worker.exchange.secondinput.routingkeys")},
-		QueueName:   "join_movie_ratings_queue",
+		QueueName:   queueName + "2",
 	}
 	outputExchangeSpec := worker.ExchangeSpec{
 		Name:        v.GetString("worker.exchange.output.name"),
-		RoutingKeys: []string{v.GetString("worker.exchange.output.routingkeys")},
-		QueueName:   "join_movie_ratings_queue",
+		RoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
+		QueueName:   queueName,
 	}
 	messageBroker := v.GetString("worker.broker")
+
+	log_level := v.GetString("log.level")
+
+	println(("first exchange name: " + v.GetString("worker.exchange.input.name")))
+	println(("second exchange name: " + v.GetString("worker.exchange.secondinput.name")))
 
 	if inputExchangeSpec.Name == "" || inputExchangeSpec.RoutingKeys[0] == "" || outputExchangeSpec.Name == "" || outputExchangeSpec.RoutingKeys[0] == "" || messageBroker == "" {
 		log.Criticalf("Error: one or more environment variables are empty")
@@ -50,20 +60,47 @@ func main() {
 	if maxMessages == 0 {
 		maxMessages = 10
 	}
+	expectedEof := v.GetInt("worker.expectedeof")
+	if expectedEof == 0 {
+		expectedEof = 1
+	}
 
-	filter := join.NewJoinMovieRatingById(join.JoinMovieRatingByIdConfig{
+	join := join.NewJoinMovieRatingById(join.JoinMovieRatingByIdConfig{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange:       inputExchangeSpec,
 			SecondInputExchange: secondInputExchangeSpec,
 			OutputExchange:      outputExchangeSpec,
 			MessageBroker:       messageBroker,
 		},
-	}, maxMessages)
+	}, maxMessages, expectedEof)
 
-	defer filter.CloseWorker()
+	// Set up signal handling
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
 
-	err = filter.RunWorker()
-	if err != nil {
-		panic(err)
+	// Start client in a goroutine
+	done := make(chan bool)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		join.RunWorker()
+		done <- true
+	}()
+
+	// Wait for either completion or signal
+	select {
+	case sig := <-sigChan:
+		if sig == syscall.SIGTERM {
+			join.CloseWorker()
+			log.Info("Worker shut down successfully")
+			<-done
+		} else {
+			log.Warning("Signal %v not handled", sig)
+		}
+	case <-done:
+		log.Info("Worker finished successfully")
 	}
+
+	wg.Wait()
 }

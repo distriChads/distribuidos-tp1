@@ -16,6 +16,8 @@ type FilterBySpainAndOf2000Config struct {
 
 type FilterBySpainAndOf2000 struct {
 	worker.Worker
+	queue_to_send int
+	eof_counter   int
 }
 
 // ---------------------------------
@@ -50,7 +52,7 @@ func filterByCountrySpainAndOf2000(lines []string) []string {
 	return result
 }
 
-func NewFilterBySpainAndOf2000(config FilterBySpainAndOf2000Config) *FilterBySpainAndOf2000 {
+func NewFilterBySpainAndOf2000(config FilterBySpainAndOf2000Config, eof_counter int) *FilterBySpainAndOf2000 {
 	log.Infof("FilterBySpainAndOf2000: %+v", config)
 	return &FilterBySpainAndOf2000{
 		Worker: worker.Worker{
@@ -58,13 +60,18 @@ func NewFilterBySpainAndOf2000(config FilterBySpainAndOf2000Config) *FilterBySpa
 			OutputExchange: config.OutputExchange,
 			MessageBroker:  config.MessageBroker,
 		},
+		eof_counter: eof_counter,
 	}
 }
 
 func (f *FilterBySpainAndOf2000) RunWorker() error {
 	log.Info("Starting FilterByYear worker")
 	worker.InitSender(&f.Worker)
-	worker.InitReceiver(&f.Worker)
+	err := worker.InitReceiver(&f.Worker)
+	if err != nil {
+		log.Errorf("Error initializing receiver: %s", err.Error())
+		return err
+	}
 
 	msgs, err := worker.ReceivedMessages(f.Worker)
 	if err != nil {
@@ -73,20 +80,27 @@ func (f *FilterBySpainAndOf2000) RunWorker() error {
 	}
 
 	for message := range msgs {
-		message := string(message.Body)
-		if message == worker.MESSAGE_EOF {
-			break
+		message_str := string(message.Body)
+		if message_str == worker.MESSAGE_EOF {
+			f.eof_counter--
+			if f.eof_counter <= 0 {
+				break
+			}
+			continue
 		}
-		lines := strings.Split(strings.TrimSpace(message), "\n")
+		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		filtered_lines := filterByCountrySpainAndOf2000(lines)
 		message_to_send := strings.Join(filtered_lines, "\n")
 		if len(message_to_send) != 0 {
-			err := worker.SendMessage(f.Worker, message_to_send)
+			send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
+			err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
+			f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
 			if err != nil {
 				log.Infof("Error sending message: %s", err.Error())
 			}
-			// log.Debugf("Sent message to output exchange: %s", message_to_send)
+			log.Infof("Sent message %s to exchange %s (routing key: %s)", message_to_send, f.Worker.OutputExchange.Name, send_queue_key)
 		}
+		message.Ack(false)
 	}
 
 	log.Info("FilterBySpainAndOf2000 worker finished")
