@@ -69,13 +69,19 @@ class Client:
                 _bytes_read, result = self.client_socket.read()
                 if not result:
                     break
-                logging.info(f"Received result: {result}")
+                query_id = result.split("-")[0]
+                result = result.split("-")[1]
+                self.__write_down_in_file(query_id, result)
             except socket.timeout:
                 logging.info("Socket timeout, no data received")
                 break
             except socket.error as e:
                 logging.info(f"Closing socket")
                 break
+
+    def __write_down_in_file(self, file_name: str, result: str):
+        with open(file_name, "a") as file:
+            file.write(result)
 
     def __send_file_in_chunks(self, file_path: str):
         """
