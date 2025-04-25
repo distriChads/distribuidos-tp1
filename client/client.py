@@ -73,8 +73,11 @@ class Client:
                 result = result.split("-")[1]
                 self.__write_down_in_file(query_id, result)
             except socket.timeout:
-                logging.info("Socket timeout, no data received")
-                break
+                if not self.running:
+                    logging.info("Socket timeout, shutting down")
+                    break
+                else:
+                    logging.info("Socket timeout, waiting for results")
             except socket.error as e:
                 logging.info(f"Closing socket")
                 break
