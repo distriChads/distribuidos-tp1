@@ -67,6 +67,7 @@ func (f *FilterByAfterYear2000) RunWorker() error {
 
 	for message := range msgs {
 		message_str := string(message.Body)
+		// log.Infof("Received message: %s", message_str)
 		if message_str == worker.MESSAGE_EOF {
 			f.eof_counter--
 			if f.eof_counter <= 0 {

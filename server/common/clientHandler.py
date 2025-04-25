@@ -142,13 +142,13 @@ class ClientHandler:
             # for routing_key in self.routing_keys2:
             #     self.worker.send_message(data_send, routing_key, exchange)
         else:  # RatingsProcessor
+            exchange = self.worker.output_exchange3
             if data_send == "EOF":
                 for routing_key in self.routing_keys3:
                     self.worker.send_message(data_send, routing_key, exchange)
                 return
             self.queue_to_send = (
                 self.queue_to_send + 1) % len(self.routing_keys3)
-            exchange = self.worker.output_exchange3
             routing_key = self.routing_keys3[self.queue_to_send]
 
         self.worker.send_message(data_send, routing_key, exchange)

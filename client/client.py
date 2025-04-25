@@ -20,7 +20,7 @@ class Client:
         self.client_socket = Socket(client_socket)
 
         self.movies_path = os.path.join(storage_path, "movies_metadata.csv")
-        self.credits_path = os.path.join(storage_path, "credits.csv")
+        self.credits_path = os.path.join(storage_path, "credits1.csv")
         self.ratings_path = os.path.join(storage_path, "ratings.csv")
 
         self.running = True
@@ -65,7 +65,7 @@ class Client:
     def __wait_for_results(self):
         while self.running:
             try:
-                self.client_socket.sock.settimeout(2)
+                self.client_socket.sock.settimeout(4)
                 _bytes_read, result = self.client_socket.read()
                 if not result:
                     break
