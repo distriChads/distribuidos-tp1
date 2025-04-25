@@ -178,7 +178,7 @@
                 "type": "all"
             },
             "second_input": {
-                "from": "ratings",
+                "from": "credits",
                 "type": "all"
             },
             "output": {

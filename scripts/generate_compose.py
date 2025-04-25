@@ -22,6 +22,8 @@ def server_service(spec, movies_input_replicas):
   
   env = []
   broker = spec.get("broker", DEFAULT_BROKER)
+  env.append(f"SERVER_PORT=3000")
+  env.append(f"SERVER_LISTEN_BACKLOG=1")
   env.append(f"CLI_WORKER_BROKER={broker}")
   env.append(f"CLI_WORKER_EXCHANGE1_OUTPUT_NAME={spec['movies_exchange_name']}")
   env.append(f"CLI_WORKER_EXCHANGE2_OUTPUT_NAME={spec['credits_exchange_name']}")
@@ -303,9 +305,13 @@ def generate_compose(spec_path, output_path):
           if sec_input_keys_list:
               env.append(f"CLI_WORKER_EXCHANGE_INPUT2_NAME={sec_input_exchange}")
               env.append(f"CLI_WORKER_EXCHANGE_INPUT2_ROUTINGKEYS={','.join(sec_input_keys_list)}")
-              sec_queue_name = sec_input_keys_list[0] # Assume queue name matches first key
               env.append(f"CLI_WORKER_QUEUE2_NAME={ith_service['container_name']}")
               env.append(f"CLI_WORKER_EXPECTEDEOF2={sec_expected_eof}")
+
+      # --- Machine Learning ---
+      if service['name'] == "machine-learning":
+          ith_service["cpus"] = "2"
+
 
       ith_service["environment"] = env
       
