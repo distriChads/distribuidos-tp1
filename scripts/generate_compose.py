@@ -6,7 +6,7 @@ DEFAULT_BROKER = "amqp://guest:guest@rabbitmq:5672/"
 
 def rabbitmq_service(silent):
   service = {
-    "image": "rabbitmq:latest",
+    "image": "rabbitmq:management",
     "container_name": "rabbitmq",
     "networks": ["movies_net"],
     "ports": ["5672:5672", "15672:15672"]
@@ -37,6 +37,7 @@ def server_service(spec, movies_input_replicas):
   env.append(f"CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS={input_keys}")
   
   service = {
+    "container_name": "server",
     "build": {
       "context": ".",
       "dockerfile": "server/Dockerfile"
@@ -62,7 +63,7 @@ def generate_compose(spec_path, output_path):
         "driver": "default",
         "config": [
           {
-            "subnet": "127.0.0.0/24"
+            "subnet": "172.25.125.0/24"
           }
         ]
       }
