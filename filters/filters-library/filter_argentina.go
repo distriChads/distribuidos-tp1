@@ -1,4 +1,4 @@
-package filter_argentina
+package filters
 
 import (
 	"distribuidos-tp1/common/worker/worker"
@@ -9,11 +9,11 @@ import (
 
 var log = logging.MustGetLogger("filter_argentina")
 
-type FilterByArgentinaConfig struct {
+type FilterConfig struct {
 	worker.WorkerConfig
 }
 
-type FilterByArgentina struct {
+type Filter struct {
 	worker.Worker
 	queue_to_send int
 	eof_counter   int
@@ -24,7 +24,7 @@ type FilterByArgentina struct {
 // ---------------------------------
 const COUNTRIES = 3
 
-func filterByArgentina(lines []string) []string {
+func filter(lines []string) []string {
 	var result []string
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
@@ -39,9 +39,9 @@ func filterByArgentina(lines []string) []string {
 	return result
 }
 
-func NewFilterByArgentina(config FilterByArgentinaConfig, eof_counter int) *FilterByArgentina {
-	log.Infof("NewFilterByYear: %+v", config)
-	return &FilterByArgentina{
+func NewFilter(config FilterConfig, eof_counter int) *Filter {
+	log.Infof("NewFilterByArgentina: %+v", config)
+	return &Filter{
 		Worker: worker.Worker{
 			InputExchange:  config.InputExchange,
 			OutputExchange: config.OutputExchange,
@@ -51,8 +51,8 @@ func NewFilterByArgentina(config FilterByArgentinaConfig, eof_counter int) *Filt
 	}
 }
 
-func (f *FilterByArgentina) RunWorker() error {
-	log.Info("Starting FilterByYear worker")
+func (f *Filter) RunWorker() error {
+	log.Info("Starting FilterByArgentina worker")
 	worker.InitSender(&f.Worker)
 	worker.InitReceiver(&f.Worker)
 
@@ -81,7 +81,7 @@ func (f *FilterByArgentina) RunWorker() error {
 			continue
 		}
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
-		filtered_lines := filterByArgentina(lines)
+		filtered_lines := filter(lines)
 		message_to_send := strings.Join(filtered_lines, "\n")
 		if len(message_to_send) != 0 {
 			send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]

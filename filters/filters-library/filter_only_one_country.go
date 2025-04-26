@@ -1,4 +1,4 @@
-package filter_only_one_country
+package filters
 
 import (
 	worker "distribuidos-tp1/common/worker/worker"

@@ -1,4 +1,4 @@
-package filterafter2000
+package filters
 
 import (
 	worker "distribuidos-tp1/common/worker/worker"
@@ -10,11 +10,11 @@ import (
 
 var log = logging.MustGetLogger("filter_after_2000")
 
-type FilterByAfterYear2000Config struct {
+type FilterConfig struct {
 	worker.WorkerConfig
 }
 
-type FilterByAfterYear2000 struct {
+type Filter struct {
 	worker.Worker
 	eof_counter int
 }
@@ -42,9 +42,9 @@ func filterByYearAfter2000(lines []string) []string {
 	return result
 }
 
-func NewFilterByAfterYear2000(config FilterByAfterYear2000Config, eof_counter int) *FilterByAfterYear2000 {
+func NewFilter(config FilterConfig, eof_counter int) *FilterByAfterYear2000 {
 	log.Infof("FilterByAfterYear2000: %+v", config)
-	return &FilterByAfterYear2000{
+	return &Filter{
 		Worker: worker.Worker{
 			InputExchange:  config.InputExchange,
 			OutputExchange: config.OutputExchange,
@@ -54,7 +54,7 @@ func NewFilterByAfterYear2000(config FilterByAfterYear2000Config, eof_counter in
 	}
 }
 
-func (f *FilterByAfterYear2000) RunWorker() error {
+func (f *Filter) RunWorker() error {
 	log.Info("Starting FilterByAfterYear2000 worker")
 	worker.InitSender(&f.Worker)
 	worker.InitReceiver(&f.Worker)

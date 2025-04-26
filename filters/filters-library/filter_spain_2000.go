@@ -1,4 +1,4 @@
-package filter_spain_2000
+package filters
 
 import (
 	worker "distribuidos-tp1/common/worker/worker"
@@ -10,11 +10,11 @@ import (
 
 var log = logging.MustGetLogger("filter_after_2000")
 
-type FilterBySpainAndOf2000Config struct {
+type FilterConfig struct {
 	worker.WorkerConfig
 }
 
-type FilterBySpainAndOf2000 struct {
+type Filter struct {
 	worker.Worker
 	queue_to_send int
 	eof_counter   int
@@ -52,9 +52,9 @@ func filterByCountrySpainAndOf2000(lines []string) []string {
 	return result
 }
 
-func NewFilterBySpainAndOf2000(config FilterBySpainAndOf2000Config, eof_counter int) *FilterBySpainAndOf2000 {
+func NewFilter(config FilterConfig, eof_counter int) *Filter {
 	log.Infof("FilterBySpainAndOf2000: %+v", config)
-	return &FilterBySpainAndOf2000{
+	return &Filter{
 		Worker: worker.Worker{
 			InputExchange:  config.InputExchange,
 			OutputExchange: config.OutputExchange,
@@ -64,8 +64,8 @@ func NewFilterBySpainAndOf2000(config FilterBySpainAndOf2000Config, eof_counter 
 	}
 }
 
-func (f *FilterBySpainAndOf2000) RunWorker() error {
-	log.Info("Starting FilterByYear worker")
+func (f *Filter) RunWorker() error {
+	log.Info("Starting FilterBySpainAndOf2000 worker")
 	worker.InitSender(&f.Worker)
 	err := worker.InitReceiver(&f.Worker)
 	if err != nil {

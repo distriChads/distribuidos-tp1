@@ -6,11 +6,15 @@ RUN go mod download
 
 # Build stage
 FROM golang:1.24-alpine AS builder
+ARG FILTER=filter_after_2000
 WORKDIR /app
 COPY --from=deps /app/go.mod /app/go.sum ./
 COPY ./common ./common
-COPY ./filters/filter_after_2000 ./filters/filter_after_2000
-RUN CGO_ENABLED=0 GOOS=linux go build -o bin/run_worker ./filters/filter_after_2000/main/main.go
+# RUN mkdir -p ./filter/filter-logic
+COPY ./filters/main.go ./filters/main.go
+COPY ./filters/filters-library/${FILTER}.go ./filters/filters-library/${FILTER}.go
+RUN tree .
+RUN CGO_ENABLED=0 GOOS=linux go build -o bin/run_worker ./filters/main.go
 
 # Image final
 FROM busybox:latest
