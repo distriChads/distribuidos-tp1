@@ -2,6 +2,7 @@ package filter_spain_2000
 
 import (
 	worker "distribuidos-tp1/common/worker/worker"
+	"distribuidos-tp1/filters/common_filter"
 	"strconv"
 	"strings"
 
@@ -20,6 +21,18 @@ type FilterBySpainAndOf2000 struct {
 	eof_counter   int
 }
 
+func NewFilterBySpainAndOf2000(config FilterBySpainAndOf2000Config, eof_counter int) *FilterBySpainAndOf2000 {
+	log.Infof("FilterBySpainAndOf2000: %+v", config)
+	return &FilterBySpainAndOf2000{
+		Worker: worker.Worker{
+			InputExchange:  config.InputExchange,
+			OutputExchange: config.OutputExchange,
+			MessageBroker:  config.MessageBroker,
+		},
+		eof_counter: eof_counter,
+	}
+}
+
 // ---------------------------------
 // MESSAGE FORMAT: ID|TITLE|DATE|COUNTRIES|GENRES|...
 // ---------------------------------
@@ -28,7 +41,7 @@ const DATE = 2
 const COUNTRIES = 3
 const GENRES = 4
 
-func filterByCountrySpainAndOf2000(lines []string) []string {
+func (f *FilterBySpainAndOf2000) Filter(lines []string) []string {
 	var result []string
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
@@ -52,57 +65,28 @@ func filterByCountrySpainAndOf2000(lines []string) []string {
 	return result
 }
 
-func NewFilterBySpainAndOf2000(config FilterBySpainAndOf2000Config, eof_counter int) *FilterBySpainAndOf2000 {
-	log.Infof("FilterBySpainAndOf2000: %+v", config)
-	return &FilterBySpainAndOf2000{
-		Worker: worker.Worker{
-			InputExchange:  config.InputExchange,
-			OutputExchange: config.OutputExchange,
-			MessageBroker:  config.MessageBroker,
-		},
-		eof_counter: eof_counter,
-	}
+func (f *FilterBySpainAndOf2000) HandleEOF() error {
+	f.eof_counter--
+	return nil
 }
 
-func (f *FilterBySpainAndOf2000) RunWorker() error {
-	log.Info("Starting FilterByYear worker")
-	worker.InitSender(&f.Worker)
-	err := worker.InitReceiver(&f.Worker)
-	if err != nil {
-		log.Errorf("Error initializing receiver: %s", err.Error())
-		return err
-	}
-
-	msgs, err := worker.ReceivedMessages(f.Worker)
-	if err != nil {
-		log.Errorf("Error initializing receiver: %s", err.Error())
-		return err
-	}
-
-	for message := range msgs {
-		message_str := string(message.Body)
-		if message_str == worker.MESSAGE_EOF {
-			f.eof_counter--
-			if f.eof_counter <= 0 {
-				break
-			}
-			continue
+func (f *FilterBySpainAndOf2000) SendMessage(message_to_send []string) error {
+	message := strings.Join(message_to_send, "\n")
+	if len(message) != 0 {
+		send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
+		err := worker.SendMessage(f.Worker, message, send_queue_key)
+		f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
+		if err != nil {
+			return err
 		}
-		lines := strings.Split(strings.TrimSpace(message_str), "\n")
-		filtered_lines := filterByCountrySpainAndOf2000(lines)
-		message_to_send := strings.Join(filtered_lines, "\n")
-		if len(message_to_send) != 0 {
-			send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
-			err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
-			f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
-			if err != nil {
-				log.Infof("Error sending message: %s", err.Error())
-			}
-			log.Infof("Sent message %s to exchange %s (routing key: %s)", message_to_send, f.Worker.OutputExchange.Name, send_queue_key)
-		}
-		message.Ack(false)
 	}
-
-	log.Info("FilterBySpainAndOf2000 worker finished")
 	return nil
+}
+
+func (f *FilterBySpainAndOf2000) RunWorker(starting_message string) error {
+	msgs, err := common_filter.Init(&f.Worker, starting_message)
+	if err != nil {
+		return err
+	}
+	return common_filter.RunWorker(f, msgs)
 }
