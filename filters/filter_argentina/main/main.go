@@ -69,7 +69,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		filter.RunWorker()
+		filter.RunWorker("Starting filter by argentina")
 		done <- true
 	}()
 
