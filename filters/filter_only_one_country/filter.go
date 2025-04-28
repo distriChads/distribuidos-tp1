@@ -2,6 +2,7 @@ package filter_only_one_country
 
 import (
 	worker "distribuidos-tp1/common/worker/worker"
+	"distribuidos-tp1/filters/common_filter"
 	"strings"
 
 	"github.com/op/go-logging"
@@ -19,23 +20,6 @@ type FilterByOnlyOneCountry struct {
 	eof_counter   int
 }
 
-// ---------------------------------
-// MESSAGE FORMAT: ID|TITLE|DATE|COUNTRIES|...
-// ---------------------------------
-const COUNTRIES = 3
-
-func filterByOnlyOneCountry(lines []string) []string {
-	var result []string
-	for _, line := range lines {
-		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
-		countries := strings.Split(parts[COUNTRIES], worker.MESSAGE_ARRAY_SEPARATOR)
-		if len(countries) == 1 {
-			result = append(result, strings.TrimSpace(line))
-		}
-	}
-	return result
-}
-
 func NewFilterByOnlyOneCountry(config FilterByOnlyOneCountryConfig, eof_counter int) *FilterByOnlyOneCountry {
 	log.Infof("NewFilterByOnlyOneCountry: %+v", config)
 	return &FilterByOnlyOneCountry{
@@ -48,46 +32,54 @@ func NewFilterByOnlyOneCountry(config FilterByOnlyOneCountryConfig, eof_counter 
 	}
 }
 
-func (f *FilterByOnlyOneCountry) RunWorker() error {
-	log.Info("Starting FilterByOnlyOneCountry worker")
-	worker.InitSender(&f.Worker)
-	worker.InitReceiver(&f.Worker)
+// ---------------------------------
+// MESSAGE FORMAT: ID|TITLE|DATE|COUNTRIES|...
+// ---------------------------------
+const COUNTRIES = 3
 
-	msgs, err := worker.ReceivedMessages(f.Worker)
+func (f *FilterByOnlyOneCountry) Filter(lines []string) []string {
+	var result []string
+	for _, line := range lines {
+		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		countries := strings.Split(parts[COUNTRIES], worker.MESSAGE_ARRAY_SEPARATOR)
+		if len(countries) == 1 {
+			result = append(result, strings.TrimSpace(line))
+		}
+	}
+	return result
+}
+
+func (f *FilterByOnlyOneCountry) HandleEOF() error {
+	f.eof_counter--
+	if f.eof_counter <= 0 {
+		for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
+			err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF, queue_name)
+			if err != nil {
+				return err
+			}
+		}
+
+	}
+	return nil
+}
+
+func (f *FilterByOnlyOneCountry) SendMessage(message_to_send []string) error {
+	message := strings.Join(message_to_send, "\n")
+	if len(message) != 0 {
+		send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
+		err := worker.SendMessage(f.Worker, message, send_queue_key)
+		f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (f *FilterByOnlyOneCountry) RunWorker(starting_message string) error {
+	msgs, err := common_filter.Init(&f.Worker, starting_message)
 	if err != nil {
-		log.Errorf("Error initializing receiver: %s", err.Error())
 		return err
 	}
-
-	for message := range msgs {
-		message_str := string(message.Body)
-		if message_str == worker.MESSAGE_EOF {
-			f.eof_counter--
-			if f.eof_counter <= 0 {
-
-				for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
-					err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF, queue_name)
-					if err != nil {
-						log.Infof("Error sending message: %s", err.Error())
-					}
-				}
-				break
-			}
-			continue
-		}
-		lines := strings.Split(strings.TrimSpace(message_str), "\n")
-		filtered_lines := filterByOnlyOneCountry(lines)
-		message_to_send := strings.Join(filtered_lines, "\n")
-		if len(message_to_send) != 0 {
-			send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
-			err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
-			f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
-			if err != nil {
-				log.Infof("Error sending message: %s", err.Error())
-			}
-		}
-		message.Ack(false)
-	}
-
-	return nil
+	return common_filter.RunWorker(f, msgs)
 }

@@ -21,7 +21,7 @@ type FilterByArgentina struct {
 }
 
 func NewFilterByArgentina(config FilterByArgentinaConfig, eof_counter int) *FilterByArgentina {
-	log.Infof("NewFilterByYear: %+v", config)
+	log.Infof("NewFilterByArgentina: %+v", config)
 	return &FilterByArgentina{
 		Worker: worker.Worker{
 			InputExchange:  config.InputExchange,

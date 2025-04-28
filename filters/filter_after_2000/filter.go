@@ -56,17 +56,14 @@ func (f *FilterByAfterYear2000) Filter(lines []string) []string {
 }
 
 func (f *FilterByAfterYear2000) HandleEOF() error {
-	log.Info("Received EOF")
 	f.eof_counter--
 	if f.eof_counter <= 0 {
-		log.Info("Sending EOF")
 		for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
 			err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF, queue_name)
 			if err != nil {
 				return err
 			}
 		}
-		log.Info("Finished sending EOF")
 
 	}
 	return nil
