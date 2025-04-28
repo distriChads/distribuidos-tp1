@@ -10,6 +10,7 @@ WORKDIR /app
 COPY --from=deps /app/go.mod /app/go.sum ./
 COPY ./common ./common
 COPY ./filters/filter_only_one_country ./filters/filter_only_one_country
+COPY ./filters/common_filter ./filters/common_filter
 RUN CGO_ENABLED=0 GOOS=linux go build -o bin/run_worker ./filters/filter_only_one_country/main/main.go
 
 # Image final
