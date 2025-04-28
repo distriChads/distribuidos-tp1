@@ -2,6 +2,7 @@ package filterafter2000
 
 import (
 	worker "distribuidos-tp1/common/worker/worker"
+	"distribuidos-tp1/filters/common_filter"
 	"strconv"
 	"strings"
 
@@ -19,6 +20,18 @@ type FilterByAfterYear2000 struct {
 	eof_counter int
 }
 
+func NewFilterByAfterYear2000(config FilterByAfterYear2000Config, eof_counter int) *FilterByAfterYear2000 {
+	log.Infof("FilterByAfterYear2000: %+v", config)
+	return &FilterByAfterYear2000{
+		Worker: worker.Worker{
+			InputExchange:  config.InputExchange,
+			OutputExchange: config.OutputExchange,
+			MessageBroker:  config.MessageBroker,
+		},
+		eof_counter: eof_counter,
+	}
+}
+
 // ---------------------------------
 // MESSAGE FORMAT: ID|TITLE|DATE|...
 // ---------------------------------
@@ -26,7 +39,7 @@ const ID = 0
 const TITLE = 1
 const DATE = 2
 
-func filterByYearAfter2000(lines []string) []string {
+func (f *FilterByAfterYear2000) Filter(lines []string) []string {
 	var result []string
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
@@ -42,69 +55,45 @@ func filterByYearAfter2000(lines []string) []string {
 	return result
 }
 
-func NewFilterByAfterYear2000(config FilterByAfterYear2000Config, eof_counter int) *FilterByAfterYear2000 {
-	log.Infof("FilterByAfterYear2000: %+v", config)
-	return &FilterByAfterYear2000{
-		Worker: worker.Worker{
-			InputExchange:  config.InputExchange,
-			OutputExchange: config.OutputExchange,
-			MessageBroker:  config.MessageBroker,
-		},
-		eof_counter: eof_counter,
+func (f *FilterByAfterYear2000) HandleEOF() error {
+	log.Info("Received EOF")
+	f.eof_counter--
+	if f.eof_counter <= 0 {
+		log.Info("Sending EOF")
+		for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
+			err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF, queue_name)
+			if err != nil {
+				return err
+			}
+		}
+		log.Info("Finished sending EOF")
+
 	}
+	return nil
 }
 
-func (f *FilterByAfterYear2000) RunWorker() error {
-	log.Info("Starting FilterByAfterYear2000 worker")
-	worker.InitSender(&f.Worker)
-	worker.InitReceiver(&f.Worker)
+func (f *FilterByAfterYear2000) SendMessage(message_to_send []string) error {
+	for _, line := range message_to_send {
+		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		if len(message_to_send) != 0 {
+			id, err := strconv.Atoi(parts[ID])
+			if err != nil {
+				return err
+			}
+			send_queue_key := f.Worker.OutputExchange.RoutingKeys[id%len(f.Worker.OutputExchange.RoutingKeys)]
+			err = worker.SendMessage(f.Worker, line, send_queue_key)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
 
-	msgs, err := worker.ReceivedMessages(f.Worker)
+func (f *FilterByAfterYear2000) RunWorker(starting_message string) error {
+	msgs, err := common_filter.Init(&f.Worker, starting_message)
 	if err != nil {
-		log.Errorf("Error initializing receiver: %s", err.Error())
 		return err
 	}
-
-	for message := range msgs {
-		message_str := string(message.Body)
-		log.Debugf("Received message: %s", message_str)
-		if message_str == worker.MESSAGE_EOF {
-			log.Info("Received EOF")
-			f.eof_counter--
-			if f.eof_counter <= 0 {
-				log.Info("Sending EOF")
-				for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
-					err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF, queue_name)
-					if err != nil {
-						log.Infof("Error sending message: %s", err.Error())
-					}
-				}
-				log.Info("Finished sending EOF")
-				message.Ack(false)
-				break
-			}
-			message.Ack(false)
-			continue
-		}
-		lines := strings.Split(strings.TrimSpace(message_str), "\n")
-		filtered_lines := filterByYearAfter2000(lines)
-		for _, line := range filtered_lines {
-			parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
-			message_to_send := line
-			if len(message_to_send) != 0 {
-				id, err := strconv.Atoi(parts[ID])
-				if err != nil {
-					continue
-				}
-				send_queue_key := f.Worker.OutputExchange.RoutingKeys[id%len(f.Worker.OutputExchange.RoutingKeys)]
-				err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
-				if err != nil {
-					log.Infof("Error sending message: %s", err.Error())
-				}
-			}
-		}
-		message.Ack(false)
-	}
-
-	return nil
+	return common_filter.RunWorker(f, msgs)
 }
