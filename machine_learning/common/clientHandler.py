@@ -20,6 +20,7 @@ class MachineLearning:
             'sentiment-analysis', model='distilbert-base-uncased-finetuned-sst-2-english')
         self.output_routing_keys = output_routing_keys
         self.queue_to_send = 0
+        self.running = True
 
         try:
             self.worker.init_sender()
@@ -36,15 +37,19 @@ class MachineLearning:
 
     def __receive_messages(self):
         log.info("Starting message receiver thread")
-        while True:
+        while self.running:
             for method_frame, _properties, body in self.worker.received_messages():
                 client_id = method_frame.routing_key.split(".")[0]
-                delivery_tag = _properties.delivery_tag
+                delivery_tag = method_frame.delivery_tag
                 message = body.decode("utf-8")
                 self.messages_queue.put((client_id, message, delivery_tag))
                 while not self.ack_queue.empty():
                     delivery_tag = self.ack_queue.get()
-                    self.worker.send_ack(delivery_tag)
+                    try:
+                        # self.worker.send_ack(delivery_tag) 
+                        pass # TODO: Arreglar el ack
+                    except Exception as e:
+                        log.error(f"Error sending ack: {e}")
 
     def __process_with_machine_learning(self, message_to_analyze: str):
         result = self.sentiment_analyzer(message_to_analyze, truncation=True)
@@ -65,8 +70,8 @@ class MachineLearning:
     def run_worker(self):
         log.info("Starting MachineLearning worker")
         cont = 0
-        try:
-            while True:
+        while self.running:
+            try:
                 client_id, messages, delivery_tag = self.messages_queue.get()
                 messages = messages.strip().split("\n")
                 for message in messages:
@@ -77,12 +82,11 @@ class MachineLearning:
                                 key = client_id + "." + routing_key
                                 self.worker.send_message(
                                     MESSAGE_EOF, key)
-                            log.info("Sent EOF to all routing keys")
+                            log.info(
+                                f"Sent EOF to all routing keys for client {client_id}")
                         except Exception as e:
                             log.warning(f"Error sending EOF: {e}")
-                        self.thread.join()
-                        log.info("MachineLearning worker finished")
-                        return
+                        self.ack_queue.put(delivery_tag)
 
                     result = self.__process_message(message)
                     routing_queue = self.output_routing_keys[self.queue_to_send]
@@ -91,6 +95,5 @@ class MachineLearning:
                     self.ack_queue.put(delivery_tag)
                     self.queue_to_send = (
                         self.queue_to_send + 1) % len(self.output_routing_keys)
-        except Exception as e:
-            log.error(f"Error during message processing: {e}")
-            return e
+            except Exception as e:
+                log.error(f"Error during message processing: {e}")

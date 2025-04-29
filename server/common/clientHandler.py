@@ -174,6 +174,8 @@ class ClientHandler:
             client_id = method_frame.routing_key.split(".")[0]  # los routing key formato = *.results.*
             query_number = method_frame.routing_key.split(".")[1]
             result = result_encoded.decode('utf-8')
+            if result == "EOF":
+                continue
             result = f"{client_id}/{query_number}/{result}\n"
 
             logging.info("Received result from worker: %s", result)
