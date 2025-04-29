@@ -30,7 +30,6 @@ class MachineLearning:
             return e
 
         self.messages_queue = queue.Queue()
-        self.ack_queue = queue.Queue()
         self.thread = threading.Thread(
             target=self.__receive_messages, daemon=True)
         self.thread.start()
@@ -43,13 +42,6 @@ class MachineLearning:
                 delivery_tag = method_frame.delivery_tag
                 message = body.decode("utf-8")
                 self.messages_queue.put((client_id, message, delivery_tag))
-                while not self.ack_queue.empty():
-                    delivery_tag = self.ack_queue.get()
-                    try:
-                        # self.worker.send_ack(delivery_tag) 
-                        pass # TODO: Arreglar el ack
-                    except Exception as e:
-                        log.error(f"Error sending ack: {e}")
 
     def __process_with_machine_learning(self, message_to_analyze: str):
         result = self.sentiment_analyzer(message_to_analyze, truncation=True)
@@ -86,14 +78,18 @@ class MachineLearning:
                                 f"Sent EOF to all routing keys for client {client_id}")
                         except Exception as e:
                             log.warning(f"Error sending EOF: {e}")
-                        self.ack_queue.put(delivery_tag)
+                        finally:
+                            self.worker.send_ack(delivery_tag)
+                            continue
 
                     result = self.__process_message(message)
                     routing_queue = self.output_routing_keys[self.queue_to_send]
                     key = client_id + "." + routing_queue
                     self.worker.send_message(result, key)
-                    self.ack_queue.put(delivery_tag)
                     self.queue_to_send = (
                         self.queue_to_send + 1) % len(self.output_routing_keys)
+                
+                self.worker.send_ack(delivery_tag)
             except Exception as e:
                 log.error(f"Error during message processing: {e}")
+                
