@@ -16,11 +16,12 @@ type TopFiveCountryBudgetConfig struct {
 
 type TopFiveCountryBudget struct {
 	worker.Worker
+	top_five map[string][]CountrByBudget
 }
 
 var log = logging.MustGetLogger("top_five_country_budget")
 
-type TopFiveCountrByBudget struct {
+type CountrByBudget struct {
 	Country string
 	Budget  int
 }
@@ -31,7 +32,7 @@ type TopFiveCountrByBudget struct {
 const COUNTRY = 0
 const BUDGET = 1
 
-func updateTopFive(lines []string, top_five []TopFiveCountrByBudget) []TopFiveCountrByBudget {
+func updateTopFive(lines []string, top_five []CountrByBudget) []CountrByBudget {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
 		country := parts[COUNTRY]
@@ -40,13 +41,13 @@ func updateTopFive(lines []string, top_five []TopFiveCountrByBudget) []TopFiveCo
 			continue
 		}
 		if len(top_five) < 5 {
-			top_five = append(top_five, TopFiveCountrByBudget{Country: country, Budget: budget})
+			top_five = append(top_five, CountrByBudget{Country: country, Budget: budget})
 			sort.Slice(top_five, func(i, j int) bool {
 				return top_five[i].Budget > top_five[j].Budget
 			})
 		} else {
 			if top_five[4].Budget < budget {
-				top_five[4] = TopFiveCountrByBudget{Country: country, Budget: budget}
+				top_five[4] = CountrByBudget{Country: country, Budget: budget}
 				sort.Slice(top_five, func(i, j int) bool {
 					return top_five[i].Budget > top_five[j].Budget
 				})
@@ -57,7 +58,7 @@ func updateTopFive(lines []string, top_five []TopFiveCountrByBudget) []TopFiveCo
 	return top_five
 }
 
-func mapToLines(top_five []TopFiveCountrByBudget) string {
+func mapToLines(top_five []CountrByBudget) string {
 	var lines []string
 	for _, country_in_top := range top_five {
 		line := fmt.Sprintf("%s%s%d", country_in_top.Country, worker.MESSAGE_SEPARATOR, country_in_top.Budget)
@@ -87,23 +88,41 @@ func (f *TopFiveCountryBudget) RunWorker() error {
 		log.Errorf("Error initializing receiver: %s", err.Error())
 		return err
 	}
-	var top_five []TopFiveCountrByBudget
+	f.top_five = make(map[string][]CountrByBudget)
 	for message := range msgs {
+		client_id := strings.Split(message.RoutingKey, ".")[0]
+		if _, ok := f.top_five[client_id]; !ok {
+			f.top_five[client_id] = make([]CountrByBudget, 0)
+		}
 		message_str := string(message.Body)
-		log.Infof("Received message: %s", message_str)
+		log.Debugf("Received message: %s", message_str)
 		if message_str == worker.MESSAGE_EOF {
-			break
+			log.Infof("Sending result for client %s", client_id)
+			sendResult(f, client_id)
+			delete(f.top_five, client_id)
+			log.Infof("Client %s finished", client_id)
+			continue
 		}
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
-		top_five = updateTopFive(lines, top_five)
+		f.top_five[client_id] = updateTopFive(lines, f.top_five[client_id])
 		message.Ack(false)
 	}
-	message_to_send := mapToLines(top_five)
-	log.Infof("Top 5 countries by budget: %s", message_to_send)
-	send_queue_key := f.Worker.OutputExchange.RoutingKeys[0] // los topN son nodos unicos, y solo le envian al server
-	err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
+
+	return nil
+}
+
+func sendResult(f *TopFiveCountryBudget, client_id string) error {
+	message_to_send := mapToLines(f.top_five[client_id])
+	send_queue_key := client_id + "." + f.Worker.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
+	err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
 	if err != nil {
-		log.Infof("Error sending message: %s", err.Error())
+		log.Errorf("Error sending message: %s", err.Error())
+		return err
+	}
+	err = worker.SendMessage(f.Worker, worker.MESSAGE_EOF, send_queue_key)
+	if err != nil {
+		log.Errorf("Error sending message: %s", err.Error())
+		return err
 	}
 	return nil
 }

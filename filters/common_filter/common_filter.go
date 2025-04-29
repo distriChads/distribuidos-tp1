@@ -11,8 +11,8 @@ import (
 
 type Filter interface {
 	Filter(lines []string) []string
-	HandleEOF() error
-	SendMessage(lines []string, routing_key string) error
+	HandleEOF(client_id string) error
+	SendMessage(lines []string, client_id string) error
 }
 
 var log = logging.MustGetLogger("common_filter")
@@ -42,9 +42,10 @@ func RunWorker(f Filter, msgs <-chan amqp091.Delivery) error {
 
 	for message := range msgs {
 		message_str := string(message.Body)
+		client_id := strings.Split(message.RoutingKey, ".")[0]
 		log.Debugf("Received message: %s", message_str)
 		if message_str == worker.MESSAGE_EOF {
-			err := f.HandleEOF()
+			err := f.HandleEOF(client_id)
 			if err != nil {
 				log.Infof("Error sending message: %s", err.Error())
 				return err
@@ -54,7 +55,7 @@ func RunWorker(f Filter, msgs <-chan amqp091.Delivery) error {
 		}
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		filtered_lines := f.Filter(lines)
-		err := f.SendMessage(filtered_lines, strings.Split(message.RoutingKey, ".")[0])
+		err := f.SendMessage(filtered_lines, client_id)
 		if err != nil {
 			log.Infof("Error sending message: %s", err.Error())
 			return err
