@@ -103,11 +103,10 @@ func (f *GroupByOverviewAndAvg) RunWorker() error {
 	}
 	messages_before_commit := 0
 	grouped_elements := make(map[string]RevenueBudgetCount)
-	i := 0
+	
 	for message := range msgs {
 		message_str := string(message.Body)
-		i++
-		log.Infof("Received batch Number %d with message: %s", i, message_str)
+		
 		if message_str == worker.MESSAGE_EOF {
 			f.eof_counter--
 			if f.eof_counter <= 0 {

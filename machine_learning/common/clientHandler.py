@@ -65,7 +65,6 @@ class MachineLearning:
                 messages = messages.strip().split("\n")
                 for message in messages:
                     cont += 1
-                    log.info(f"Processing message {cont}")
                     if message == MESSAGE_EOF:
                         try:
                             for routing_key in self.output_routing_keys:

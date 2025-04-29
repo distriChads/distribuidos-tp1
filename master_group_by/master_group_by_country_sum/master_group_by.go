@@ -84,6 +84,7 @@ func (f *MasterGroupByCountryAndSum) RunWorker() error {
 	eof_counter := 0
 	for message := range msgs {
 		message_str := string(message.Body)
+		log.Infof("Message received: %s", message_str)
 		if message_str == worker.MESSAGE_EOF {
 			eof_counter++
 			if eof_counter == f.expected_eof {

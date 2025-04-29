@@ -69,7 +69,7 @@ func (f *FilterByAfterYear2000) HandleEOF() error {
 	return nil
 }
 
-func (f *FilterByAfterYear2000) SendMessage(message_to_send []string) error {
+func (f *FilterByAfterYear2000) SendMessage(message_to_send []string, client_id string) error {
 	for _, line := range message_to_send {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
 		if len(message_to_send) != 0 {
@@ -77,7 +77,7 @@ func (f *FilterByAfterYear2000) SendMessage(message_to_send []string) error {
 			if err != nil {
 				return err
 			}
-			send_queue_key := f.Worker.OutputExchange.RoutingKeys[id%len(f.Worker.OutputExchange.RoutingKeys)]
+			send_queue_key := client_id + "." + f.Worker.OutputExchange.RoutingKeys[id%len(f.Worker.OutputExchange.RoutingKeys)]
 			err = worker.SendMessage(f.Worker, line, send_queue_key)
 			if err != nil {
 				return err

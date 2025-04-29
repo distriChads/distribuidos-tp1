@@ -2,6 +2,7 @@ import pika
 import time
 import logging
 from contextlib import contextmanager
+import uuid
 
 MESSAGE_SEPARATOR = "|"
 MESSAGE_ARRAY_SEPARATOR = ","
@@ -47,6 +48,7 @@ class Receiver:
 
 class Worker:
     def __init__(self, config: WorkerConfig):
+        uuid_str = str(uuid.uuid4())
         self.input_exchange = config.input_exchange
         self.output_exchange1 = config.output_exchange1
         self.output_exchange2 = config.output_exchange2
@@ -54,6 +56,7 @@ class Worker:
         self.message_broker = config.message_broker
         self.sender = None
         self.receiver = None
+        self.client_id = uuid_str
 
     def _init_connection(self):
         max_retries = 3
@@ -115,7 +118,7 @@ class Worker:
         )
 
         result = ch.queue_declare(
-            queue=exchange_spec.queue_name, exclusive=True, auto_delete=False)
+            queue=exchange_spec.queue_name, exclusive=False, auto_delete=False)
         queue_name = result.method.queue
 
         for routing_key in exchange_spec.routing_keys:
@@ -132,14 +135,16 @@ class Worker:
         if not self.sender:
             raise Exception("Sender not initialized")
 
+        key = f"{self.client_id}.{routing_key}"
         self.sender.ch.basic_publish(
             exchange=exchange.name,
-            routing_key=routing_key,
+            routing_key=key,
             body=message,
             properties=pika.BasicProperties(content_type="text/plain")
         )
-        log.debug(f"Sent message to exchange {self.output_exchange1.name} "
-                  f"(routing key: {routing_key}): {message}")
+
+        log.debug(f"Sent message to exchange {exchange} "
+                  f"(routing key: {key}): {message}")
 
     def received_messages(self):
         if not self.receiver:

@@ -90,6 +90,7 @@ func (f *TopFiveCountryBudget) RunWorker() error {
 	var top_five []TopFiveCountrByBudget
 	for message := range msgs {
 		message_str := string(message.Body)
+		log.Infof("Received message: %s", message_str)
 		if message_str == worker.MESSAGE_EOF {
 			break
 		}

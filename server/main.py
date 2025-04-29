@@ -22,11 +22,10 @@ def main():
         f"input_routing_keys: {config['CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS']}\n"
     )
 
-    input_routing_keys = config["CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS"]
-    input_routing_keys = input_routing_keys.split(",")
-    output_routing_keys1 = config["CLI_WORKER_EXCHANGE1_OUTPUT_ROUTINGKEYS"]
-    output_routing_keys2 = config["CLI_WORKER_EXCHANGE2_OUTPUT_ROUTINGKEYS"]
-    output_routing_keys3 = config["CLI_WORKER_EXCHANGE3_OUTPUT_ROUTINGKEYS"]
+    input_routing_keys =   config["CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS"].split(",")
+    output_routing_keys1 = config["CLI_WORKER_EXCHANGE1_OUTPUT_ROUTINGKEYS"].split(",")
+    output_routing_keys2 = config["CLI_WORKER_EXCHANGE2_OUTPUT_ROUTINGKEYS"].split(",")
+    output_routing_keys3 = config["CLI_WORKER_EXCHANGE3_OUTPUT_ROUTINGKEYS"].split(",")
 
     logging.info(f"exchange1: {config["CLI_WORKER_EXCHANGE1_OUTPUT_NAME"]}")
     logging.info(f"exchange2: {config["CLI_WORKER_EXCHANGE2_OUTPUT_NAME"]}")
@@ -60,11 +59,7 @@ def main():
         output_exchange2=output_exchange_spec2,
         output_exchange3=output_exchange_spec3,
         message_broker=message_broker
-    )
-
-    output_routing_keys1 = output_routing_keys1.split(",")
-    output_routing_keys2 = output_routing_keys2.split(",")
-    output_routing_keys3 = output_routing_keys3.split(",")
+    )    
 
     worker = ClientHandler(
         port=config["port"],

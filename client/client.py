@@ -69,9 +69,10 @@ class Client:
                 _bytes_read, result = self.client_socket.read()
                 if not result:
                     break
-                query_id = result.split("-")[0]
-                result = result.split("-")[1]
-                self.__write_down_in_file(query_id, result)
+                client_id = result.split("/")[0]
+                query_id = result.split("/")[1]
+                result = result.split("/")[2]
+                self.__write_down_in_file(f"{client_id}.{query_id}", result)
             except socket.timeout:
                 if not self.running:
                     logging.info("Socket timeout, shutting down")
