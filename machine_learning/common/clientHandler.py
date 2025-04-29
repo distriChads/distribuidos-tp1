@@ -29,6 +29,7 @@ class MachineLearning:
             return e
 
         self.messages_queue = queue.Queue()
+        self.ack_queue = queue.Queue()
         self.thread = threading.Thread(
             target=self.__receive_messages, daemon=True)
         self.thread.start()
@@ -36,9 +37,14 @@ class MachineLearning:
     def __receive_messages(self):
         log.info("Starting message receiver thread")
         while True:
-            for _method_frame, _properties, body in self.worker.received_messages():
+            for method_frame, _properties, body in self.worker.received_messages():
+                client_id = method_frame.routing_key.split(".")[0]
+                delivery_tag = _properties.delivery_tag
                 message = body.decode("utf-8")
-                self.messages_queue.put(message)
+                self.messages_queue.put((client_id, message, delivery_tag))
+                while not self.ack_queue.empty():
+                    delivery_tag = self.ack_queue.get()
+                    self.worker.send_ack(delivery_tag)
 
     def __process_with_machine_learning(self, message_to_analyze: str):
         result = self.sentiment_analyzer(message_to_analyze, truncation=True)
@@ -48,7 +54,7 @@ class MachineLearning:
     # 6 -> overview
     # 7 -> revenue
 
-    def __create_message_to_send(self, positive_or_negative: str, parts: str):
+    def __create_message_to_send(self, positive_or_negative: str, parts: list[str]):
         return positive_or_negative + MESSAGE_SEPARATOR + parts[5] + MESSAGE_SEPARATOR + parts[7]
 
     def __process_message(self, rabbit_msg: str):
@@ -61,15 +67,16 @@ class MachineLearning:
         cont = 0
         try:
             while True:
-                messages = self.messages_queue.get()
+                client_id, messages, delivery_tag = self.messages_queue.get()
                 messages = messages.strip().split("\n")
                 for message in messages:
                     cont += 1
                     if message == MESSAGE_EOF:
                         try:
                             for routing_key in self.output_routing_keys:
+                                key = client_id + "." + routing_key
                                 self.worker.send_message(
-                                    MESSAGE_EOF, routing_key)
+                                    MESSAGE_EOF, key)
                             log.info("Sent EOF to all routing keys")
                         except Exception as e:
                             log.warning(f"Error sending EOF: {e}")
@@ -79,7 +86,9 @@ class MachineLearning:
 
                     result = self.__process_message(message)
                     routing_queue = self.output_routing_keys[self.queue_to_send]
-                    self.worker.send_message(result, routing_queue)
+                    key = client_id + "." + routing_queue
+                    self.worker.send_message(result, key)
+                    self.ack_queue.put(delivery_tag)
                     self.queue_to_send = (
                         self.queue_to_send + 1) % len(self.output_routing_keys)
         except Exception as e:

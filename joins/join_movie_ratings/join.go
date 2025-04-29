@@ -114,10 +114,12 @@ func (f *JoinMovieRatingById) RunWorker() error {
 
 	for message := range msgs {
 		message_str := string(message.Body)
+		client_id := strings.Split(message.RoutingKey, ".")[0]
 		log.Debugf("Received message: %s", message_str)
 		if message_str == worker.MESSAGE_EOF {
-			for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
-				err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF, queue_name)
+			for _, routing_key := range f.Worker.OutputExchange.RoutingKeys {
+				key := client_id + "." + routing_key
+				err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF, key)
 				if err != nil {
 					log.Infof("Error sending message: %s", err.Error())
 				}
@@ -128,7 +130,7 @@ func (f *JoinMovieRatingById) RunWorker() error {
 		result := joinMovieWithRating(lines, movies_by_id)
 		message_to_send := strings.Join(result, "\n")
 		if len(message_to_send) != 0 {
-			send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
+			send_queue_key := client_id + "." + f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
 			err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
 			f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
 			if err != nil {

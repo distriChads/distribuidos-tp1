@@ -18,6 +18,7 @@ type TopTenCastMovieConfig struct {
 
 type TopTenCastMovie struct {
 	worker.Worker
+	top_ten map[string][]TopTenCastCount
 }
 
 type TopTenCastCount struct {
@@ -77,6 +78,7 @@ func NewTopTenCastMovie(config TopTenCastMovieConfig) *TopTenCastMovie {
 			OutputExchange: config.OutputExchange,
 			MessageBroker:  config.MessageBroker,
 		},
+		top_ten: make(map[string][]TopTenCastCount),
 	}
 }
 
@@ -90,24 +92,41 @@ func (f *TopTenCastMovie) RunWorker() error {
 		log.Errorf("Error initializing receiver: %s", err.Error())
 		return err
 	}
-	var top_ten []TopTenCastCount
-	i := 0
 	for message := range msgs {
-		i++
+		client_id := strings.Split(message.RoutingKey, ".")[0]
+		if _, ok := f.top_ten[client_id]; !ok {
+			f.top_ten[client_id] = make([]TopTenCastCount, 0)
+		}
 		message_str := string(message.Body)
+		log.Debugf("Received message: %s", message_str)
 		if message_str == worker.MESSAGE_EOF {
-			break
+			log.Infof("Sending result for client %s", client_id)
+			sendResult(f, client_id)
+			delete(f.top_ten, client_id)
+			log.Infof("Client %s finished", client_id)
+			message.Ack(false)
+			continue
 		}
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
-		top_ten = updateTopTen(lines, top_ten)
+		f.top_ten[client_id] = updateTopTen(lines, f.top_ten[client_id])
 		message.Ack(false)
 	}
-	message_to_send := mapToLines(top_ten)
-	log.Infof("Top 10 actors by movie: %s", message_to_send)
-	send_queue_key := f.Worker.OutputExchange.RoutingKeys[0] // los topN son nodos unicos, y solo le envian al server
-	err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
+
+	return nil
+}
+
+func sendResult(f *TopTenCastMovie, client_id string) error {
+	message_to_send := mapToLines(f.top_ten[client_id])
+	send_queue_key := client_id + "." + f.Worker.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
+	err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
 	if err != nil {
-		log.Infof("Error sending message: %s", err.Error())
+		log.Errorf("Error sending message: %s", err.Error())
+		return err
+	}
+	err = worker.SendMessage(f.Worker, worker.MESSAGE_EOF, send_queue_key)
+	if err != nil {
+		log.Errorf("Error sending message: %s", err.Error())
+		return err
 	}
 	return nil
 }

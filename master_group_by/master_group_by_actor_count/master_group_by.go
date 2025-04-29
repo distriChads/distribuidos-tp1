@@ -17,6 +17,8 @@ type MasterGroupByActorAndCount struct {
 	worker.Worker
 	messages_before_commit int
 	expected_eof           int
+	grouped_elements       map[string]map[string]int
+	eofs                   map[string]int
 }
 
 var log = logging.MustGetLogger("master_group_by_actor_count")
@@ -38,7 +40,7 @@ func groupByActorAndUpdate(lines []string, grouped_elements map[string]int) {
 	}
 }
 
-func storeGroupedElements(results map[string]int) {
+func storeGroupedElements(results map[string]int, client_id string) {
 	// TODO: Dumpear el hashmap a un archivo
 }
 
@@ -66,6 +68,8 @@ func NewGroupByActorAndCount(config MasterGroupByActorAndCountConfig, messages_b
 		},
 		messages_before_commit: messages_before_commit,
 		expected_eof:           expected_eof,
+		grouped_elements:       make(map[string]map[string]int),
+		eofs:                   make(map[string]int),
 	}
 }
 
@@ -81,36 +85,54 @@ func (f *MasterGroupByActorAndCount) RunWorker() error {
 	}
 
 	messages_before_commit := 0
-	grouped_elements := make(map[string]int)
-	eof_counter := 0
 	for message := range msgs {
 		message_str := string(message.Body)
+		log.Debugf("Received message: %s", message_str)
+		client_id := strings.Split(message.RoutingKey, ".")[0]
+		if _, ok := f.grouped_elements[client_id]; !ok {
+			f.grouped_elements[client_id] = make(map[string]int)
+		}
+		if _, ok := f.eofs[client_id]; !ok {
+			f.eofs[client_id] = 0
+		}
+		log.Infof("Message received: %s", message_str)
 		if message_str == worker.MESSAGE_EOF {
-			eof_counter++
-			if eof_counter == f.expected_eof {
-				break
+			f.eofs[client_id]++
+			if f.eofs[client_id] >= f.expected_eof {
+				log.Infof("Sending result for client %s", client_id)
+				sendResult(f, client_id)
+				delete(f.grouped_elements, client_id)
+				delete(f.eofs, client_id)
+				log.Infof("Client %s finished", client_id)
 			}
+			message.Ack(false)
 			continue
 		}
 		messages_before_commit += 1
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
-		groupByActorAndUpdate(lines, grouped_elements)
+		groupByActorAndUpdate(lines, f.grouped_elements[client_id])
 		if messages_before_commit >= f.messages_before_commit {
-			storeGroupedElements(grouped_elements)
+			storeGroupedElements(f.grouped_elements[client_id], client_id)
 			messages_before_commit = 0
 		}
 		message.Ack(false)
 	}
 
-	message_to_send := mapToLines(grouped_elements)
-	send_queue_key := f.Worker.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
-	err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
+	return nil
+}
+
+func sendResult(f *MasterGroupByActorAndCount, client_id string) error {
+	message_to_send := mapToLines(f.grouped_elements[client_id])
+	send_queue_key := client_id + "." + f.Worker.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
+	err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
 	if err != nil {
-		log.Infof("Error sending message: %s", err.Error())
+		log.Errorf("Error sending message: %s", err.Error())
+		return err
 	}
 	err = worker.SendMessage(f.Worker, worker.MESSAGE_EOF, send_queue_key)
 	if err != nil {
-		log.Infof("Error sending message: %s", err.Error())
+		log.Errorf("Error sending message: %s", err.Error())
+		return err
 	}
 	return nil
 }

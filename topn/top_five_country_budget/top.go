@@ -101,6 +101,7 @@ func (f *TopFiveCountryBudget) RunWorker() error {
 			sendResult(f, client_id)
 			delete(f.top_five, client_id)
 			log.Infof("Client %s finished", client_id)
+			message.Ack(false)
 			continue
 		}
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")

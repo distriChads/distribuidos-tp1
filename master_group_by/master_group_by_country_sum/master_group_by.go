@@ -104,6 +104,7 @@ func (f *MasterGroupByCountryAndSum) RunWorker() error {
 				delete(f.eofs, client_id)
 				log.Infof("Client %s finished", client_id)
 			}
+			message.Ack(false)
 			continue
 		}
 		messages_before_commit += 1

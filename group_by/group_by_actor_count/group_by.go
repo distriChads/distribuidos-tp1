@@ -59,6 +59,8 @@ func NewGroupByActorAndCount(config GroupByActorAndCountConfig, messages_before_
 		},
 		messages_before_commit: messages_before_commit,
 		expected_eof:           eof_counter,
+		grouped_elements:       make(map[string]map[string]int),
+		eofs:                   make(map[string]int),
 	}
 }
 
@@ -74,8 +76,6 @@ func (f *GroupByActorAndCount) RunWorker() error {
 	}
 
 	messages_before_commit := 0
-	f.grouped_elements = make(map[string]map[string]int)
-	f.eofs = make(map[string]int)
 	for message := range msgs {
 		client_id := strings.Split(message.RoutingKey, ".")[0]
 
@@ -94,6 +94,7 @@ func (f *GroupByActorAndCount) RunWorker() error {
 				delete(f.grouped_elements, client_id)
 				delete(f.eofs, client_id)
 			}
+			message.Ack(false)
 			continue
 		}
 		messages_before_commit += 1

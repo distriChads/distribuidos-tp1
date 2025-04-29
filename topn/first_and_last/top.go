@@ -15,6 +15,7 @@ type FirstAndLastConfig struct {
 
 type FirstAndLast struct {
 	worker.Worker
+	firstAndLastMovies map[string]FirstAndLastMovies
 }
 
 var log = logging.MustGetLogger("first_and_last")
@@ -24,13 +25,18 @@ type MovieAvgByScore struct {
 	Average float64
 }
 
+type FirstAndLastMovies struct {
+	first MovieAvgByScore
+	last  MovieAvgByScore
+}
+
 // ---------------------------------
 // MESSAGE FORMAT: TITLE|AVERAGE
 // ---------------------------------
 const TITLE = 0
 const AVERAGE = 1
 
-func updateFirstAndLast(lines []string, first MovieAvgByScore, last MovieAvgByScore) (MovieAvgByScore, MovieAvgByScore) {
+func updateFirstAndLast(lines []string, firstAndLastMovies FirstAndLastMovies) FirstAndLastMovies {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
 		movie := parts[TITLE]
@@ -39,18 +45,18 @@ func updateFirstAndLast(lines []string, first MovieAvgByScore, last MovieAvgBySc
 			continue
 		}
 
-		if first.Movie == "" && last.Movie == "" {
-			first = MovieAvgByScore{Movie: movie, Average: average}
-			last = MovieAvgByScore{Movie: movie, Average: average}
+		if firstAndLastMovies.first.Movie == "" && firstAndLastMovies.last.Movie == "" {
+			firstAndLastMovies.first = MovieAvgByScore{Movie: movie, Average: average}
+			firstAndLastMovies.last = MovieAvgByScore{Movie: movie, Average: average}
 		} else {
-			if average >= first.Average {
-				first = MovieAvgByScore{Movie: movie, Average: average}
-			} else if average <= last.Average {
-				last = MovieAvgByScore{Movie: movie, Average: average}
+			if average >= firstAndLastMovies.first.Average {
+				firstAndLastMovies.first = MovieAvgByScore{Movie: movie, Average: average}
+			} else if average <= firstAndLastMovies.last.Average {
+				firstAndLastMovies.last = MovieAvgByScore{Movie: movie, Average: average}
 			}
 		}
 	}
-	return first, last
+	return firstAndLastMovies
 }
 
 func NewFirstAndLast(config FirstAndLastConfig) *FirstAndLast {
@@ -61,15 +67,16 @@ func NewFirstAndLast(config FirstAndLastConfig) *FirstAndLast {
 			OutputExchange: config.OutputExchange,
 			MessageBroker:  config.MessageBroker,
 		},
+		firstAndLastMovies: make(map[string]FirstAndLastMovies),
 	}
 }
 
-func mapToLines(first MovieAvgByScore, last MovieAvgByScore) string {
+func mapToLines(firstAndLastMovies FirstAndLastMovies) string {
 	var lines []string
 
-	line := fmt.Sprintf("%s%s%f", first.Movie, worker.MESSAGE_SEPARATOR, first.Average)
+	line := fmt.Sprintf("%s%s%f", firstAndLastMovies.first.Movie, worker.MESSAGE_SEPARATOR, firstAndLastMovies.first.Average)
 	lines = append(lines, line)
-	line = fmt.Sprintf("%s%s%f", last.Movie, worker.MESSAGE_SEPARATOR, last.Average)
+	line = fmt.Sprintf("%s%s%f", firstAndLastMovies.last.Movie, worker.MESSAGE_SEPARATOR, firstAndLastMovies.last.Average)
 	lines = append(lines, line)
 
 	return strings.Join(lines, "\n")
@@ -85,25 +92,41 @@ func (f *FirstAndLast) RunWorker() error {
 		log.Errorf("Error initializing receiver: %s", err.Error())
 		return err
 	}
-	var first MovieAvgByScore
-	var last MovieAvgByScore
 	for message := range msgs {
-		log.Infof("Received message in top five: %s", string(message.Body))
+		client_id := strings.Split(message.RoutingKey, ".")[0]
+		if _, ok := f.firstAndLastMovies[client_id]; !ok {
+			f.firstAndLastMovies[client_id] = FirstAndLastMovies{}
+		}
 		message_str := string(message.Body)
+		log.Debugf("Received message: %s", message_str)
 		if message_str == worker.MESSAGE_EOF {
-			break
+			log.Infof("Sending result for client %s", client_id)
+			sendResult(f, client_id)
+			delete(f.firstAndLastMovies, client_id)
+			log.Infof("Client %s finished", client_id)
+			message.Ack(false)
+			continue
 		}
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
-		first, last = updateFirstAndLast(lines, first, last)
+		f.firstAndLastMovies[client_id] = updateFirstAndLast(lines, f.firstAndLastMovies[client_id])
 		message.Ack(false)
 	}
-	message_to_send := mapToLines(first, last)
-	log.Infof("First and Last: %s", message_to_send)
-	send_queue_key := f.Worker.OutputExchange.RoutingKeys[0] // los topN son nodos unicos, y solo le envian al server
-	err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
-	if err != nil {
-		log.Infof("Error sending message: %s", err.Error())
-	}
 
+	return nil
+}
+
+func sendResult(f *FirstAndLast, client_id string) error {
+	message_to_send := mapToLines(f.firstAndLastMovies[client_id])
+	send_queue_key := client_id + "." + f.Worker.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
+	err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
+	if err != nil {
+		log.Errorf("Error sending message: %s", err.Error())
+		return err
+	}
+	err = worker.SendMessage(f.Worker, worker.MESSAGE_EOF, send_queue_key)
+	if err != nil {
+		log.Errorf("Error sending message: %s", err.Error())
+		return err
+	}
 	return nil
 }

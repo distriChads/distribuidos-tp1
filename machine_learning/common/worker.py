@@ -131,6 +131,11 @@ class Worker:
             raise Exception("Receiver not initialized")
         return self.receiver.messages
 
+    def send_ack(self, delivery_tag):
+        if not self.sender:
+            raise Exception("Sender not initialized")
+        self.sender.ch.basic_ack(delivery_tag=delivery_tag, multiple=False)
+
     def close_worker(self):
         self._close_sender()
         self._close_receiver()
