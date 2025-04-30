@@ -63,9 +63,6 @@ def main():
 
     worker = ClientHandler(
         port=config["port"],
-        routing_keys1=output_routing_keys1,
-        routing_keys2=output_routing_keys2,
-        routing_keys3=output_routing_keys3,
         client_handler_config=client_handler_config,
     )
 
