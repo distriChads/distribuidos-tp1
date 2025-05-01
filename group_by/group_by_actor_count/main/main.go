@@ -74,7 +74,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		groupByActorCount.RunWorker()
+		groupByActorCount.RunWorker("Starting group by actor and count")
 		done <- true
 	}()
 
