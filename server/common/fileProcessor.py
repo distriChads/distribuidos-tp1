@@ -129,7 +129,7 @@ class MoviesProcessor(Processor):
         title = line[20]
         spokenLanguages = line[18]
         revenue = line[15]
-        overview = line[8]
+        overview = line[9]
 
         prodCountries = self._try_parse_python_structure(prodCountries)
         genres = self._try_parse_python_structure(genres)
