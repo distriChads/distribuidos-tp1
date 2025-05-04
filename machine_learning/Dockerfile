@@ -17,7 +17,9 @@ ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
 RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir torch==2.2.2+cpu \
+    -f https://download.pytorch.org/whl/cpu/torch_stable.html && \
+    pip install --no-cache-dir -r requirements.txt
 
 # copy the code
 COPY ./machine_learning ./
