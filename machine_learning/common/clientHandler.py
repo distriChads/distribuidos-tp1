@@ -68,6 +68,8 @@ class MachineLearning:
         valid_messages = []
 
         for message in messages:
+            client_id = message.split("/")[0]
+            message = message.split("/")[1]
             parts = message.split(MESSAGE_SEPARATOR)
             if len(parts) < FIELDS_COUNT:
                 log.warning(f"Incomplete message skipped: {parts}")
@@ -87,7 +89,7 @@ class MachineLearning:
 
         for (parts, _), sentiment in zip(valid_messages, sentiments):
             result_msg = self.__create_message_to_send(
-                sentiment["label"], parts)
+                sentiment["label"], parts, client_id)
             results.append(result_msg)
 
         self.movies_processed += len(results)
@@ -95,9 +97,9 @@ class MachineLearning:
 
         return results
 
-    def __create_message_to_send(self, sentiment: str, data: list[str]):
-        return MESSAGE_SEPARATOR.join([sentiment, data[0], data[1]])
-        # return positive_or_negative + MESSAGE_SEPARATOR + parts[5] + MESSAGE_SEPARATOR + parts[7]
+    def __create_message_to_send(self, sentiment: str, data: list[str], client_id):
+        message = client_id + "/" + MESSAGE_SEPARATOR.join([sentiment, data[0], data[1]])
+        return message
 
     def run_worker(self):
         log.info("Starting MachineLearning worker")

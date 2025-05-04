@@ -93,9 +93,10 @@ class ClientHandler:
         logging.info(
             f"Waiting message from Exchange {client.worker.input_exchange.name} - {client.worker.input_exchange.routing_keys}")
         for method_frame, _properties, result_encoded in client.worker.received_messages():
-            client_id = method_frame.routing_key.split(".")[0]  # los routing key formato = *.*.results
-            query_number = method_frame.routing_key.split(".")[1]
+            query_number = method_frame.routing_key.split(".")[0]  # los routing key formato = *.results
             result = result_encoded.decode('utf-8')
+            client_id = result.split("/")[0]
+            result = result.split("/")[1]
             if result == "EOF":
                 continue
             result = f"{client_id}/{query_number}/{result}\n"

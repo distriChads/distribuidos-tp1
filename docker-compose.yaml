@@ -39,7 +39,7 @@ services:
     - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_OUTPUT_NAME=movies_filtered_by_argentina_exchange
     - CLI_WORKER_EXCHANGE_INPUT_NAME=movies_exchange
-    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=*.movies.input1
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.input1
     - CLI_WORKER_QUEUE_NAME=filter-argentina-1
     - CLI_WORKER_EXPECTEDEOF=1
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.argentina.output1
@@ -79,7 +79,7 @@ services:
     - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_OUTPUT_NAME=results_exchange
     - CLI_WORKER_EXCHANGE_INPUT_NAME=movies_filtered_by_argentina_exchange
-    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=*.movies.argentina.output1
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.argentina.output1
     - CLI_WORKER_QUEUE_NAME=filter-spain-2000-1
     - CLI_WORKER_EXPECTEDEOF=1
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query1.results
@@ -234,27 +234,6 @@ services:
     image: join_movie_ratings:latest
     networks:
     - movies_net
-  machine-learning-1:
-    build:
-      context: .
-      dockerfile: machine_learning/Dockerfile
-    container_name: machine-learning-1
-    cpus: '2'
-    depends_on:
-    - rabbitmq
-    entrypoint: python main.py
-    environment:
-    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-    - CLI_LOG_LEVEL=info
-    - CLI_WORKER_EXCHANGE_OUTPUT_NAME=groupby_overview_exchange
-    - CLI_WORKER_EXCHANGE_INPUT_NAME=movies_exchange
-    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.input1
-    - CLI_WORKER_QUEUE_NAME=machine-learning-1
-    - CLI_WORKER_EXPECTEDEOF=1
-    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=groupby.overview.input1
-    image: machine_learning:latest
-    networks:
-    - movies_net
   master-group-by-actor-count-1:
     build:
       context: .
@@ -365,7 +344,7 @@ services:
     - CLI_WORKER_EXCHANGE2_OUTPUT_ROUTINGKEYS=credits.input
     - CLI_WORKER_EXCHANGE3_OUTPUT_ROUTINGKEYS=ratings.input
     - CLI_WORKER_EXCHANGE_INPUT_NAME=results_exchange
-    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=*.*.results
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=*.results
     image: server:latest
     networks:
     - movies_net

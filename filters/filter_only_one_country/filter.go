@@ -43,6 +43,9 @@ func (f *FilterByOnlyOneCountry) Filter(lines []string) []string {
 	var result []string
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		if len(parts) < 4 {
+			continue
+		}
 		countries := strings.Split(parts[COUNTRIES], worker.MESSAGE_ARRAY_SEPARATOR)
 		if len(countries) == 1 {
 			result = append(result, strings.TrimSpace(line))
@@ -59,7 +62,7 @@ func (f *FilterByOnlyOneCountry) HandleEOF(client_id string) error {
 	if f.eofs[client_id] >= f.expected_eof {
 		log.Infof("Sending EOF for client %s", client_id)
 		for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
-			routing_key := client_id + "." + queue_name
+			routing_key := queue_name
 			err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF, routing_key)
 			if err != nil {
 				return err
@@ -73,7 +76,8 @@ func (f *FilterByOnlyOneCountry) HandleEOF(client_id string) error {
 func (f *FilterByOnlyOneCountry) SendMessage(message_to_send []string, client_id string) error {
 	message := strings.Join(message_to_send, "\n")
 	if len(message) != 0 {
-		send_queue_key := client_id + "." + f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
+		message = client_id + "/" + message
+		send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
 		err := worker.SendMessage(f.Worker, message, send_queue_key)
 		f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
 		if err != nil {

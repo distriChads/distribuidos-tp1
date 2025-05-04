@@ -162,9 +162,9 @@ def generate_compose(spec_path, output_path):
           server_spec = specs['server']
           
           if input_from == "movies":
-            server_keys_for_consumer = [f"*.{input_from}.input{k+1}" for k in range(movies_input_replicas)] # Placeholder/Fallback
+            server_keys_for_consumer = [f"{input_from}.input{k+1}" for k in range(movies_input_replicas)] # Placeholder/Fallback
           else:
-            server_keys_for_consumer = [f"*.{input_from}.input"] # Placeholder/Fallback
+            server_keys_for_consumer = [f"{input_from}.input"] # Placeholder/Fallback
 
           if input_from == "movies":
               input_exchange = server_spec['movies_exchange_name']
@@ -191,7 +191,7 @@ def generate_compose(spec_path, output_path):
           input_service_spec = specs[input_from]
           input_exchange = input_service_spec['output']['exchange_name']
           # 'output_keys' should have been calculated in the first pass
-          all_input_source_keys = [f"*.{key}" for key in input_service_spec.get('output_keys', [])]
+          all_input_source_keys = input_service_spec.get('output_keys', [])
 
           if not all_input_source_keys:
                print(f"Warning: Input source service '{input_from}' has no output keys defined for service '{service['name']}'.")
@@ -266,9 +266,9 @@ def generate_compose(spec_path, output_path):
           if sec_input_from in ["movies", "credits", "ratings"]:
               server_spec = specs['server']
               if sec_input_from == "movies":
-                sec_server_keys_for_consumer = [f"*.{sec_input_from}.input{k+1}" for k in range(movies_input_replicas)]
+                sec_server_keys_for_consumer = [f"{sec_input_from}.input{k+1}" for k in range(movies_input_replicas)]
               else:
-                sec_server_keys_for_consumer = [f"*.{sec_input_from}.input"]
+                sec_server_keys_for_consumer = [f"{sec_input_from}.input"]
 
               if sec_input_from == "movies": sec_input_exchange = server_spec['movies_exchange_name']
               elif sec_input_from == "credits": sec_input_exchange = server_spec['credits_exchange_name']
@@ -287,7 +287,7 @@ def generate_compose(spec_path, output_path):
                    raise ValueError(f"Second input source service '{sec_input_from}' not found in specs for service '{service['name']}'")
               sec_input_service_spec = specs[sec_input_from]
               sec_input_exchange = sec_input_service_spec['output']['exchange_name']
-              sec_all_input_source_keys = [f"*.{key}" for key in sec_input_service_spec.get('output_keys', [])]
+              sec_all_input_source_keys = sec_input_service_spec.get('output_keys', [])
 
               if not sec_all_input_source_keys:
                    print(f"Warning: Second input source service '{sec_input_from}' has no output keys defined for service '{service['name']}'.")

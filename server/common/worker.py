@@ -128,23 +128,23 @@ class Worker:
                 routing_key=routing_key
             )
 
-        messages = ch.consume(queue=queue_name, auto_ack=True)
+        messages = ch.consume(queue=queue_name, auto_ack=False)
         return Receiver(conn, ch, queue_name, messages)
 
     def send_message(self, message, routing_key, exchange):
         if not self.sender:
             raise Exception("Sender not initialized")
 
-        key = f"{self.client_id}.{routing_key}"
+        message = f"{self.client_id}/{message}"
         self.sender.ch.basic_publish(
             exchange=exchange.name,
-            routing_key=key,
+            routing_key=routing_key,
             body=message,
             properties=pika.BasicProperties(content_type="text/plain")
         )
 
         log.debug(f"Sent message to exchange {exchange} "
-                  f"(routing key: {key}): {message}")
+                  f"(routing key:): {message}")
 
     def received_messages(self):
         if not self.receiver:

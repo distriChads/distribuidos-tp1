@@ -15,7 +15,7 @@ FIELDS_COUNT_RATINGS = 4
 FIELD_SEPARATOR = "|"
 VALUE_SEPARATOR = ","
 
-MAX_BATCH_SIZE = 8000 - 4  # 4 bytes for the file size
+MAX_BATCH_SIZE = (1024 * 16) - 4  # 4 bytes for the file size
 
 
 class Processor:

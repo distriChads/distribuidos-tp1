@@ -93,13 +93,14 @@ func (f *FirstAndLast) RunWorker() error {
 		return err
 	}
 	for message := range msgs {
-		client_id := strings.Split(message.RoutingKey, ".")[0]
+		message_str := string(message.Body)
+		client_id := strings.Split(message_str, "/")[0]
+		message_str = strings.Split(message_str, "/")[1]
 		if _, ok := f.firstAndLastMovies[client_id]; !ok {
 			f.firstAndLastMovies[client_id] = FirstAndLastMovies{}
 		}
-		message_str := string(message.Body)
 		log.Debugf("Received message: %s", message_str)
-		if message_str == worker.MESSAGE_EOF {
+		if strings.TrimSpace(message_str) == worker.MESSAGE_EOF {
 			log.Infof("Sending result for client %s", client_id)
 			sendResult(f, client_id)
 			delete(f.firstAndLastMovies, client_id)
@@ -116,14 +117,15 @@ func (f *FirstAndLast) RunWorker() error {
 }
 
 func sendResult(f *FirstAndLast, client_id string) error {
-	message_to_send := mapToLines(f.firstAndLastMovies[client_id])
-	send_queue_key := client_id + "." + f.Worker.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
+	message_to_send := client_id + "/" + mapToLines(f.firstAndLastMovies[client_id])
+	send_queue_key := f.Worker.OutputExchange.RoutingKeys[0] 
 	err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
 	if err != nil {
 		log.Errorf("Error sending message: %s", err.Error())
 		return err
 	}
-	err = worker.SendMessage(f.Worker, worker.MESSAGE_EOF, send_queue_key)
+	message_to_send = client_id + "/" + worker.MESSAGE_EOF
+	err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
 	if err != nil {
 		log.Errorf("Error sending message: %s", err.Error())
 		return err

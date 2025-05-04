@@ -9,7 +9,7 @@
             "credits_exchange_name": "credits_exchange",
             "ratings_exchange_name": "ratings_exchange",
             "results_exchange_name": "results_exchange",
-            "results_exchange_routing_keys": ["*.*.results"]
+            "results_exchange_routing_keys": ["*.results"]
         },
         {
             "name": "filter-argentina",
@@ -239,7 +239,7 @@
             "log_level": "info",
             "input": {
                 "from": "movies",
-                "type": "all"
+                "type": "seq"
             },
             "output": {
                 "exchange_name": "groupby_overview_exchange",

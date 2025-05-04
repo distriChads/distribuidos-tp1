@@ -54,9 +54,9 @@ class Client:
             self.send_to_joiner_worker(data_send, self.worker.output_exchange3.routing_keys, self.worker.output_exchange3)
     
     def set_next_processor(self):
-        if type(self.batch_processor) == MoviesProcessor:
+        if isinstance(self.batch_processor, MoviesProcessor):
             self.batch_processor = CreditsProcessor()
-        elif type(self.batch_processor) == CreditsProcessor:
+        elif  isinstance(self.batch_processor, CreditsProcessor):
             self.batch_processor = RatingsProcessor()
 
     def send_all_batch_data(self):
