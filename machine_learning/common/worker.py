@@ -110,7 +110,7 @@ class Worker:
                 routing_key=routing_key
             )
 
-        messages = ch.consume(queue=queue_name, auto_ack=False)
+        messages = ch.consume(queue=queue_name, auto_ack=True)
         return Receiver(conn, ch, queue_name, messages)
 
     def send_message(self, message, routing_key):

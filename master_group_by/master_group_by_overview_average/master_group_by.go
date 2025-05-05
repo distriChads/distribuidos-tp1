@@ -96,11 +96,9 @@ func (f *MasterGroupByOverviewAndAvg) RunWorker() error {
 		if _, ok := f.eofs[client_id]; !ok {
 			f.eofs[client_id] = 0
 		}
-		log.Infof("Message received: %s", message_str)
 		if message_str == worker.MESSAGE_EOF {
 			f.eofs[client_id]++
 			if f.eofs[client_id] >= f.expected_eof {
-				log.Infof("Sending result for client %s", client_id)
 				sendResult(f, client_id)
 				delete(f.grouped_elements, client_id)
 				delete(f.eofs, client_id)

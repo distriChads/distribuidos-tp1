@@ -239,7 +239,7 @@ services:
       context: .
       dockerfile: machine_learning/Dockerfile
     container_name: machine-learning-1
-    cpus: '2'
+    cpus: '4'
     depends_on:
     - rabbitmq
     entrypoint: python main.py
