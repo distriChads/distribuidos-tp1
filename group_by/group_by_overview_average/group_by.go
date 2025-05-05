@@ -111,7 +111,6 @@ func (f *GroupByOverviewAndAvg) RunWorker() error {
 		message_str := string(message.Body)
 		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
 		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
-		log.Infof("RECIBI ESTA PORONGA ATOMICA %s", message_str)
 		if _, ok := f.grouped_elements[client_id]; !ok {
 			f.grouped_elements[client_id] = make(map[string]RevenueBudgetCount)
 		}

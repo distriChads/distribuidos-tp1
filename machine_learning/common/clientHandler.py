@@ -70,16 +70,14 @@ class MachineLearning:
 
     def run_worker(self):
         log.info("Starting MachineLearning worker")
-        cont = 0
+        batch_for_ml = []
+        parts_for_ml = []
+        counter = 0
         while self.running:
             try:
                 client_id, messages, delivery_tag = self.messages_queue.get()
                 messages = messages.strip().split("\n")
-                batch_for_ml = []
-                parts_for_ml = []
-                counter = 0
                 for message in messages:
-                    cont += 1
                     
                     if message == MESSAGE_EOF:
 
@@ -107,7 +105,7 @@ class MachineLearning:
                         finally:
                             continue
                     if counter >= ML_BATCH_SIZE:
-                        
+                        log.info("ENVIO")
                         result = client_id + "|" + self.__process_messages(batch_for_ml, parts_for_ml)
                         counter = 0
                         batch_for_ml = []
@@ -118,9 +116,11 @@ class MachineLearning:
                         self.queue_to_send = (
                             self.queue_to_send + 1) % len(self.output_routing_keys)
                     parts = message.split("|")
-                    counter += 1
-                    batch_for_ml.append(parts[6])
-                    parts_for_ml.append((parts[5], parts[7]))
+                    if parts[5] != "0" and parts[7] != "0":
+                        counter += 1
+                        batch_for_ml.append(parts[6])
+                        parts_for_ml.append((parts[5], parts[7]))
+                        
 
             except Exception as e:
                 log.error(f"Error during message processing: {e}")
