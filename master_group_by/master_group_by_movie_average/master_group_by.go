@@ -112,6 +112,9 @@ func (f *MasterGroupByMovieAndAvg) RunWorker() error {
 			message.Ack(false)
 			continue
 		}
+		if len(message_str) == 0 {
+			continue
+		}
 		messages_before_commit += 1
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		groupByMovieAndUpdate(lines, f.grouped_elements[client_id])

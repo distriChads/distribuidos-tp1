@@ -107,6 +107,9 @@ func (f *TopTenCastMovie) RunWorker() error {
 			message.Ack(false)
 			continue
 		}
+		if len(message_str) == 0 {
+			continue
+		}
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		f.top_ten[client_id] = updateTopTen(lines, f.top_ten[client_id])
 		message.Ack(false)

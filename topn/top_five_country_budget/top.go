@@ -105,6 +105,9 @@ func (f *TopFiveCountryBudget) RunWorker() error {
 			message.Ack(false)
 			continue
 		}
+		if len(message_str) == 0 {
+			continue
+		}
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		f.top_five[client_id] = updateTopFive(lines, f.top_five[client_id])
 		message.Ack(false)

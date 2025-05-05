@@ -108,6 +108,9 @@ func (f *FirstAndLast) RunWorker() error {
 			message.Ack(false)
 			continue
 		}
+		if len(message_str) == 0 {
+			continue
+		}
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		f.firstAndLastMovies[client_id] = updateFirstAndLast(lines, f.firstAndLastMovies[client_id])
 		message.Ack(false)
