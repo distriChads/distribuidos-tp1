@@ -97,7 +97,7 @@ class ClientHandler:
             client_id = result.split("|", 1)[0] 
             result = result.split("|", 1)[1]
             query_number = method_frame.routing_key.split(".")[0]
-            if result == "EOF":
+            if result == "EOF" or len(result) == 0:
                 continue
             result = f"{client_id}/{query_number}/{result}\n"
 
