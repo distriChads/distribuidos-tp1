@@ -85,14 +85,15 @@ func (f *GroupByCountryAndSum) RunWorker() error {
 	}
 	messages_before_commit := 0
 	for message := range msgs {
-		client_id := strings.Split(message.RoutingKey, ".")[0]
+		message_str := string(message.Body)
+		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
+		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
 		if _, ok := f.grouped_elements[client_id]; !ok {
 			f.grouped_elements[client_id] = make(map[string]int)
 		}
 		if _, ok := f.eofs[client_id]; !ok {
 			f.eofs[client_id] = 0
 		}
-		message_str := string(message.Body)
 		log.Debugf("Received message: %s", message_str)
 		if message_str == worker.MESSAGE_EOF {
 			f.eofs[client_id]++
@@ -121,13 +122,15 @@ func (f *GroupByCountryAndSum) RunWorker() error {
 
 func sendResult(f *GroupByCountryAndSum, client_id string) error {
 	message_to_send := mapToLines(f.grouped_elements[client_id])
-	send_queue_key := client_id + "." + f.Worker.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
+	send_queue_key := f.Worker.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
+	message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_to_send
 	err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
 	if err != nil {
 		log.Errorf("Error sending message: %s", err.Error())
 		return err
 	}
-	err = worker.SendMessage(f.Worker, worker.MESSAGE_EOF, send_queue_key)
+	message_to_send = client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
+	err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
 	if err != nil {
 		log.Errorf("Error sending message: %s", err.Error())
 		return err

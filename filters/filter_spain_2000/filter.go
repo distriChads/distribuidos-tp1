@@ -75,8 +75,9 @@ func (f *FilterBySpainAndOf2000) HandleEOF(client_id string) error {
 	if f.eofs[client_id] >= f.expected_eof {
 		log.Infof("Sending EOF for client %s", client_id)
 		for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
-			routing_key := client_id + "." + queue_name
-			err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF, routing_key)
+			routing_key := queue_name
+			message := client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
+			err := worker.SendMessage(f.Worker, message, routing_key)
 			if err != nil {
 				return err
 			}
@@ -89,7 +90,8 @@ func (f *FilterBySpainAndOf2000) HandleEOF(client_id string) error {
 func (f *FilterBySpainAndOf2000) SendMessage(message_to_send []string, client_id string) error {
 	message := strings.Join(message_to_send, "\n")
 	if len(message) != 0 {
-		send_queue_key := client_id + "." + f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
+		send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
+		message = client_id + worker.MESSAGE_SEPARATOR + message
 		err := worker.SendMessage(f.Worker, message, send_queue_key)
 		f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
 		if err != nil {

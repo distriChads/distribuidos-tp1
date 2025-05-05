@@ -42,9 +42,10 @@ func RunWorker(f Filter, msgs <-chan amqp091.Delivery) error {
 
 	for message := range msgs {
 		message_str := string(message.Body)
-		client_id := strings.Split(message.RoutingKey, ".")[0]
+		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
+		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
 		log.Debugf("Received message: %s", message_str)
-		if message_str == worker.MESSAGE_EOF {
+		if strings.TrimSpace(message_str) == worker.MESSAGE_EOF {
 			err := f.HandleEOF(client_id)
 			if err != nil {
 				log.Infof("Error sending message: %s", err.Error())

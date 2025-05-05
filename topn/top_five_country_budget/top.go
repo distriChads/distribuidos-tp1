@@ -90,11 +90,12 @@ func (f *TopFiveCountryBudget) RunWorker() error {
 	}
 	f.top_five = make(map[string][]CountrByBudget)
 	for message := range msgs {
-		client_id := strings.Split(message.RoutingKey, ".")[0]
+		message_str := string(message.Body)
+		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
+		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
 		if _, ok := f.top_five[client_id]; !ok {
 			f.top_five[client_id] = make([]CountrByBudget, 0)
 		}
-		message_str := string(message.Body)
 		log.Debugf("Received message: %s", message_str)
 		if message_str == worker.MESSAGE_EOF {
 			log.Infof("Sending result for client %s", client_id)
@@ -114,13 +115,15 @@ func (f *TopFiveCountryBudget) RunWorker() error {
 
 func sendResult(f *TopFiveCountryBudget, client_id string) error {
 	message_to_send := mapToLines(f.top_five[client_id])
-	send_queue_key := client_id + "." + f.Worker.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
+	send_queue_key := f.Worker.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
+	message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_to_send
 	err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
 	if err != nil {
 		log.Errorf("Error sending message: %s", err.Error())
 		return err
 	}
-	err = worker.SendMessage(f.Worker, worker.MESSAGE_EOF, send_queue_key)
+	message_to_send = client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
+	err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
 	if err != nil {
 		log.Errorf("Error sending message: %s", err.Error())
 		return err

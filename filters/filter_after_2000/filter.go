@@ -65,8 +65,9 @@ func (f *FilterByAfterYear2000) HandleEOF(client_id string) error {
 	if f.eofs[client_id] >= f.expected_eof {
 		log.Infof("Sending EOF for client %s", client_id)
 		for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
-			routing_key := client_id + "." + queue_name
-			err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF, routing_key)
+			routing_key := queue_name
+			message := client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
+			err := worker.SendMessage(f.Worker, message, routing_key)
 			if err != nil {
 				return err
 			}
@@ -84,8 +85,9 @@ func (f *FilterByAfterYear2000) SendMessage(message_to_send []string, client_id 
 			if err != nil {
 				return err
 			}
-			send_queue_key := client_id + "." + f.Worker.OutputExchange.RoutingKeys[id%len(f.Worker.OutputExchange.RoutingKeys)]
-			err = worker.SendMessage(f.Worker, line, send_queue_key)
+			send_queue_key := f.Worker.OutputExchange.RoutingKeys[id%len(f.Worker.OutputExchange.RoutingKeys)]
+			message := client_id + worker.MESSAGE_SEPARATOR + line
+			err = worker.SendMessage(f.Worker, message, send_queue_key)
 			if err != nil {
 				return err
 			}

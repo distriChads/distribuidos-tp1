@@ -39,7 +39,7 @@ services:
     - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_OUTPUT_NAME=movies_filtered_by_argentina_exchange
     - CLI_WORKER_EXCHANGE_INPUT_NAME=movies_exchange
-    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=*.movies.input1
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.input1
     - CLI_WORKER_QUEUE_NAME=filter-argentina-1
     - CLI_WORKER_EXPECTEDEOF=1
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.argentina.output1
@@ -79,7 +79,7 @@ services:
     - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_OUTPUT_NAME=results_exchange
     - CLI_WORKER_EXCHANGE_INPUT_NAME=movies_filtered_by_argentina_exchange
-    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=*.movies.argentina.output1
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.argentina.output1
     - CLI_WORKER_QUEUE_NAME=filter-spain-2000-1
     - CLI_WORKER_EXPECTEDEOF=1
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query1.results
@@ -102,7 +102,7 @@ services:
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=topn.first-last.input
     - CLI_WORKER_QUEUE_NAME=first-and-last-1
     - CLI_WORKER_EXPECTEDEOF=1
-    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query3.results.1
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query3.results
     image: first_and_last:latest
     networks:
     - movies_net
@@ -331,7 +331,7 @@ services:
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=groupby.overview.output
     - CLI_WORKER_QUEUE_NAME=master-group-by-overview-average-1
     - CLI_WORKER_EXPECTEDEOF=1
-    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query5.results.1
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query5.results
     image: master_group_by_overview_average:latest
     networks:
     - movies_net
@@ -365,7 +365,7 @@ services:
     - CLI_WORKER_EXCHANGE2_OUTPUT_ROUTINGKEYS=credits.input
     - CLI_WORKER_EXCHANGE3_OUTPUT_ROUTINGKEYS=ratings.input
     - CLI_WORKER_EXCHANGE_INPUT_NAME=results_exchange
-    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=*.*.results
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=*.results
     image: server:latest
     networks:
     - movies_net
@@ -387,7 +387,7 @@ services:
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=master.country-sum.output
     - CLI_WORKER_QUEUE_NAME=top-five-country-budget-1
     - CLI_WORKER_EXPECTEDEOF=1
-    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query2.results.1
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query2.results
     image: top_five_country_budget:latest
     networks:
     - movies_net
@@ -407,7 +407,7 @@ services:
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=topn.top-10-cast.input
     - CLI_WORKER_QUEUE_NAME=top-ten-cast-movie-1
     - CLI_WORKER_EXPECTEDEOF=1
-    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query4.results.1
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query4.results
     image: top_ten_cast_movie:latest
     networks:
     - movies_net
