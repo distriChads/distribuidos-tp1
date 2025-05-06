@@ -32,10 +32,13 @@ class Client:
             for routing_key in routing_keys:
                 self.worker.send_message(data_send, routing_key, exchange)
         else:
-            id = data_send.split("|")[0]
-            hash = int(id) % len(routing_keys)
-            routing_key = routing_keys[hash]
-            self.worker.send_message(data_send, routing_key, exchange)
+            splited_data = data_send.split("\n")
+            for data in splited_data:
+                if len(data) != 0:
+                    id = data.split("|")[0]
+                    hash = int(id) % len(routing_keys)
+                    routing_key = routing_keys[hash]
+                    self.worker.send_message(data, routing_key, exchange)
 
     def send_message(self, data_send):
         if type(self.batch_processor) == MoviesProcessor:
