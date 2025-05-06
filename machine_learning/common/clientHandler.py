@@ -113,8 +113,9 @@ class MachineLearning:
         words = text.split()
         return ' '.join(words[:MAX_WORDS])
 
-    def __create_message_to_send(self, sentiment: str, data: list[str]):
-        return MESSAGE_SEPARATOR.join([sentiment, data[0], data[1]])
+    def __create_message_to_send(self, sentiment: str, parts: list[str]):
+        result = MESSAGE_SEPARATOR.join([sentiment, parts[5], parts[7]])
+        return result
         # return positive_or_negative + MESSAGE_SEPARATOR + parts[5] + MESSAGE_SEPARATOR + parts[7]
 
     def run_worker(self):
@@ -128,25 +129,24 @@ class MachineLearning:
                 if not raw_msg:
                     continue
 
-                message_splited = raw_msg.split(MESSAGE_SEPARATOR)
-                if len(message_splited) == 2 and message_splited[1] == MESSAGE_EOF:
+                client_id, message = raw_msg.split(MESSAGE_SEPARATOR, 1)
+                if message == MESSAGE_EOF:
                     # Process any remaining messages in the buffer
                     if buffer:
-                        self.__process_and_send_batch(buffer)
+                        self.__process_and_send_batch(client_id, buffer)
                         buffer.clear()
 
                     # Send EOF to all routing keys
                     for routing_key in self.output_routing_keys:
                         self.worker.send_message(raw_msg, routing_key)
                     log.info("Sent EOF to all routing keys")
-                    # self.__shutdown()
-                    return
 
                 messages = raw_msg.split("\n")
                 buffer.extend(messages)
 
                 if len(buffer) >= BATCH_SIZE:
-                    self.__process_and_send_batch(buffer[:BATCH_SIZE])
+                    self.__process_and_send_batch(
+                        client_id, buffer[:BATCH_SIZE])
                     buffer = buffer[BATCH_SIZE:]
 
         except Exception as e:
@@ -154,8 +154,9 @@ class MachineLearning:
             self.__shutdown()
             return e
 
-    def __process_and_send_batch(self, buffer):
+    def __process_and_send_batch(self, client_id, buffer):
         for result in self.__process_batch(buffer):
+            result = f"{client_id}{MESSAGE_SEPARATOR}{result}"
             routing_queue = self.output_routing_keys[self.queue_to_send]
             self.worker.send_message(result, routing_queue)
             self.queue_to_send = (
