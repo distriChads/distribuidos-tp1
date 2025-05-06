@@ -71,7 +71,7 @@ func NewJoinMovieCreditsById(config JoinMovieCreditsByIdConfig, messages_before_
 		},
 		expected_eof:           eof_counter,
 		messages_before_commit: messages_before_commit,
-		eofs:                   make(map[string]int),
+		eofs:                   make(map[string]int), // CUIDADO QUE QUIZA NECESITO UN MUTEX PARA EL ACCESO A EOFS Y CLIENT_MOVIES
 		client_movies_by_id:    make(map[string]map[string]bool),
 	}
 }

@@ -9,7 +9,6 @@ class Client:
         self.worker = Worker(config)
         self.queue_number = 0
         self.batch_processor = MoviesProcessor()
-        self.file = open("output.txt", "a")
         try:
             self.worker.init_senders()
             self.worker.init_receiver()
