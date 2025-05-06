@@ -77,8 +77,6 @@ class Client:
                 if not self.running:
                     logging.info("Socket timeout, shutting down")
                     break
-                else:
-                    logging.info("Socket timeout, waiting for results")
             except socket.error as e:
                 logging.info(f"Closing socket")
                 break

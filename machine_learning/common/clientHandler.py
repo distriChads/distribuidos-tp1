@@ -128,7 +128,8 @@ class MachineLearning:
                 if not raw_msg:
                     continue
 
-                if raw_msg == MESSAGE_EOF:
+                message_splited = raw_msg.split(MESSAGE_SEPARATOR)
+                if len(message_splited) == 2 and message_splited[1] == MESSAGE_EOF:
                     # Process any remaining messages in the buffer
                     if buffer:
                         self.__process_and_send_batch(buffer)
@@ -136,7 +137,7 @@ class MachineLearning:
 
                     # Send EOF to all routing keys
                     for routing_key in self.output_routing_keys:
-                        self.worker.send_message(MESSAGE_EOF, routing_key)
+                        self.worker.send_message(raw_msg, routing_key)
                     log.info("Sent EOF to all routing keys")
                     # self.__shutdown()
                     return
