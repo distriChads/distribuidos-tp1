@@ -61,7 +61,6 @@ class MachineLearning:
                     break
                 message = body.decode("utf-8")
                 movies_received += 1
-                log.info(f"Amount of batches received: {movies_received}")
                 self.messages_queue.put(message)
         except Exception as e:
             log.error(f"Receive thread crashed: {e}")

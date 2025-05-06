@@ -129,7 +129,6 @@ func (f *JoinMovieRatingById) RunWorker() error {
 		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
 		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
 		// de esta queue solamente recibo un EOF :)
-
 		log.Debugf("Received message: %s", message_str)
 		if message_str == worker.MESSAGE_EOF {
 			delete(f.client_movies_by_id, client_id)

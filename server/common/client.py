@@ -35,7 +35,7 @@ class Client:
         else:
             id = data_send.split("|")[0]
             hash = int(id) % len(routing_keys)
-            routing_key = self.worker.output_exchange2.routing_keys[hash]
+            routing_key = routing_keys[hash]
             self.worker.send_message(data_send, routing_key, exchange)
 
     def send_message(self, data_send):
