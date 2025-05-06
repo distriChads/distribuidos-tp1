@@ -17,7 +17,9 @@ type JoinMovieCreditsById struct {
 	worker.Worker
 	messages_before_commit int
 	queue_to_send          int
-	eof_counter            int
+	eofs                   map[string]int
+	client_movies_by_id    map[string]map[string]bool
+	expected_eof           int
 }
 
 // ---------------------------------
@@ -48,7 +50,7 @@ func joinMovieWithCredits(lines []string, movies_by_id map[string]bool) []string
 	return result
 }
 
-func storeGroupedElements(results map[string]bool) {
+func storeGroupedElements(results map[string]bool, client_id string) {
 	// TODO: Dumpear el hashmap a un archivo
 }
 
@@ -66,8 +68,10 @@ func NewJoinMovieCreditsById(config JoinMovieCreditsByIdConfig, messages_before_
 			OutputExchange:      config.OutputExchange,
 			MessageBroker:       config.MessageBroker,
 		},
+		expected_eof:           eof_counter,
 		messages_before_commit: messages_before_commit,
-		eof_counter:            eof_counter,
+		eofs:                   make(map[string]int),
+		client_movies_by_id:    make(map[string]map[string]bool),
 	}
 }
 
@@ -92,22 +96,31 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 		return err
 	}
 	messages_before_commit := 0
-	movies_by_id := make(map[string]bool)
 	for message := range msgs {
 		message_str := string(message.Body)
-		log.Debugf("Received message: %s", message_str)
+		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
+		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
+		if _, ok := f.client_movies_by_id[client_id]; !ok {
+			f.client_movies_by_id[client_id] = make(map[string]bool)
+		}
+		if _, ok := f.eofs[client_id]; !ok {
+			f.eofs[client_id] = 0
+		}
+
 		if message_str == worker.MESSAGE_EOF {
-			f.eof_counter--
-			if f.eof_counter <= 0 {
+			f.eofs[client_id]++
+			if f.eofs[client_id] >= f.expected_eof {
+				delete(f.eofs, client_id)
 				break
 			}
+			message.Ack(false)
 			continue
 		}
 		messages_before_commit += 1
 		line := strings.TrimSpace(message_str)
-		storeMovieWithId(line, movies_by_id) // ahora el filtro after 2000 envia de a una sola linea, por lo tanto puedo hacer esto
+		storeMovieWithId(line, f.client_movies_by_id[client_id]) // ahora el filtro after 2000 envia de a una sola linea, por lo tanto puedo hacer esto
 		if messages_before_commit >= f.messages_before_commit {
-			storeGroupedElements(movies_by_id)
+			storeGroupedElements(f.client_movies_by_id[client_id], client_id)
 			messages_before_commit = 0
 		}
 		message.Ack(false)
@@ -118,16 +131,18 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 		log.Errorf("Error initializing receiver: %s", err.Error())
 		return err
 	}
-	i := 0
+
 	for message := range msgs {
-		log.Infof("Batch received Number: %d", i)
 		message_str := string(message.Body)
-		log.Debugf("Received message: %s", message_str)
-		client_id := strings.Split(message.RoutingKey, ".")[0]
+		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
+		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
+		// de esta queue solamente recibo un EOF :)
 		if message_str == worker.MESSAGE_EOF {
+			delete(f.client_movies_by_id, client_id)
 			for _, routing_key := range f.Worker.OutputExchange.RoutingKeys {
-				key := client_id + "." + routing_key
-				err := worker.SendMessage(f.Worker, worker.MESSAGE_EOF, key)
+				key := routing_key
+				message_to_send := client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
+				err := worker.SendMessage(f.Worker, message_to_send, key)
 				if err != nil {
 					log.Infof("Error sending message: %s", err.Error())
 				}
@@ -135,11 +150,12 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 			break
 		}
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
-		result := joinMovieWithCredits(lines, movies_by_id)
+		result := joinMovieWithCredits(lines, f.client_movies_by_id[client_id])
 		message_to_send := strings.Join(result, "\n")
 		if len(message_to_send) != 0 {
 			log.Infof("Message to send: %s", message_to_send)
-			send_queue_key := client_id + "." + f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
+			send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
+			message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_to_send
 			err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
 			f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
 			if err != nil {
