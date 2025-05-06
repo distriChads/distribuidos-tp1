@@ -128,6 +128,10 @@ class MoviesProcessor(Processor):
         revenue = line[15]
         overview = line[9]
 
+        if "\n" in overview:
+            overview = overview.split("\n")
+            overview = " ".join(overview)
+
         prodCountries = self._try_parse_python_structure(prodCountries)
         genres = self._try_parse_python_structure(genres)
 
