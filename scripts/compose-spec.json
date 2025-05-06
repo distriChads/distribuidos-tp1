@@ -13,7 +13,7 @@
         },
         {
             "name": "filter-argentina",
-            "replicas": 1,
+            "replicas": 4,
             "log_level": "info",
             "input": {
                 "from": "movies",
@@ -42,7 +42,7 @@
         },
         {
             "name": "filter-only-one-country",
-            "replicas": 1,
+            "replicas": 4,
             "log_level": "info",
             "input": {
                 "from": "movies",
@@ -235,7 +235,7 @@
         },
         {
             "name": "machine-learning",
-            "replicas": 1,
+            "replicas": 4,
             "log_level": "info",
             "input": {
                 "from": "movies",

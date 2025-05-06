@@ -118,9 +118,6 @@ class MoviesProcessor(Processor):
         self.fields_count = FIELDS_COUNT_MOVIES
 
     def _process_line(self, line: list[str]) -> str:
-
-        # movies_df_columns = ["id", "title", "genres", "release_date", "overview",
-        #                      "production_countries", "spoken_languages", "budget", "revenue"]
         budget = line[2]
         genres = line[3]
         id = line[5]
@@ -129,7 +126,7 @@ class MoviesProcessor(Processor):
         title = line[20]
         spokenLanguages = line[18]
         revenue = line[15]
-        overview = line[8]
+        overview = line[9]
 
         prodCountries = self._try_parse_python_structure(prodCountries)
         genres = self._try_parse_python_structure(genres)
