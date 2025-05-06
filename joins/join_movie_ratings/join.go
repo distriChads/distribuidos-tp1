@@ -3,6 +3,7 @@ package join_movie_ratings
 import (
 	worker "distribuidos-tp1/common/worker/worker"
 	"strings"
+	"sync"
 
 	"github.com/op/go-logging"
 )
@@ -82,6 +83,61 @@ func (f *JoinMovieRatingById) RunWorker() error {
 	worker.InitReceiver(&f.Worker)
 	worker.InitSecondReceiver(&f.Worker)
 
+	pending_ratings := make(map[string][]string)
+	pending_mutex := &sync.Mutex{}
+	go func() {
+		msgs, err := worker.SecondReceivedMessages(f.Worker)
+		if err != nil {
+			log.Errorf("Error initializing receiver: %s", err.Error())
+			return
+		}
+
+		for message := range msgs {
+			message_str := string(message.Body)
+			client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
+			message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
+
+			if f.eofs[client_id] < f.expected_eof {
+				pending_mutex.Lock()
+				pending_ratings[client_id] = append(pending_ratings[client_id], message_str)
+				pending_mutex.Unlock()
+				message.Ack(false)
+				continue
+			}
+
+			// de esta queue solamente recibo un EOF :)
+			log.Debugf("Received message: %s", message_str)
+			if message_str == worker.MESSAGE_EOF {
+				delete(f.client_movies_by_id, client_id)
+				delete(f.eofs, client_id)
+				for _, routing_key := range f.Worker.OutputExchange.RoutingKeys {
+					key := routing_key
+					message_to_send := client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
+					err := worker.SendMessage(f.Worker, message_to_send, key)
+					if err != nil {
+						log.Infof("Error sending message: %s", err.Error())
+					}
+				}
+				message.Ack(false)
+				continue
+			}
+			lines := strings.Split(strings.TrimSpace(message_str), "\n")
+			result := joinMovieWithRating(lines, f.client_movies_by_id[client_id])
+			message_to_send := strings.Join(result, "\n")
+			if len(message_to_send) != 0 {
+				send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
+				message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_to_send
+				err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
+				f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
+				if err != nil {
+					log.Infof("Error sending message: %s", err.Error())
+				}
+			}
+			message.Ack(false)
+		}
+		log.Info("Finished second receiver")
+	}()
+
 	msgs, err := worker.ReceivedMessages(f.Worker)
 	if err != nil {
 		log.Errorf("Error initializing receiver: %s", err.Error())
@@ -101,8 +157,24 @@ func (f *JoinMovieRatingById) RunWorker() error {
 		if message_str == worker.MESSAGE_EOF {
 			f.eofs[client_id]++
 			if f.eofs[client_id] >= f.expected_eof {
-				delete(f.eofs, client_id)
-				break
+				pending_mutex.Lock()
+				pending_messages := pending_ratings[client_id]
+				for _, pending_message := range pending_messages {
+					lines := strings.Split(strings.TrimSpace(pending_message), "\n")
+					result := joinMovieWithRating(lines, f.client_movies_by_id[client_id])
+					message_to_send := strings.Join(result, "\n")
+					if len(message_to_send) != 0 {
+						send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
+						message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_to_send
+						err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
+						f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
+						if err != nil {
+							log.Infof("Error sending message: %s", err.Error())
+						}
+					}
+				}
+				pending_mutex.Unlock()
+
 			}
 			message.Ack(false)
 			continue
@@ -118,45 +190,6 @@ func (f *JoinMovieRatingById) RunWorker() error {
 	}
 	log.Info("Finished first receiver")
 
-	msgs, err = worker.SecondReceivedMessages(f.Worker)
-	if err != nil {
-		log.Errorf("Error initializing receiver: %s", err.Error())
-		return err
-	}
-
-	for message := range msgs {
-		message_str := string(message.Body)
-		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
-		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
-		// de esta queue solamente recibo un EOF :)
-		log.Debugf("Received message: %s", message_str)
-		if message_str == worker.MESSAGE_EOF {
-			delete(f.client_movies_by_id, client_id)
-			for _, routing_key := range f.Worker.OutputExchange.RoutingKeys {
-				key := routing_key
-				message_to_send := client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
-				err := worker.SendMessage(f.Worker, message_to_send, key)
-				if err != nil {
-					log.Infof("Error sending message: %s", err.Error())
-				}
-			}
-			break
-		}
-		lines := strings.Split(strings.TrimSpace(message_str), "\n")
-		result := joinMovieWithRating(lines, f.client_movies_by_id[client_id])
-		message_to_send := strings.Join(result, "\n")
-		if len(message_to_send) != 0 {
-			send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
-			message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_to_send
-			err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
-			f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
-			if err != nil {
-				log.Infof("Error sending message: %s", err.Error())
-			}
-		}
-		message.Ack(false)
-	}
-	log.Info("Finished second receiver")
 	return nil
 }
 
