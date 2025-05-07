@@ -54,9 +54,7 @@ func RunWorker(f Filter, msgs <-chan amqp091.Delivery) error {
 			message.Ack(false)
 			continue
 		}
-		if len(message_str) == 0 {
-			continue
-		}
+
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		filtered_lines := f.Filter(lines)
 		err := f.SendMessage(filtered_lines, client_id)
