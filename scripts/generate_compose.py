@@ -17,7 +17,7 @@ def rabbitmq_service(silent):
     }    
   return service
 
-def server_service(spec, movies_input_replicas):
+def server_service(spec, movies_input_replicas, credits_input_replicas, ratings_input_replicas):
   assert spec["replicas"] == 1
   
   env = []
@@ -34,8 +34,17 @@ def server_service(spec, movies_input_replicas):
   for i in range(movies_input_replicas):
     movies_input_routing_keys.append(f"movies.input{i+1}")
   env.append(f"CLI_WORKER_EXCHANGE1_OUTPUT_ROUTINGKEYS={','.join(movies_input_routing_keys)}")
-  env.append(f"CLI_WORKER_EXCHANGE2_OUTPUT_ROUTINGKEYS=credits.input")
-  env.append(f"CLI_WORKER_EXCHANGE3_OUTPUT_ROUTINGKEYS=ratings.input")
+
+  credits_input_routing_keys = []
+  for i in range(credits_input_replicas):
+    credits_input_routing_keys.append(f"credits.input{i+1}")
+  env.append(f"CLI_WORKER_EXCHANGE2_OUTPUT_ROUTINGKEYS={','.join(credits_input_routing_keys)}")
+  
+  ratings_input_routing_keys = []
+  for i in range(ratings_input_replicas):
+    ratings_input_routing_keys.append(f"ratings.input{i+1}")
+  env.append(f"CLI_WORKER_EXCHANGE3_OUTPUT_ROUTINGKEYS={','.join(ratings_input_routing_keys)}")
+
     
   env.append(f"CLI_WORKER_EXCHANGE_INPUT_NAME={spec['results_exchange_name']}")
   input_keys = ",".join(spec["results_exchange_routing_keys"])
@@ -81,6 +90,8 @@ def generate_compose(spec_path, output_path):
   specs = {service["name"]: service for service in compose_spec["services"]}
   
   movies_input_replicas = specs["filter-argentina"]["replicas"]
+  credits_input_replicas = specs["join-movie-ratings"]["replicas"]
+  ratings_input_replicas = specs["join-movie-credits"]["replicas"]
   
   # first pass to get output keys
   for service in compose_spec["services"]:
@@ -100,7 +111,7 @@ def generate_compose(spec_path, output_path):
   # second pass to generate compose
   for service in compose_spec["services"]:
     if service["name"] == "server":
-      services["server"] = server_service(specs["server"], movies_input_replicas)
+      services["server"] = server_service(specs["server"], movies_input_replicas, credits_input_replicas, ratings_input_replicas)
       continue
     
     srv = {}
@@ -163,8 +174,10 @@ def generate_compose(spec_path, output_path):
           
           if input_from == "movies":
             server_keys_for_consumer = [f"{input_from}.input{k+1}" for k in range(movies_input_replicas)] # Placeholder/Fallback
-          else:
-            server_keys_for_consumer = [f"{input_from}.input"] # Placeholder/Fallback
+          if input_from == "credits":
+            server_keys_for_consumer = [f"{input_from}.input{k+1}" for k in range(credits_input_replicas)] # Placeholder/Fallback
+          if input_from == "ratings":
+            server_keys_for_consumer = [f"{input_from}.input{k+1}" for k in range(ratings_input_replicas)] # Placeholder/Fallback
 
           if input_from == "movies":
               input_exchange = server_spec['movies_exchange_name']
@@ -267,8 +280,10 @@ def generate_compose(spec_path, output_path):
               server_spec = specs['server']
               if sec_input_from == "movies":
                 sec_server_keys_for_consumer = [f"{sec_input_from}.input{k+1}" for k in range(movies_input_replicas)]
-              else:
-                sec_server_keys_for_consumer = [f"{sec_input_from}.input"]
+              if sec_input_from == "credits":
+                sec_server_keys_for_consumer = [f"{sec_input_from}.input{k+1}" for k in range(credits_input_replicas)]
+              if sec_input_from == "ratings":
+                sec_server_keys_for_consumer = [f"{sec_input_from}.input{k+1}" for k in range(ratings_input_replicas)]
 
               if sec_input_from == "movies": sec_input_exchange = server_spec['movies_exchange_name']
               elif sec_input_from == "credits": sec_input_exchange = server_spec['credits_exchange_name']
@@ -306,7 +321,7 @@ def generate_compose(spec_path, output_path):
 
           if sec_input_keys_list:
               env.append(f"CLI_WORKER_EXCHANGE_SECONDINPUT_NAME={sec_input_exchange}")
-              env.append(f"CLI_WORKER_EXCHANGE_SECONDINPUT_ROUTINGKEYS={','.join(sec_input_keys_list)}")
+              env.append(f"CLI_WORKER_EXCHANGE_SECONDINPUT_ROUTINGKEYS={sec_input_keys_list[i]}")
               env.append(f"CLI_WORKER_SECONDQUEUE_NAME={ith_service['container_name']}")
               env.append(f"CLI_WORKER_EXPECTEDEOF2={sec_expected_eof}")
 

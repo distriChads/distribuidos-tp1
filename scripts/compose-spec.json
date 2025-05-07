@@ -13,7 +13,7 @@
         },
         {
             "name": "filter-argentina",
-            "replicas": 4,
+            "replicas": 3,
             "log_level": "info",
             "input": {
                 "from": "movies",
@@ -28,7 +28,7 @@
         },
         {
             "name": "filter-spain-2000",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
             "input": {
                 "from": "filter-argentina",
@@ -42,7 +42,7 @@
         },
         {
             "name": "filter-only-one-country",
-            "replicas": 4,
+            "replicas": 3,
             "log_level": "info",
             "input": {
                 "from": "movies",
@@ -57,7 +57,7 @@
         },
         {
             "name": "group-by-country-sum",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
             "input": {
                 "from": "filter-only-one-country",
@@ -99,7 +99,7 @@
         },
         {
             "name": "filter-after-2000",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
             "input": {
                 "from": "filter-argentina",
@@ -113,7 +113,7 @@
         },
         {
             "name": "join-movie-ratings",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
             "input": {
                 "from": "filter-after-2000",
@@ -132,7 +132,7 @@
         },
         {
             "name": "group-by-movie-average",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
             "input": {
                 "from": "join-movie-ratings",
@@ -174,7 +174,7 @@
         },
         {
             "name": "join-movie-credits",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
             "input": {
                 "from": "filter-after-2000",
@@ -193,7 +193,7 @@
         },
         {
             "name": "group-by-actor-count",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
             "input": {
                 "from": "join-movie-credits",
@@ -235,7 +235,7 @@
         },
         {
             "name": "machine-learning",
-            "replicas": 4,
+            "replicas": 3,
             "log_level": "info",
             "input": {
                 "from": "movies",
@@ -250,7 +250,7 @@
         },
         {
             "name": "group-by-overview-average",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
             "input": {
                 "from": "machine-learning",
