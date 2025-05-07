@@ -40,16 +40,18 @@ class ClientHandler:
         while self._running:
             client_socket = self.__accept_new_connection()
             client_socket = Socket(client_socket)
-            client_thread = threading.Thread(target=self.__handle_client, args=(client_socket,))
+            client_thread = threading.Thread(
+                target=self.__handle_client, args=(client_socket,))
             client_thread.start()
 
-
     def __handle_client(self, client_socket):
-        
+
         client = Client(client_socket, self.client_handler_config)
 
-        result_thread = threading.Thread(target=self.__send_result_to_client, args=(client, ))
-        sender_thread = threading.Thread(target=self.__receive_datasets, args=(client, ))
+        result_thread = threading.Thread(
+            target=self.__send_result_to_client, args=(client, ))
+        sender_thread = threading.Thread(
+            target=self.__receive_datasets, args=(client, ))
         result_thread.start()
         sender_thread.start()
         result_thread.join()
@@ -59,42 +61,43 @@ class ClientHandler:
         for i in range(FILES_TO_RECEIVE):
             client.receive_first_chunck()
             logging.debug("Receiving file %d of size %d", i,
-                            client.batch_processor.read_until)
+                          client.batch_processor.read_until)
             logging.info("Received %d bytes out of %d --- file %d",
                          client.batch_processor.bytes_read, client.batch_processor.read_until, i)
 
             while self._running:
                 if client.batch_processor.received_all_data():
-                    client.send_all_batch_data()
+                    # client.send_message()
                     break
                 try:
-                    client.send_batch_if_threshold_reached()
+                    # client.send_batch_if_threshold_reached()
                     bytes_received, chunck_received = client.read()
 
                     client.batch_processor.process_batch(
                         bytes_received, chunck_received)
 
-                    percent_bytes_received = (
-                        client.batch_processor.bytes_read / client.batch_processor.read_until) * 100
-                    percent_bytes_received = f"{percent_bytes_received:05.2f}"
+                    client.send_message_to_workers()
+
+                    # percent_bytes_received = (
+                    #     client.batch_processor.bytes_read / client.batch_processor.read_until) * 100
+                    # percent_bytes_received = f"{percent_bytes_received:05.2f}"
 
                 except socket.error as e:
                     logging.error(f'action: receive_datasets | error: {e}')
                     return
             client.send_eof()
- 
+
             logging.info(
                 f'\n--- received file: {i} | file_size: {client.batch_processor.read_until} | received: {client.batch_processor.bytes_read} ---\n')
 
             client.set_next_processor()
-
 
     def __send_result_to_client(self, client):
         logging.info(
             f"Waiting message from Exchange {client.worker.input_exchange.name} - {client.worker.input_exchange.routing_keys}")
         for method_frame, _properties, result_encoded in client.worker.received_messages():
             result = result_encoded.decode('utf-8')
-            client_id = result.split("|", 1)[0] 
+            client_id = result.split("|", 1)[0]
             result = result.split("|", 1)[1]
             query_number = method_frame.routing_key.split(".")[0]
             if result == "EOF" or len(result) == 0:

@@ -19,11 +19,11 @@ MAX_BATCH_SIZE = (1024 * 8) - 4  # 4 bytes for the file size
 
 
 class Processor:
-    def __init__(self):
+    def __init__(self, routing_keys_count: int):
         self.header_length = 0
         self.fields_count = 0
-        self.data_buffer: list[str] = []
-        self.overflow_buffer: list[str] = []
+        self.data_buffer: list[list[str]] = [[]
+                                             for _ in range(routing_keys_count)]
 
         self.bytes_read = 0
         self.read_until = 0
@@ -42,8 +42,6 @@ class Processor:
 
     def process_batch(self, bytes_received: int, chunck_received: str):
         self.bytes_read += bytes_received
-        self.data_buffer.append("".join(self.overflow_buffer))
-        self.overflow_buffer.clear()
         successful_lines_count = 0
         error_count = 0
         reader = csv.reader(io.StringIO(chunck_received))
@@ -55,18 +53,17 @@ class Processor:
                     logging.debug(
                         f"Error processing line, Expected {self.fields_count} fields, got {len(row)}")
                     continue
-                line_processed = self._process_line(row)
+
+                hash_idx, line_processed = self._process_line(row)
+                hash = int(hash_idx) % len(self.data_buffer)
+                self.data_buffer[hash].append(line_processed + "\n")
                 successful_lines_count += 1
-                if len(self.data_buffer) + len(line_processed) + 1 <= MAX_BATCH_SIZE:
-                    self.data_buffer.append(line_processed + "\n")
-                else:
-                    self.overflow_buffer.append(line_processed + "\n")
+
             except Exception as e:
                 error_count += 1
                 logging.debug(f"Error processing line, Error: {e}")
                 continue
-        # logging.debug(
-        #     f"Processed {successful_lines_count} lines, {error_count} errors")
+
         self.successful_lines_count += successful_lines_count
         self.errors_per_file += error_count
 
@@ -76,31 +73,15 @@ class Processor:
     def remove_header(self, csv_data: str) -> str:
         return csv_data[self.header_length:]
 
-    def ready_to_send(self) -> bool:
-        # -1 for the \n
-        data_buffer = "".join(self.data_buffer)
-        overflow_buffer = "".join(self.overflow_buffer)
+    def get_processed_batch(self) -> list[list[str]]:
+        results: list[str] = ["" for _ in range(len(self.data_buffer))]
+        for i in range(len(self.data_buffer)):
+            if len(self.data_buffer[i]) > 0:
+                results[i] = "".join(self.data_buffer[i])
+                self.data_buffer[i].clear()
+        return results
 
-        self.data_buffer.clear()
-        self.overflow_buffer.clear()
-
-        self.data_buffer.append(data_buffer)
-        self.overflow_buffer.append(overflow_buffer)
-
-        return len(data_buffer) + len(overflow_buffer) - 1 >= MAX_BATCH_SIZE
-
-    def get_processed_batch(self) -> str:
-        result = "".join(self.data_buffer)
-        self.data_buffer.clear()
-        return result
-
-    def get_all_data(self) -> str:
-        result = self.data_buffer + self.overflow_buffer
-        self.data_buffer.clear()
-        self.overflow_buffer.clear()
-        return "".join(result)
-
-    def _process_line(self, line: list[str]) -> str:
+    def _process_line(self, line: list[str]) -> tuple[str, str]:
         raise NotImplementedError(
             "Subclasses should implement this method")
 
@@ -112,12 +93,12 @@ class Processor:
 
 
 class MoviesProcessor(Processor):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, routing_keys_count: int):
+        super().__init__(routing_keys_count)
         self.header_length = len(MOVIES_HEADER) + 1  # +1 for the \n
         self.fields_count = FIELDS_COUNT_MOVIES
 
-    def _process_line(self, line: list[str]) -> str:
+    def _process_line(self, line: list[str]) -> tuple[str, str]:
         budget = line[2]
         genres = line[3]
         id = line[5]
@@ -158,12 +139,12 @@ class MoviesProcessor(Processor):
             [c["iso_3166_1"] for c in prodCountries])
         genres = VALUE_SEPARATOR.join([g["name"] for g in genres])
 
-        return f"{id}{FIELD_SEPARATOR}{title}{FIELD_SEPARATOR}{releaseDate}{FIELD_SEPARATOR}{countries}{FIELD_SEPARATOR}{genres}{FIELD_SEPARATOR}{budget}{FIELD_SEPARATOR}{overview}{FIELD_SEPARATOR}{revenue}"
+        return id, f"{id}{FIELD_SEPARATOR}{title}{FIELD_SEPARATOR}{releaseDate}{FIELD_SEPARATOR}{countries}{FIELD_SEPARATOR}{genres}{FIELD_SEPARATOR}{budget}{FIELD_SEPARATOR}{overview}{FIELD_SEPARATOR}{revenue}"
 
 
 class CreditsProcessor(Processor):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, routing_keys_count: int):
+        super().__init__(routing_keys_count)
         self.header_length = len(CREDITS_HEADER) + 1  # +1 for the \n
         self.fields_count = FIELDS_COUNT_CREDITS
         self.row_length = 0
@@ -189,7 +170,7 @@ class CreditsProcessor(Processor):
         else:
             self.bytes_read += bytes_received
 
-    def _process_line(self, line: list[str]) -> str:
+    def _process_line(self, line: list[str]) -> tuple[str, str]:
         cast = line[0]
         id = line[2]
 
@@ -200,16 +181,16 @@ class CreditsProcessor(Processor):
             raise EmptyFieldError("Missing id")
 
         cast = VALUE_SEPARATOR.join([c["name"] for c in cast])
-        return f"{id}{FIELD_SEPARATOR}{cast}"
+        return id, f"{id}{FIELD_SEPARATOR}{cast}"
 
 
 class RatingsProcessor(Processor):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, routing_keys_count: int):
+        super().__init__(routing_keys_count)
         self.header_length = len(RATINGS_HEADER) + 1  # +1 for the \n
         self.fields_count = FIELDS_COUNT_RATINGS
 
-    def _process_line(self, line: list[str]) -> str:
+    def _process_line(self, line: list[str]) -> tuple[str, str]:
         movieId = line[1]
         rating = line[2]
         timestamp = line[3]
@@ -221,7 +202,7 @@ class RatingsProcessor(Processor):
         if not timestamp:
             raise EmptyFieldError("Missing timestamp")
 
-        return f"{movieId}{FIELD_SEPARATOR}{rating}"
+        return movieId, f"{movieId}{FIELD_SEPARATOR}{rating}"
 
 
 class EmptyFieldError(Exception):
