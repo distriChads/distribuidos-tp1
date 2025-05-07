@@ -53,6 +53,8 @@ class Client:
                 return
 
             data_send = "".join(data_list)
+            if len(data_send) == 0:
+                return
             queue_to_send = self.queue_to_send(
                 len(self.worker.output_exchange1.routing_keys))
             routing_key = self.worker.output_exchange1.routing_keys[queue_to_send]
