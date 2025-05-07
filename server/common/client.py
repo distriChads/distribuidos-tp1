@@ -33,6 +33,7 @@ class Client:
     def send_to_joiner_worker(self, data_list, exchange):
         if data_list[0] == EOF:
             self.send_eof_to_exchange(data_list[0], exchange)
+            return
         for hash in range(len(data_list)):
             data = data_list[hash]
             if len(data) != 0:
@@ -49,6 +50,7 @@ class Client:
             if send_eof:
                 self.send_eof_to_exchange(
                     data_list[0], self.worker.output_exchange1)
+                return
 
             data_send = "".join(data_list)
             queue_to_send = self.queue_to_send(
