@@ -11,7 +11,6 @@ def compare_results():
     client_queries = list(client_dir.glob("*.query*"))
 
     for known_file in known_queries:
-        print(known_file)
         query_name = known_file.name
         
         matching_clients = [f for f in client_queries if f.name.endswith(query_name)]
