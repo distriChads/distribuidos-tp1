@@ -40,22 +40,25 @@ func updateTopTen(lines []string, top_ten []TopTenCastCount) []TopTenCastCount {
 		if err != nil {
 			continue
 		}
+		new_actor := TopTenCastCount{Actor: actor, Count: count}
+
 		if len(top_ten) < 10 {
-			top_ten = append(top_ten, TopTenCastCount{Actor: actor, Count: count})
-			sort.Slice(top_ten, func(i, j int) bool {
-				return top_ten[i].Count > top_ten[j].Count
-			})
+			top_ten = append(top_ten, new_actor)
 		} else {
-			if top_ten[9].Count < count {
-				top_ten[9] = TopTenCastCount{Actor: actor, Count: count}
-				sort.Slice(top_ten, func(i, j int) bool {
-					if top_ten[i].Count != top_ten[j].Count {
-						return top_ten[i].Count > top_ten[j].Count
-					}
-					return top_ten[i].Actor < top_ten[j].Actor
-				})
+			last := top_ten[9]
+			if count > last.Count || (count == last.Count && actor < last.Actor) {
+				top_ten[9] = new_actor
+			} else {
+				continue
 			}
 		}
+
+		sort.Slice(top_ten, func(i, j int) bool {
+			if top_ten[i].Count != top_ten[j].Count {
+				return top_ten[i].Count > top_ten[j].Count
+			}
+			return top_ten[i].Actor < top_ten[j].Actor
+		})
 
 	}
 	return top_ten
