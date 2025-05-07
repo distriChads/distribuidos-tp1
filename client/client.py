@@ -82,7 +82,7 @@ class Client:
                 break
 
     def __write_down_in_file(self, file_name: str, result: str):
-        with open(file_name, "a") as file:
+        with open(f"client_results/{file_name}", "a") as file:
             file.write(result)
 
     def __send_file_in_chunks(self, file_path: str):
