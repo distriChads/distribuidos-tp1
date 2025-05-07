@@ -42,6 +42,9 @@ class Client:
     def send_message(self, data_list):
         send_eof = False
 
+        if len(data_list[0]) == 0:
+            return
+
         if data_list[0] == EOF:
             send_eof = True
 
