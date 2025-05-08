@@ -29,6 +29,7 @@ def server_service(spec, movies_input_replicas, credits_input_replicas, ratings_
   env.append(f"CLI_WORKER_EXCHANGE1_OUTPUT_NAME={spec['movies_exchange_name']}")
   env.append(f"CLI_WORKER_EXCHANGE2_OUTPUT_NAME={spec['credits_exchange_name']}")
   env.append(f"CLI_WORKER_EXCHANGE3_OUTPUT_NAME={spec['ratings_exchange_name']}")
+  # env.append(f"FILTERS_SPAIN_2000={spec['filters_spain_2000']}")
   
   movies_input_routing_keys = []
   for i in range(movies_input_replicas):

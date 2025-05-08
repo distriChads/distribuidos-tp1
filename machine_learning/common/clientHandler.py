@@ -9,7 +9,7 @@ log = logging.getLogger("machine_learning")
 FIELDS_COUNT = 8
 BATCH_SIZE = 100
 OVERVIEW_FIELD_INDEX = 6
-MAX_WORDS = 30
+MAX_WORDS = 10
 BUDGET_INDEX = 5
 REVENUE_INDEX = 7
 
@@ -115,7 +115,6 @@ class MachineLearning:
     def __create_message_to_send(self, sentiment: str, parts: list[str]):
         result = MESSAGE_SEPARATOR.join([sentiment, parts[5], parts[7]])
         return result
-        # return positive_or_negative + MESSAGE_SEPARATOR + parts[5] + MESSAGE_SEPARATOR + parts[7]
 
     def run_worker(self):
         log.info("Starting MachineLearning worker")
@@ -139,6 +138,7 @@ class MachineLearning:
                     for routing_key in self.output_routing_keys:
                         self.worker.send_message(raw_msg, routing_key)
                     log.info("Sent EOF to all routing keys")
+                    continue
 
                 messages = raw_msg.split("\n")
                 buffer.extend(messages)

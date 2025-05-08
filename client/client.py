@@ -10,6 +10,7 @@ from communication import Socket
 
 
 BATCH_SIZE = (1024*8) - 4  # 4 bytes for the length of the message
+EOF = "EOF"
 
 
 class Client:

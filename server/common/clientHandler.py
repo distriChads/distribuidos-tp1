@@ -10,6 +10,9 @@ from .client import Client
 from common.communication import Socket
 
 FILES_TO_RECEIVE = 3
+QUERIES_NUMBER = 5
+EOF = "EOF"
+AMOUNT_OF_SPAIN_2000 = 3
 
 
 class ClientHandlerConfig(WorkerConfig):
@@ -31,6 +34,7 @@ class ClientHandler:
         signal.signal(signal.SIGTERM, self.__graceful_shutdown_handler)
 
         self.client_handler_config = client_handler_config
+        self.eof_per_client: dict[str, int] = {}
 
     def __graceful_shutdown_handler(self, signum: Optional[int] = None, frame: Optional[FrameType] = None):
         self._running = False
@@ -100,11 +104,22 @@ class ClientHandler:
             client_id = result.split("|", 1)[0]
             result = result.split("|", 1)[1]
             query_number = method_frame.routing_key.split(".")[0]
-            if result == "EOF" or len(result) == 0:
-                continue
-            result = f"{client_id}/{query_number}/{result}\n"
+            logging.info(
+                "Received result for client %s from worker: %s", client_id, result)
 
-            logging.info("Received result from worker: %s", result)
+            if result == EOF or len(result) == 0:
+                self.eof_per_client[client_id] = self.eof_per_client.get(
+                    client_id, 0) + 1
+                if self.eof_per_client[client_id] >= QUERIES_NUMBER + AMOUNT_OF_SPAIN_2000 - 1:
+                    client.send_eof()
+                    logging.info(
+                        f"EOF received for client {client_id} - closing connection")
+                    client.client_socket.sock.close()
+                    self.eof_per_client.pop(client_id)
+                    return
+                continue
+
+            result = f"{client_id}/{query_number}/{result}\n"
             client.send(result)
 
     def __accept_new_connection(self):
