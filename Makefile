@@ -36,3 +36,6 @@ run_docker:
 
 stop_docker:
 	clear; docker-compose down
+
+verify_results:
+	clear; py scripts/compare_results.py
