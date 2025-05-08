@@ -147,7 +147,7 @@ class Client:
             f"Started sending {file_transfer_header}B to server for {file_name}")
 
         j = 0
-        with open(file_path, 'r') as file:
+        with open(file_path, 'r', encoding='utf-8') as file:
             for csv_row in file:
                 if not self.running:
                     break

@@ -5,7 +5,7 @@ import socket
 class Socket:
     def __init__(self, sock: socket.socket):
         self.sock = sock
-        self.decoder = codecs.getincrementaldecoder('utf-8')()
+        self.decoder = codecs.getincrementaldecoder('utf-8')(errors='replace')
 
     def send(self, msg: bytes):
         """

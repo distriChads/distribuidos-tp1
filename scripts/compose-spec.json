@@ -250,7 +250,7 @@
         },
         {
             "name": "group-by-overview-average",
-            "replicas": 3,
+            "replicas": 1,
             "log_level": "info",
             "input": {
                 "from": "machine-learning",

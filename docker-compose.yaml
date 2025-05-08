@@ -391,11 +391,11 @@ services:
     image: group_by_movie_average:latest
     networks: *id021
   group-by-overview-average-1:
-    build: &id022
+    build:
       context: .
       dockerfile: group_by/group_by_overview_average/Dockerfile
     container_name: group-by-overview-average-1
-    depends_on: &id023
+    depends_on:
     - rabbitmq
     entrypoint: ./run_worker
     environment:
@@ -408,46 +408,14 @@ services:
     - CLI_WORKER_EXPECTEDEOF=3
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=groupby.overview.output
     image: group_by_overview_average:latest
-    networks: &id024
+    networks:
     - movies_net
-  group-by-overview-average-2:
-    build: *id022
-    container_name: group-by-overview-average-2
-    depends_on: *id023
-    entrypoint: ./run_worker
-    environment:
-    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-    - CLI_LOG_LEVEL=info
-    - CLI_WORKER_EXCHANGE_OUTPUT_NAME=groupby_overview_exchange
-    - CLI_WORKER_EXCHANGE_INPUT_NAME=groupby_overview_exchange
-    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=groupby.overview.input2
-    - CLI_WORKER_QUEUE_NAME=group-by-overview-average-2
-    - CLI_WORKER_EXPECTEDEOF=3
-    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=groupby.overview.output
-    image: group_by_overview_average:latest
-    networks: *id024
-  group-by-overview-average-3:
-    build: *id022
-    container_name: group-by-overview-average-3
-    depends_on: *id023
-    entrypoint: ./run_worker
-    environment:
-    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-    - CLI_LOG_LEVEL=info
-    - CLI_WORKER_EXCHANGE_OUTPUT_NAME=groupby_overview_exchange
-    - CLI_WORKER_EXCHANGE_INPUT_NAME=groupby_overview_exchange
-    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=groupby.overview.input3
-    - CLI_WORKER_QUEUE_NAME=group-by-overview-average-3
-    - CLI_WORKER_EXPECTEDEOF=3
-    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=groupby.overview.output
-    image: group_by_overview_average:latest
-    networks: *id024
   join-movie-credits-1:
-    build: &id025
+    build: &id022
       context: .
       dockerfile: joins/join_movie_credits/Dockerfile
     container_name: join-movie-credits-1
-    depends_on: &id026
+    depends_on: &id023
     - rabbitmq
     entrypoint: ./run_worker
     environment:
@@ -464,12 +432,12 @@ services:
     - CLI_WORKER_SECONDQUEUE_NAME=join-movie-credits-1
     - CLI_WORKER_EXPECTEDEOF2=1
     image: join_movie_credits:latest
-    networks: &id027
+    networks: &id024
     - movies_net
   join-movie-credits-2:
-    build: *id025
+    build: *id022
     container_name: join-movie-credits-2
-    depends_on: *id026
+    depends_on: *id023
     entrypoint: ./run_worker
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
@@ -485,11 +453,11 @@ services:
     - CLI_WORKER_SECONDQUEUE_NAME=join-movie-credits-2
     - CLI_WORKER_EXPECTEDEOF2=1
     image: join_movie_credits:latest
-    networks: *id027
+    networks: *id024
   join-movie-credits-3:
-    build: *id025
+    build: *id022
     container_name: join-movie-credits-3
-    depends_on: *id026
+    depends_on: *id023
     entrypoint: ./run_worker
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
@@ -505,13 +473,13 @@ services:
     - CLI_WORKER_SECONDQUEUE_NAME=join-movie-credits-3
     - CLI_WORKER_EXPECTEDEOF2=1
     image: join_movie_credits:latest
-    networks: *id027
+    networks: *id024
   join-movie-ratings-1:
-    build: &id028
+    build: &id025
       context: .
       dockerfile: joins/join_movie_ratings/Dockerfile
     container_name: join-movie-ratings-1
-    depends_on: &id029
+    depends_on: &id026
     - rabbitmq
     entrypoint: ./run_worker
     environment:
@@ -528,12 +496,12 @@ services:
     - CLI_WORKER_SECONDQUEUE_NAME=join-movie-ratings-1
     - CLI_WORKER_EXPECTEDEOF2=1
     image: join_movie_ratings:latest
-    networks: &id030
+    networks: &id027
     - movies_net
   join-movie-ratings-2:
-    build: *id028
+    build: *id025
     container_name: join-movie-ratings-2
-    depends_on: *id029
+    depends_on: *id026
     entrypoint: ./run_worker
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
@@ -549,11 +517,11 @@ services:
     - CLI_WORKER_SECONDQUEUE_NAME=join-movie-ratings-2
     - CLI_WORKER_EXPECTEDEOF2=1
     image: join_movie_ratings:latest
-    networks: *id030
+    networks: *id027
   join-movie-ratings-3:
-    build: *id028
+    build: *id025
     container_name: join-movie-ratings-3
-    depends_on: *id029
+    depends_on: *id026
     entrypoint: ./run_worker
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
@@ -569,14 +537,14 @@ services:
     - CLI_WORKER_SECONDQUEUE_NAME=join-movie-ratings-3
     - CLI_WORKER_EXPECTEDEOF2=1
     image: join_movie_ratings:latest
-    networks: *id030
+    networks: *id027
   machine-learning-1:
-    build: &id031
+    build: &id028
       context: .
       dockerfile: machine_learning/Dockerfile
     container_name: machine-learning-1
     cpus: '0.2'
-    depends_on: &id032
+    depends_on: &id029
     - rabbitmq
     entrypoint: python main.py
     environment:
@@ -587,15 +555,15 @@ services:
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.input1
     - CLI_WORKER_QUEUE_NAME=machine-learning-1
     - CLI_WORKER_EXPECTEDEOF=1
-    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=groupby.overview.input1,groupby.overview.input2,groupby.overview.input3
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=groupby.overview.input1
     image: machine_learning:latest
-    networks: &id033
+    networks: &id030
     - movies_net
   machine-learning-2:
-    build: *id031
+    build: *id028
     container_name: machine-learning-2
     cpus: '0.2'
-    depends_on: *id032
+    depends_on: *id029
     entrypoint: python main.py
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
@@ -605,14 +573,14 @@ services:
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.input2
     - CLI_WORKER_QUEUE_NAME=machine-learning-2
     - CLI_WORKER_EXPECTEDEOF=1
-    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=groupby.overview.input1,groupby.overview.input2,groupby.overview.input3
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=groupby.overview.input1
     image: machine_learning:latest
-    networks: *id033
+    networks: *id030
   machine-learning-3:
-    build: *id031
+    build: *id028
     container_name: machine-learning-3
     cpus: '0.2'
-    depends_on: *id032
+    depends_on: *id029
     entrypoint: python main.py
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
@@ -622,9 +590,9 @@ services:
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.input3
     - CLI_WORKER_QUEUE_NAME=machine-learning-3
     - CLI_WORKER_EXPECTEDEOF=1
-    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=groupby.overview.input1,groupby.overview.input2,groupby.overview.input3
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=groupby.overview.input1
     image: machine_learning:latest
-    networks: *id033
+    networks: *id030
   master-group-by-actor-count-1:
     build:
       context: .
@@ -700,7 +668,7 @@ services:
     - CLI_WORKER_EXCHANGE_INPUT_NAME=groupby_overview_exchange
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=groupby.overview.output
     - CLI_WORKER_QUEUE_NAME=master-group-by-overview-average-1
-    - CLI_WORKER_EXPECTEDEOF=3
+    - CLI_WORKER_EXPECTEDEOF=1
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query5.results
     image: master_group_by_overview_average:latest
     networks:
