@@ -19,8 +19,13 @@ type MasterGroupByOverviewAndAvg struct {
 	worker.Worker
 	messages_before_commit int
 	expected_eof           int
-	grouped_elements       map[string]map[string]float64
+	grouped_elements       map[string]map[string]ScoreAndCount
 	eofs                   map[string]int
+}
+
+type ScoreAndCount struct {
+	count int
+	score float64
 }
 
 // ---------------------------------
@@ -29,7 +34,7 @@ type MasterGroupByOverviewAndAvg struct {
 const OVERVIEW = 0
 const AVERAGE = 1
 
-func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]float64) {
+func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]ScoreAndCount) {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
 		average, err := strconv.ParseFloat(parts[AVERAGE], 64)
@@ -37,19 +42,23 @@ func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]float6
 			continue
 		}
 
-		grouped_elements[parts[OVERVIEW]] += average
+		current := grouped_elements[parts[OVERVIEW]]
+		current.score += average
+		current.count += 1
+		grouped_elements[parts[OVERVIEW]] = current
 
 	}
 }
 
-func storeGroupedElements(results map[string]float64, client_id string) {
+func storeGroupedElements(results map[string]ScoreAndCount, client_id string) {
 	// TODO: Dumpear el hashmap a un archivo
 }
 
-func mapToLines(grouped_elements map[string]float64) string {
+func mapToLines(grouped_elements map[string]ScoreAndCount) string {
 	var lines []string
-	for movie, average := range grouped_elements {
-		line := fmt.Sprintf("%s%s%f", movie, worker.MESSAGE_SEPARATOR, average)
+	for overview, value := range grouped_elements {
+		average := value.score / float64(value.count)
+		line := fmt.Sprintf("%s%s%f", overview, worker.MESSAGE_SEPARATOR, average)
 		lines = append(lines, line)
 	}
 	return strings.Join(lines, "\n")
@@ -70,7 +79,7 @@ func NewGroupByOverviewAndAvg(config MasterGroupByOverviewAndAvgConfig, messages
 		},
 		messages_before_commit: messages_before_commit,
 		expected_eof:           expected_eof,
-		grouped_elements:       make(map[string]map[string]float64),
+		grouped_elements:       make(map[string]map[string]ScoreAndCount),
 		eofs:                   make(map[string]int),
 	}
 }
@@ -91,7 +100,7 @@ func (f *MasterGroupByOverviewAndAvg) RunWorker() error {
 		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
 		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
 		if _, ok := f.grouped_elements[client_id]; !ok {
-			f.grouped_elements[client_id] = make(map[string]float64)
+			f.grouped_elements[client_id] = make(map[string]ScoreAndCount)
 		}
 		if _, ok := f.eofs[client_id]; !ok {
 			f.eofs[client_id] = 0
