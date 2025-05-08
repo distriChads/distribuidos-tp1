@@ -68,12 +68,17 @@ class Client:
             try:
                 self.client_socket.sock.settimeout(4)
                 _bytes_read, result = self.client_socket.read()
-                if not result:
+
+                if not result or result == EOF:
+                    logging.info(
+                        "All queries have been processed - Shutting down")
                     break
+
                 client_id = result.split("/")[0]
                 query_id = result.split("/")[1]
                 result = result.split("/")[2]
-                self.__write_down_in_file(f"{client_id}.{query_id}", result)
+
+                self.__write_down_in_file(client_id, query_id, result)
             except socket.timeout:
                 if not self.running:
                     logging.info("Socket timeout, shutting down")
@@ -82,8 +87,14 @@ class Client:
                 logging.info(f"Closing socket")
                 break
 
-    def __write_down_in_file(self, file_name: str, result: str):
-        with open(f"client_results/{file_name}", "a") as file:
+    def __write_down_in_file(self, dir_name: str, file_name: str, result: str):
+        dir_name = os.path.join("results", dir_name)
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name)
+
+        file_path = os.path.join(dir_name, file_name)
+
+        with open(file_path, "a") as file:
             file.write(result)
 
     def __send_file_in_chunks(self, file_path: str):
