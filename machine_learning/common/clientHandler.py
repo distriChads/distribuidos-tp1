@@ -31,6 +31,8 @@ class MachineLearning:
         self.output_routing_keys = output_routing_keys
         self.queue_to_send = 0
 
+        self.batches_per_client: dict[str, list[str]] = {}
+
         try:
             self.worker.init_sender()
             self.worker.init_receiver()
@@ -118,8 +120,6 @@ class MachineLearning:
 
     def run_worker(self):
         log.info("Starting MachineLearning worker")
-        buffer = []
-
         try:
             while True:
                 raw_msg = self.messages_queue.get()
@@ -128,11 +128,15 @@ class MachineLearning:
                     continue
 
                 client_id, message = raw_msg.split(MESSAGE_SEPARATOR, 1)
+                if client_id not in self.batches_per_client:
+                    self.batches_per_client[client_id] = []
+
+                buffer = self.batches_per_client[client_id]
                 if message == MESSAGE_EOF:
                     # Process any remaining messages in the buffer
                     if buffer:
                         self.__process_and_send_batch(client_id, buffer)
-                        buffer.clear()
+                        del self.batches_per_client[client_id]
 
                     # Send EOF to all routing keys
                     for routing_key in self.output_routing_keys:
@@ -147,6 +151,7 @@ class MachineLearning:
                     self.__process_and_send_batch(
                         client_id, buffer[:BATCH_SIZE])
                     buffer = buffer[BATCH_SIZE:]
+                self.batches_per_client[client_id] = buffer
 
         except Exception as e:
             log.error(f"Error during message processing: {e}")

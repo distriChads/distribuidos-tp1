@@ -108,15 +108,15 @@ class ClientHandler:
                 "Received result for client %s from worker: %s", client_id, result)
 
             if result == EOF or len(result) == 0:
-                self.eof_per_client[client_id] = self.eof_per_client.get(
-                    client_id, 0) + 1
-                if self.eof_per_client[client_id] >= QUERIES_NUMBER + AMOUNT_OF_SPAIN_2000 - 1:
-                    client.send_eof()
-                    logging.info(
-                        f"EOF received for client {client_id} - closing connection")
-                    client.client_socket.sock.close()
-                    self.eof_per_client.pop(client_id)
-                    return
+                # self.eof_per_client[client_id] = self.eof_per_client.get(
+                #     client_id, 0) + 1
+                # if self.eof_per_client[client_id] >= QUERIES_NUMBER + AMOUNT_OF_SPAIN_2000 - 1:
+                #     client.send_eof()
+                #     logging.info(
+                #         f"EOF received for client {client_id} - closing connection")
+                #     client.client_socket.sock.close()
+                #     self.eof_per_client.pop(client_id)
+                #     return
                 continue
 
             result = f"{client_id}/{query_number}/{result}\n"
