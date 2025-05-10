@@ -17,9 +17,14 @@ ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
 RUN pip install --upgrade pip
-RUN pip install --no-cache-dir torch==2.2.2+cpu \
-    -f https://download.pytorch.org/whl/cpu/torch_stable.html && \
-    pip install --no-cache-dir -r requirements.txt
+# RUN pip install --no-cache-dir torch==2.2.2+cpu \
+#     -f https://download.pytorch.org/whl/cpu/torch_stable.html && \
+#     pip install --no-cache-dir -r requirements.txt
+
+# comment this line to run with torch, and uncomment the one above and transformers in requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt 
+
+RUN python -m textblob.download_corpora
 
 # copy the code
 COPY ./machine_learning ./

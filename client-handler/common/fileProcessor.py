@@ -102,12 +102,12 @@ class MoviesProcessor(Processor):
         budget = line[2]
         genres = line[3]
         id = line[5]
+        overview = line[9]
         prodCountries = line[13]
         releaseDate = line[14]
-        title = line[20]
-        spokenLanguages = line[18]
         revenue = line[15]
-        overview = line[9]
+        spokenLanguages = line[17]
+        title = line[20]
 
         if "\n" in overview:
             overview = overview.split("\n")
