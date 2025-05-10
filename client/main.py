@@ -8,19 +8,20 @@ from client import Client
 def main():
     config = init_config()
     logging_level = config["logging_level"].upper()
-    port = config["server_port"]
+    port = config["client_handler_port"]
 
     init_log(logging_level)
 
     logging.debug(
-        f"action: config | server_port: {port} | logging_level: {logging_level}")
+        f"action: config | client_handler_port: {port} | logging_level: {logging_level}")
 
-    client = Client(config["server_address"], config["server_port"], config["storage_path"])
+    client = Client(config["client_handler_address"],
+                    config["client_handler_port"], config["storage_path"])
 
     try:
         client.run()
     except Exception as e:
-        logging.critical(f"Failed server: {e}")
+        logging.critical(f"Failed client handler: {e}")
         return
 
 

@@ -14,9 +14,9 @@ EOF = "EOF"
 
 
 class Client:
-    def __init__(self, server_address: str, server_port: int, storage_path: str):
-        self.server_address = server_address
-        self.server_port = server_port
+    def __init__(self, client_handler_address: str, client_handler_port: int, storage_path: str):
+        self.client_handler_address = client_handler_address
+        self.client_handler_port = client_handler_port
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.client_socket = Socket(client_socket)
 
@@ -44,8 +44,8 @@ class Client:
 
     def __connect(self):
         self.client_socket.sock.connect(
-            (self.server_address, self.server_port))
-        logging.info(f"Connected to server")
+            (self.client_handler_address, self.client_handler_port))
+        logging.info(f"Connected to client handler")
 
     def run(self):
         self.__connect()
@@ -99,7 +99,7 @@ class Client:
 
     def __send_file_in_chunks(self, file_path: str):
         """
-        Send a file in chunks to the server
+        Send a file in chunks to the client handler
         :param file_path: path to the file
         """
         file_size = os.path.getsize(file_path)
@@ -107,7 +107,7 @@ class Client:
         file_transfer_header = str(total_msg_bytes).encode('utf-8')
         file_name = file_path.split("/")[-1]
         logging.info(
-            f"Started sending {total_msg_bytes}B to server for {file_name}")
+            f"Started sending {total_msg_bytes}B to client handler for {file_name}")
 
         buffer = b""
         with open(file_path, 'rb') as file:
@@ -119,7 +119,7 @@ class Client:
             chunk = chunk[:idx]
             # 4 bytes for length + 1 byte for delimiter
             lenght_sent = len(chunk) + len(file_transfer_header) + 1
-            logging.info("Sent %d bytes of %s to server",
+            logging.info("Sent %d bytes of %s to client handler",
                          lenght_sent, file_name)
 
             self.client_socket.send(
@@ -139,9 +139,9 @@ class Client:
                 percent_bytes_sent = (lenght_sent / file_size) * 100
                 percent_bytes_sent = f"{percent_bytes_sent:05.2f}"
                 print(
-                    f"\rSent {percent_bytes_sent}% of {file_name} to server", end="")
+                    f"\rSent {percent_bytes_sent}% of {file_name} to client handler", end="")
         print()
-        logging.info(f"Sent {file_name} to server")
+        logging.info(f"Sent {file_name} to client handler")
 
     def find_nearest_line_break(self, chunk: bytes) -> int:
         for i in range(len(chunk)-1, -1, -1):
@@ -156,7 +156,7 @@ class Client:
         chunk = (f"{file_transfer_header}|").encode('utf-8')
         file_name = file_path.split("/")[-1]
         logging.info(
-            f"Started sending {file_transfer_header}B to server for {file_name}")
+            f"Started sending {file_transfer_header}B to client handler for {file_name}")
 
         j = 0
         with open(file_path, 'r') as file:
@@ -185,6 +185,6 @@ class Client:
                         (total_bytes_sent / file_size) * 100, 2)
                     percent_bytes_sent = f"{percent_bytes_sent:05.2f}"
                     print(
-                        f"\rSent {percent_bytes_sent}% of {file_name} to server", end="")
+                        f"\rSent {percent_bytes_sent}% of {file_name} to client handler", end="")
         print()
-        logging.info(f"Sent {file_name} to server")
+        logging.info(f"Sent {file_name} to client handler")

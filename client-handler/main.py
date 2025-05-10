@@ -22,10 +22,14 @@ def main():
         f"input_routing_keys: {config['CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS']}\n"
     )
 
-    input_routing_keys =   config["CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS"].split(",")
-    output_routing_keys1 = config["CLI_WORKER_EXCHANGE1_OUTPUT_ROUTINGKEYS"].split(",")
-    output_routing_keys2 = config["CLI_WORKER_EXCHANGE2_OUTPUT_ROUTINGKEYS"].split(",")
-    output_routing_keys3 = config["CLI_WORKER_EXCHANGE3_OUTPUT_ROUTINGKEYS"].split(",")
+    input_routing_keys = config["CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS"].split(
+        ",")
+    output_routing_keys1 = config["CLI_WORKER_EXCHANGE1_OUTPUT_ROUTINGKEYS"].split(
+        ",")
+    output_routing_keys2 = config["CLI_WORKER_EXCHANGE2_OUTPUT_ROUTINGKEYS"].split(
+        ",")
+    output_routing_keys3 = config["CLI_WORKER_EXCHANGE3_OUTPUT_ROUTINGKEYS"].split(
+        ",")
 
     logging.info(f"exchange1: {config["CLI_WORKER_EXCHANGE1_OUTPUT_NAME"]}")
     logging.info(f"exchange2: {config["CLI_WORKER_EXCHANGE2_OUTPUT_NAME"]}")
@@ -59,7 +63,7 @@ def main():
         output_exchange2=output_exchange_spec2,
         output_exchange3=output_exchange_spec3,
         message_broker=message_broker
-    )    
+    )
 
     worker = ClientHandler(
         port=config["port"],
@@ -69,7 +73,7 @@ def main():
     try:
         worker.run()
     except Exception as e:
-        logging.critical(f"Failed server: {e}")
+        logging.critical(f"Failed client handler: {e}")
 
 
 if __name__ == "__main__":

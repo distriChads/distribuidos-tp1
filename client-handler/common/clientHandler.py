@@ -24,9 +24,10 @@ class ClientHandler:
                  port: int,
                  client_handler_config: ClientHandlerConfig,
                  ):
-        self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._server_socket.bind(('', port))
-        self._server_socket.listen(5)  # TODO: change to .env
+        self._cli_hand_socket = socket.socket(
+            socket.AF_INET, socket.SOCK_STREAM)
+        self._cli_hand_socket.bind(('', port))
+        self._cli_hand_socket.listen(5)  # TODO: change to .env
 
         self._running = True
         # Handle SIGINT (Ctrl+C) and SIGTERM (docker stop)
@@ -38,7 +39,7 @@ class ClientHandler:
 
     def __graceful_shutdown_handler(self, signum: Optional[int] = None, frame: Optional[FrameType] = None):
         self._running = False
-        self._server_socket.close()
+        self._cli_hand_socket.close()
 
     def run(self):
         while self._running:
@@ -124,7 +125,7 @@ class ClientHandler:
 
     def __accept_new_connection(self):
         logging.info('action: accept_connections | result: in_progress')
-        c, addr = self._server_socket.accept()
+        c, addr = self._cli_hand_socket.accept()
         logging.info(
             f'action: accept_connections | result: success | ip: {addr[0]}')
         return c

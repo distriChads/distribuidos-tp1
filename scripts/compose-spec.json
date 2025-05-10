@@ -2,7 +2,7 @@
     "name": "tp1",
     "services": [
         {
-            "name": "server",
+            "name": "client-handler",
             "log_level": "info",
             "replicas": 1,
             "movies_exchange_name": "movies_exchange",
