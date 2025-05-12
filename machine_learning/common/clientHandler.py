@@ -9,7 +9,7 @@ import queue
 log = logging.getLogger("machine_learning")
 
 FIELDS_COUNT = 8
-BATCH_SIZE = 100
+BATCH_SIZE = 20
 
 OVERVIEW_FIELD_INDEX = 6
 BUDGET_INDEX = 5

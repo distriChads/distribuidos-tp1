@@ -1,12 +1,13 @@
 import logging
+from common.communication import Socket
 from common.fileProcessor import MoviesProcessor, CreditsProcessor, RatingsProcessor
-from .worker import Worker
+from .worker import Worker, WorkerConfig
 
 EOF = "EOF"
 
 
 class Client:
-    def __init__(self, socket, config):
+    def __init__(self, socket: Socket, config: WorkerConfig):
         self.client_socket = socket
         self.worker = Worker(config)
         self.queue_number = 0
@@ -18,6 +19,10 @@ class Client:
         except Exception as e:
             logging.error(f"Error initializing worker: {e}")
             return e
+
+    def close(self):
+        self.client_socket.close()
+        # self.worker.close_worker()
 
     def read(self):
         return self.client_socket.read()

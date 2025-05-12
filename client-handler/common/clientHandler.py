@@ -4,7 +4,7 @@ import socket
 import threading
 from types import FrameType
 from typing import Optional
-from .worker import WorkerConfig
+from .worker import Worker, WorkerConfig
 from .client import Client
 
 from common.communication import Socket
@@ -12,7 +12,8 @@ from common.communication import Socket
 FILES_TO_RECEIVE = 3
 QUERIES_NUMBER = 5
 EOF = "EOF"
-AMOUNT_OF_SPAIN_2000 = 3
+LISTEN_BACKLOG = 5  # TODO: change to .env
+AMOUNT_OF_SPAIN_2000 = 0  # TODO: change to .env
 
 
 class ClientHandlerConfig(WorkerConfig):
@@ -27,7 +28,7 @@ class ClientHandler:
         self._cli_hand_socket = socket.socket(
             socket.AF_INET, socket.SOCK_STREAM)
         self._cli_hand_socket.bind(('', port))
-        self._cli_hand_socket.listen(5)  # TODO: change to .env
+        self._cli_hand_socket.listen(LISTEN_BACKLOG)  # TODO: change to .env
 
         self._running = True
         # Handle SIGINT (Ctrl+C) and SIGTERM (docker stop)
@@ -35,32 +36,34 @@ class ClientHandler:
         signal.signal(signal.SIGTERM, self.__graceful_shutdown_handler)
 
         self.client_handler_config = client_handler_config
-        self.eof_per_client: dict[str, int] = {}
+        self.worker = Worker(client_handler_config)
+        try:
+            self.worker.init_receiver()
+        except Exception as e:
+            logging.error(f"Error initializing worker: {e}")
+            return e
+        self.eof_per_client: dict[str, int] = {}  # TODO: REMOVE
+        self.clients_lock = threading.Lock()
+        self.clients: dict[str, Client] = {}
 
     def __graceful_shutdown_handler(self, signum: Optional[int] = None, frame: Optional[FrameType] = None):
         self._running = False
         self._cli_hand_socket.close()
 
     def run(self):
+        threading.Thread(target=self.__manage_client_results).start()
+
         while self._running:
             client_socket = self.__accept_new_connection()
             client_socket = Socket(client_socket)
-            client_thread = threading.Thread(
-                target=self.__handle_client, args=(client_socket,))
-            client_thread.start()
+            threading.Thread(target=self.__handle_client,
+                             args=(client_socket,)).start()
 
-    def __handle_client(self, client_socket):
-
+    def __handle_client(self, client_socket: Socket):
         client = Client(client_socket, self.client_handler_config)
-
-        result_thread = threading.Thread(
-            target=self.__send_result_to_client, args=(client, ))
-        sender_thread = threading.Thread(
-            target=self.__receive_datasets, args=(client, ))
-        result_thread.start()
-        sender_thread.start()
-        result_thread.join()
-        sender_thread.join()
+        with self.clients_lock:
+            self.clients[client.worker.client_id] = client
+        self.__receive_datasets(client)
 
     def __receive_datasets(self, client):
         for i in range(FILES_TO_RECEIVE):
@@ -72,21 +75,12 @@ class ClientHandler:
 
             while self._running:
                 if client.batch_processor.received_all_data():
-                    # client.send_message()
                     break
                 try:
-                    # client.send_batch_if_threshold_reached()
                     bytes_received, chunck_received = client.read()
-
                     client.batch_processor.process_batch(
                         bytes_received, chunck_received)
-
                     client.send_message_to_workers()
-
-                    # percent_bytes_received = (
-                    #     client.batch_processor.bytes_read / client.batch_processor.read_until) * 100
-                    # percent_bytes_received = f"{percent_bytes_received:05.2f}"
-
                 except socket.error as e:
                     logging.error(f'action: receive_datasets | error: {e}')
                     return
@@ -97,10 +91,8 @@ class ClientHandler:
 
             client.set_next_processor()
 
-    def __send_result_to_client(self, client):
-        logging.info(
-            f"Waiting message from Exchange {client.worker.input_exchange.name} - {client.worker.input_exchange.routing_keys}")
-        for method_frame, _properties, result_encoded in client.worker.received_messages():
+    def __manage_client_results(self):
+        for method_frame, _properties, result_encoded in self.worker.received_messages():
             result = result_encoded.decode('utf-8')
             client_id = result.split("|", 1)[0]
             result = result.split("|", 1)[1]
@@ -109,18 +101,20 @@ class ClientHandler:
                 "Received result for client %s from worker: %s", client_id, result)
 
             if result == EOF or len(result) == 0:
-                # self.eof_per_client[client_id] = self.eof_per_client.get(
-                #     client_id, 0) + 1
-                # if self.eof_per_client[client_id] >= QUERIES_NUMBER + AMOUNT_OF_SPAIN_2000 - 1:
-                #     client.send_eof()
-                #     logging.info(
-                #         f"EOF received for client {client_id} - closing connection")
-                #     client.client_socket.sock.close()
-                #     self.eof_per_client.pop(client_id)
-                #     return
+                self.eof_per_client[client_id] = self.eof_per_client.get(
+                    client_id, 0) + 1
+                if self.eof_per_client[client_id] >= QUERIES_NUMBER + AMOUNT_OF_SPAIN_2000:
+                    with self.clients_lock:
+                        client = self.clients.pop(client_id)
+                    client.send(EOF)
+                    client.close()
+                    logging.info(
+                        f"EOF received for client {client_id} - closing connection")
                 continue
 
             result = f"{client_id}/{query_number}/{result}\n"
+            with self.clients_lock:
+                client = self.clients.get(client_id)
             client.send(result)
 
     def __accept_new_connection(self):

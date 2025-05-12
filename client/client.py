@@ -64,6 +64,7 @@ class Client:
         self.__graceful_shutdown_handler()
 
     def __wait_for_results(self):
+        client_id_logged = False
         while self.running:
             try:
                 self.client_socket.sock.settimeout(4)
@@ -77,6 +78,10 @@ class Client:
                 client_id = result.split("/")[0]
                 query_id = result.split("/")[1]
                 result = result.split("/")[2]
+
+                if not client_id_logged:
+                    print(f"\n-----------Client ID: {client_id}-----------\n")
+                    client_id_logged = True
 
                 self.__write_down_in_file(client_id, query_id, result)
             except socket.timeout:
