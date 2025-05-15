@@ -718,7 +718,7 @@ services:
   server:
     build:
       context: .
-      dockerfile: server/Dockerfile
+      dockerfile: client-handler/Dockerfile
     container_name: server
     depends_on:
     - rabbitmq
