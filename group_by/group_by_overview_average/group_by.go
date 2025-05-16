@@ -24,9 +24,8 @@ type GroupByOverviewAndAvg struct {
 }
 
 type RevenueBudgetCount struct {
-	count   int
-	revenue float64
-	budget  float64
+	count               int
+	sum_revenue_average float64
 }
 
 // ---------------------------------
@@ -49,8 +48,7 @@ func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]Revenu
 		}
 
 		current := grouped_elements[parts[OVERVIEW]]
-		current.budget += budget
-		current.revenue += revenue
+		current.sum_revenue_average += revenue / budget
 		current.count += 1
 		grouped_elements[parts[OVERVIEW]] = current
 
@@ -64,11 +62,7 @@ func storeGroupedElements(results map[string]RevenueBudgetCount, client_id strin
 func mapToLines(grouped_elements map[string]RevenueBudgetCount) string {
 	var lines []string
 	for overview, value := range grouped_elements {
-		result := 0.0
-		if value.budget > 0 {
-			result = value.revenue / value.budget
-		}
-		average := result / float64(value.count)
+		average := value.sum_revenue_average / float64(value.count)
 		line := fmt.Sprintf("%s%s%f", overview, worker.MESSAGE_SEPARATOR, average)
 		lines = append(lines, line)
 	}
