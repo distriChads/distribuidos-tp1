@@ -17,19 +17,19 @@ def rabbitmq_service(silent):
     }    
   return service
 
-def client_handler_service(spec, movies_input_replicas, credits_input_replicas, ratings_input_replicas):
+def client_handler_service(spec, movies_input_replicas, credits_input_replicas, ratings_input_replicas, output_replicas_first_query):
   assert spec["replicas"] == 1
   
   env = []
   broker = spec.get("broker", DEFAULT_BROKER)
   env.append(f"CLIENT_HANDLER_PORT=3000")
-  env.append(f"CLIENT_HANDLER_LISTEN_BACKLOG=1")
   env.append(f"LOGGING_LEVEL={spec['log_level']}")
   env.append(f"CLI_WORKER_BROKER={broker}")
   env.append(f"CLI_WORKER_EXCHANGE1_OUTPUT_NAME={spec['movies_exchange_name']}")
   env.append(f"CLI_WORKER_EXCHANGE2_OUTPUT_NAME={spec['credits_exchange_name']}")
   env.append(f"CLI_WORKER_EXCHANGE3_OUTPUT_NAME={spec['ratings_exchange_name']}")
-  # env.append(f"FILTERS_SPAIN_2000={spec['filters_spain_2000']}")
+  env.append(f"CLIENT_HANDLER_FILTER_SPAIN_2000_REPLICAS={output_replicas_first_query-1}")
+  env.append(f"CLIENT_HANDLER_LISTEN_BACKLOG={spec["listen_backlog"]}")
   
   movies_input_routing_keys = []
   for i in range(movies_input_replicas):
@@ -91,6 +91,7 @@ def generate_compose(spec_path, output_path):
   specs = {service["name"]: service for service in compose_spec["services"]}
   
   movies_input_replicas = specs["filter-argentina"]["replicas"]
+  output_replicas_first_query = specs["filter-spain-2000"]["replicas"]
   credits_input_replicas = specs["join-movie-ratings"]["replicas"]
   ratings_input_replicas = specs["join-movie-credits"]["replicas"]
   
@@ -112,7 +113,7 @@ def generate_compose(spec_path, output_path):
   # second pass to generate compose
   for service in compose_spec["services"]:
     if service["name"] == "client-handler":
-      services["client-handler"] = client_handler_service(specs["client-handler"], movies_input_replicas, credits_input_replicas, ratings_input_replicas)
+      services["client-handler"] = client_handler_service(specs["client-handler"], movies_input_replicas, credits_input_replicas, ratings_input_replicas, output_replicas_first_query)
       continue
     
     srv = {}

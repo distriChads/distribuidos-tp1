@@ -57,6 +57,8 @@ def setup_client_handler_config_esentials(config, config_params):
         os.getenv('CLIENT_HANDLER_PORT') or config["DEFAULT"]["CLIENT_HANDLER_PORT"])
     config_params["listen_backlog"] = int(
         os.getenv('CLIENT_HANDLER_LISTEN_BACKLOG') or config["DEFAULT"]["CLIENT_HANDLER_LISTEN_BACKLOG"])
+    config_params["CLIENT_HANDLER_FILTER_SPAIN_2000_REPLICAS"] = int(os.getenv(
+        'CLIENT_HANDLER_FILTER_SPAIN_2000_REPLICAS') or config["DEFAULT"]["CLIENT_HANDLER_FILTER_SPAIN_2000_REPLICAS"])
     config_params["logging_level"] = os.getenv(
         'LOGGING_LEVEL') or config["DEFAULT"]["LOGGING_LEVEL"]
     config_params["CLI_WORKER_BROKER"] = os.getenv(

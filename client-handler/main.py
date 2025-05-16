@@ -10,6 +10,7 @@ def main():
     logging_level = config["logging_level"].upper()
     port = config["port"]
     listen_backlog = config["listen_backlog"]
+    eof_for_query_1 = config["CLIENT_HANDLER_FILTER_SPAIN_2000_REPLICAS"]
 
     init_log(logging_level)
 
@@ -67,6 +68,8 @@ def main():
 
     worker = ClientHandler(
         port=config["port"],
+        eof_for_query_1 = eof_for_query_1,
+        listen_backlog = listen_backlog,
         client_handler_config=client_handler_config,
     )
 

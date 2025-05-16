@@ -12,8 +12,6 @@ from common.communication import Socket
 FILES_TO_RECEIVE = 3
 QUERIES_NUMBER = 5
 EOF = "EOF"
-LISTEN_BACKLOG = 5  # TODO: change to .env
-AMOUNT_OF_SPAIN_2000 = 0  # TODO: change to .env
 
 
 class ClientHandlerConfig(WorkerConfig):
@@ -24,18 +22,20 @@ class ClientHandler:
     def __init__(self,
                  port: int,
                  client_handler_config: ClientHandlerConfig,
+                 eof_for_query_1: int,
+                 listen_backlog: int,
                  ):
         self._cli_hand_socket = socket.socket(
             socket.AF_INET, socket.SOCK_STREAM)
         self._cli_hand_socket.bind(('', port))
-        self._cli_hand_socket.listen(LISTEN_BACKLOG)  # TODO: change to .env
-
+        self._cli_hand_socket.listen(listen_backlog) 
         self._running = True
         # Handle SIGINT (Ctrl+C) and SIGTERM (docker stop)
         signal.signal(signal.SIGINT, self.__graceful_shutdown_handler)
         signal.signal(signal.SIGTERM, self.__graceful_shutdown_handler)
 
         self.client_handler_config = client_handler_config
+        self.eof_for_query_1 = eof_for_query_1
         self.worker = Worker(client_handler_config)
         try:
             self.worker.init_receiver()
@@ -103,7 +103,7 @@ class ClientHandler:
             if result == EOF or len(result) == 0:
                 self.eof_per_client[client_id] = self.eof_per_client.get(
                     client_id, 0) + 1
-                if self.eof_per_client[client_id] >= QUERIES_NUMBER + AMOUNT_OF_SPAIN_2000:
+                if self.eof_per_client[client_id] >= QUERIES_NUMBER + self.eof_for_query_1:
                     with self.clients_lock:
                         client = self.clients.pop(client_id)
                     client.send(EOF)

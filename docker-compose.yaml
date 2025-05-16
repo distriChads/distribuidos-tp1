@@ -16,12 +16,13 @@ services:
     entrypoint: python main.py
     environment:
     - CLIENT_HANDLER_PORT=3000
-    - CLIENT_HANDLER_LISTEN_BACKLOG=1
     - LOGGING_LEVEL=info
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_WORKER_EXCHANGE1_OUTPUT_NAME=movies_exchange
     - CLI_WORKER_EXCHANGE2_OUTPUT_NAME=credits_exchange
     - CLI_WORKER_EXCHANGE3_OUTPUT_NAME=ratings_exchange
+    - CLIENT_HANDLER_FILTER_SPAIN_2000_REPLICAS=2
+    - CLIENT_HANDLER_LISTEN_BACKLOG=5
     - CLI_WORKER_EXCHANGE1_OUTPUT_ROUTINGKEYS=movies.input1,movies.input2,movies.input3
     - CLI_WORKER_EXCHANGE2_OUTPUT_ROUTINGKEYS=credits.input1,credits.input2,credits.input3
     - CLI_WORKER_EXCHANGE3_OUTPUT_ROUTINGKEYS=ratings.input1,ratings.input2,ratings.input3
