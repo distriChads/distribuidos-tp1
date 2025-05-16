@@ -33,6 +33,7 @@ type ScoreAndCount struct {
 // ---------------------------------
 const OVERVIEW = 0
 const AVERAGE = 1
+const COUNT = 2
 
 func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]ScoreAndCount) {
 	for _, line := range lines {
@@ -41,10 +42,14 @@ func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]ScoreA
 		if err != nil {
 			continue
 		}
+		count, err := strconv.Atoi(parts[COUNT])
+		if err != nil {
+			continue
+		}
 
 		current := grouped_elements[parts[OVERVIEW]]
 		current.score += average
-		current.count += 1
+		current.count += count
 		grouped_elements[parts[OVERVIEW]] = current
 
 	}

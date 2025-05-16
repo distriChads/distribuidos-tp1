@@ -6,6 +6,32 @@ networks:
       - subnet: 172.25.125.0/24
       driver: default
 services:
+  client-handler:
+    build:
+      context: .
+      dockerfile: client-handler/Dockerfile
+    container_name: client-handler
+    depends_on:
+    - rabbitmq
+    entrypoint: python main.py
+    environment:
+    - CLIENT_HANDLER_PORT=3000
+    - CLIENT_HANDLER_LISTEN_BACKLOG=1
+    - LOGGING_LEVEL=info
+    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    - CLI_WORKER_EXCHANGE1_OUTPUT_NAME=movies_exchange
+    - CLI_WORKER_EXCHANGE2_OUTPUT_NAME=credits_exchange
+    - CLI_WORKER_EXCHANGE3_OUTPUT_NAME=ratings_exchange
+    - CLI_WORKER_EXCHANGE1_OUTPUT_ROUTINGKEYS=movies.input1,movies.input2,movies.input3
+    - CLI_WORKER_EXCHANGE2_OUTPUT_ROUTINGKEYS=credits.input1,credits.input2,credits.input3
+    - CLI_WORKER_EXCHANGE3_OUTPUT_ROUTINGKEYS=ratings.input1,ratings.input2,ratings.input3
+    - CLI_WORKER_EXCHANGE_INPUT_NAME=results_exchange
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=*.results
+    image: client-handler:latest
+    networks:
+    - movies_net
+    ports:
+    - 3000:3000
   filter-after-2000-1:
     build: &id001
       context: .
@@ -575,7 +601,7 @@ services:
       context: .
       dockerfile: machine_learning/Dockerfile
     container_name: machine-learning-1
-    cpus: '0.2'
+    cpus: '2'
     depends_on: &id032
     - rabbitmq
     entrypoint: python main.py
@@ -594,7 +620,7 @@ services:
   machine-learning-2:
     build: *id031
     container_name: machine-learning-2
-    cpus: '0.2'
+    cpus: '2'
     depends_on: *id032
     entrypoint: python main.py
     environment:
@@ -611,7 +637,7 @@ services:
   machine-learning-3:
     build: *id031
     container_name: machine-learning-3
-    cpus: '0.2'
+    cpus: '2'
     depends_on: *id032
     entrypoint: python main.py
     environment:
@@ -715,32 +741,6 @@ services:
     ports:
     - 5672:5672
     - 15672:15672
-  server:
-    build:
-      context: .
-      dockerfile: client-handler/Dockerfile
-    container_name: server
-    depends_on:
-    - rabbitmq
-    entrypoint: python main.py
-    environment:
-    - SERVER_PORT=3000
-    - SERVER_LISTEN_BACKLOG=1
-    - LOGGING_LEVEL=info
-    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-    - CLI_WORKER_EXCHANGE1_OUTPUT_NAME=movies_exchange
-    - CLI_WORKER_EXCHANGE2_OUTPUT_NAME=credits_exchange
-    - CLI_WORKER_EXCHANGE3_OUTPUT_NAME=ratings_exchange
-    - CLI_WORKER_EXCHANGE1_OUTPUT_ROUTINGKEYS=movies.input1,movies.input2,movies.input3
-    - CLI_WORKER_EXCHANGE2_OUTPUT_ROUTINGKEYS=credits.input1,credits.input2,credits.input3
-    - CLI_WORKER_EXCHANGE3_OUTPUT_ROUTINGKEYS=ratings.input1,ratings.input2,ratings.input3
-    - CLI_WORKER_EXCHANGE_INPUT_NAME=results_exchange
-    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=*.results
-    image: server:latest
-    networks:
-    - movies_net
-    ports:
-    - 3000:3000
   top-five-country-budget-1:
     build:
       context: .
