@@ -7,6 +7,12 @@ class Socket:
         self.sock = sock
         self.decoder = codecs.getincrementaldecoder('utf-8')()
 
+    def close(self):
+        """
+        Close the socket
+        """
+        self.sock.close()
+
     def send(self, msg: str):
         """
         Write a message to a socket
