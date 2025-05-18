@@ -2,6 +2,7 @@ package group_by_overview_average
 
 import (
 	worker "distribuidos-tp1/common/worker/worker"
+	"distribuidos-tp1/group_by/common_group_by"
 	"fmt"
 	"strconv"
 	"strings"
@@ -12,8 +13,6 @@ import (
 type GroupByOverviewAndAvgConfig struct {
 	worker.WorkerConfig
 }
-
-var log = logging.MustGetLogger("group_by_overview_average")
 
 type GroupByOverviewAndAvg struct {
 	worker.Worker
@@ -26,6 +25,56 @@ type GroupByOverviewAndAvg struct {
 type RevenueBudgetCount struct {
 	count               int
 	sum_revenue_average float64
+}
+
+var log = logging.MustGetLogger("group_by_overview_average")
+
+func (g *GroupByOverviewAndAvg) NewClient(client_id string) {
+	if _, ok := g.grouped_elements[client_id]; !ok {
+		g.grouped_elements[client_id] = make(map[string]RevenueBudgetCount)
+	}
+	if _, ok := g.eofs[client_id]; !ok {
+		g.eofs[client_id] = 0
+	}
+}
+
+func (g *GroupByOverviewAndAvg) ShouldCommit(messages_before_commit int, client_id string) bool {
+	if messages_before_commit >= g.messages_before_commit {
+		storeGroupedElements(g.grouped_elements[client_id], client_id)
+		return true
+	}
+	return false
+}
+
+func (g *GroupByOverviewAndAvg) MapToLines(client_id string) string {
+	return mapToLines(g.grouped_elements[client_id])
+}
+
+func mapToLines(grouped_elements map[string]RevenueBudgetCount) string {
+	var lines []string
+	for overview, value := range grouped_elements {
+		average := value.sum_revenue_average
+		line := fmt.Sprintf("%s%s%f%s%d", overview, worker.MESSAGE_SEPARATOR, average, worker.MESSAGE_SEPARATOR, value.count)
+		lines = append(lines, line)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (g *GroupByOverviewAndAvg) HandleEOF(client_id string) error {
+	g.eofs[client_id]++
+	if g.eofs[client_id] >= g.expected_eof {
+		err := common_group_by.SendResult(g.Worker, g, client_id)
+		if err != nil {
+			return err
+		}
+		delete(g.grouped_elements, client_id)
+		delete(g.eofs, client_id)
+	}
+	return nil
+}
+
+func (g *GroupByOverviewAndAvg) GroupByAndUpdate(lines []string, client_id string) {
+	groupByOverviewAndUpdate(lines, g.grouped_elements[client_id])
 }
 
 // ---------------------------------
@@ -59,16 +108,6 @@ func storeGroupedElements(results map[string]RevenueBudgetCount, client_id strin
 	// TODO: Dumpear el hashmap a un archivo
 }
 
-func mapToLines(grouped_elements map[string]RevenueBudgetCount) string {
-	var lines []string
-	for overview, value := range grouped_elements {
-		average := value.sum_revenue_average
-		line := fmt.Sprintf("%s%s%f%s%d", overview, worker.MESSAGE_SEPARATOR, average, worker.MESSAGE_SEPARATOR, value.count)
-		lines = append(lines, line)
-	}
-	return strings.Join(lines, "\n")
-}
-
 func getGroupedElements() map[string]int {
 	// TODO: Cuando se caiga un worker, deberia leer de este archivo lo que estuvo obteniendo
 	return nil
@@ -88,66 +127,10 @@ func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_befor
 		grouped_elements:       make(map[string]map[string]RevenueBudgetCount),
 	}
 }
-
-func (f *GroupByOverviewAndAvg) RunWorker() error {
-	log.Info("Starting GroupByOverviewAndAvg worker")
-	worker.InitSender(&f.Worker)
-	worker.InitReceiver(&f.Worker)
-
-	msgs, err := worker.ReceivedMessages(f.Worker)
+func (g *GroupByOverviewAndAvg) RunWorker(starting_message string) error {
+	msgs, err := common_group_by.Init(&g.Worker, starting_message)
 	if err != nil {
-		log.Errorf("Error initializing receiver: %s", err.Error())
 		return err
 	}
-	messages_before_commit := 0
-
-	for message := range msgs {
-		message_str := string(message.Body)
-		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
-		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
-		if _, ok := f.grouped_elements[client_id]; !ok {
-			f.grouped_elements[client_id] = make(map[string]RevenueBudgetCount)
-		}
-		if _, ok := f.eofs[client_id]; !ok {
-			f.eofs[client_id] = 0
-		}
-		if message_str == worker.MESSAGE_EOF {
-			f.eofs[client_id]++
-			if f.eofs[client_id] >= f.expected_eof {
-				sendResult(f, client_id)
-				delete(f.grouped_elements, client_id)
-				delete(f.eofs, client_id)
-			}
-			message.Ack(false)
-			continue
-		}
-		messages_before_commit += 1
-		lines := strings.Split(strings.TrimSpace(message_str), "\n")
-		groupByOverviewAndUpdate(lines, f.grouped_elements[client_id])
-		if messages_before_commit >= f.messages_before_commit {
-			storeGroupedElements(f.grouped_elements[client_id], client_id)
-			messages_before_commit = 0
-		}
-		message.Ack(false)
-	}
-
-	return nil
-}
-
-func sendResult(f *GroupByOverviewAndAvg, client_id string) error {
-	message_to_send := mapToLines(f.grouped_elements[client_id])
-	send_queue_key := f.Worker.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
-	message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_to_send
-	err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
-	if err != nil {
-		log.Errorf("Error sending message: %s", err.Error())
-		return err
-	}
-	message_to_send = client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
-	err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
-	if err != nil {
-		log.Errorf("Error sending message: %s", err.Error())
-		return err
-	}
-	return nil
+	return common_group_by.RunWorker(g, msgs)
 }

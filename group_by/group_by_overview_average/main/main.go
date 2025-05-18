@@ -74,7 +74,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		groupByOverviewAverage.RunWorker()
+		groupByOverviewAverage.RunWorker("starting group by overview average")
 		done <- true
 	}()
 

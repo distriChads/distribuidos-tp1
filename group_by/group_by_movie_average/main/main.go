@@ -74,7 +74,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		groupByMovieAverage.RunWorker()
+		groupByMovieAverage.RunWorker("starting group by movie average")
 		done <- true
 	}()
 
