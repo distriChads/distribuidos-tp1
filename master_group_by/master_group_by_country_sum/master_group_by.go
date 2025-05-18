@@ -2,7 +2,7 @@ package master_group_by_country_sum
 
 import (
 	worker "distribuidos-tp1/common/worker/worker"
-	"distribuidos-tp1/group_by/common_group_by"
+	"distribuidos-tp1/common_statefull_worker"
 	"fmt"
 	"strconv"
 	"strings"
@@ -58,7 +58,7 @@ func mapToLines(grouped_elements map[string]int) string {
 func (g *MasterGroupByCountryAndSum) HandleEOF(client_id string) error {
 	g.eofs[client_id]++
 	if g.eofs[client_id] >= g.expected_eof {
-		err := common_group_by.SendResult(g.Worker, g, client_id)
+		err := common_statefull_worker.SendResult(g.Worker, g, client_id)
 		if err != nil {
 			return err
 		}
@@ -68,7 +68,7 @@ func (g *MasterGroupByCountryAndSum) HandleEOF(client_id string) error {
 	return nil
 }
 
-func (g *MasterGroupByCountryAndSum) GroupByAndUpdate(lines []string, client_id string) {
+func (g *MasterGroupByCountryAndSum) UpdateState(lines []string, client_id string) {
 	groupByCountryAndSum(lines, g.grouped_elements[client_id])
 }
 
@@ -114,9 +114,9 @@ func NewGroupByCountryAndSum(config MasterGroupByCountryAndSumConfig, messages_b
 }
 
 func (g *MasterGroupByCountryAndSum) RunWorker(starting_message string) error {
-	msgs, err := common_group_by.Init(&g.Worker, starting_message)
+	msgs, err := common_statefull_worker.Init(&g.Worker, starting_message)
 	if err != nil {
 		return err
 	}
-	return common_group_by.RunWorker(g, msgs)
+	return common_statefull_worker.RunWorker(g, msgs)
 }

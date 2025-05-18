@@ -1,4 +1,4 @@
-package common_group_by
+package common_statefull_worker
 
 import (
 	worker "distribuidos-tp1/common/worker/worker"
@@ -9,8 +9,8 @@ import (
 	"github.com/rabbitmq/amqp091-go"
 )
 
-type GroupBy interface {
-	GroupByAndUpdate(lines []string, client_id string)
+type StatefullWorker interface {
+	UpdateState(lines []string, client_id string)
 	HandleEOF(client_id string) error
 	MapToLines(client_id string) string
 	ShouldCommit(messages_before_commit int, client_id string) bool
@@ -19,9 +19,9 @@ type GroupBy interface {
 
 var log = logging.MustGetLogger("common_group_by")
 
-func SendResult(w worker.Worker, g GroupBy, client_id string) error {
+func SendResult(w worker.Worker, s StatefullWorker, client_id string) error {
 	send_queue_key := w.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
-	message_to_send := client_id + worker.MESSAGE_SEPARATOR + g.MapToLines(client_id)
+	message_to_send := client_id + worker.MESSAGE_SEPARATOR + s.MapToLines(client_id)
 	err := worker.SendMessage(w, message_to_send, send_queue_key)
 	if err != nil {
 		log.Errorf("Error sending message: %s", err.Error())
@@ -58,17 +58,17 @@ func Init(w *worker.Worker, starting_message string) (<-chan amqp091.Delivery, e
 	return msgs, nil
 }
 
-func RunWorker(g GroupBy, msgs <-chan amqp091.Delivery) error {
+func RunWorker(s StatefullWorker, msgs <-chan amqp091.Delivery) error {
 
 	messages_before_commit := 0
 	for message := range msgs {
 		message_str := string(message.Body)
 		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
 		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
-		g.NewClient(client_id)
+		s.NewClient(client_id)
 
 		if message_str == worker.MESSAGE_EOF {
-			err := g.HandleEOF(client_id)
+			err := s.HandleEOF(client_id)
 			if err != nil {
 				return err
 			}
@@ -77,8 +77,8 @@ func RunWorker(g GroupBy, msgs <-chan amqp091.Delivery) error {
 		}
 		messages_before_commit += 1
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
-		g.GroupByAndUpdate(lines, client_id)
-		if g.ShouldCommit(messages_before_commit, client_id) {
+		s.UpdateState(lines, client_id)
+		if s.ShouldCommit(messages_before_commit, client_id) {
 			messages_before_commit = 0
 		}
 		message.Ack(false)
