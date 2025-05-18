@@ -73,7 +73,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		masterGroupByOverviewAverage.RunWorker()
+		masterGroupByOverviewAverage.RunWorker("starting master group by overview average")
 		done <- true
 	}()
 

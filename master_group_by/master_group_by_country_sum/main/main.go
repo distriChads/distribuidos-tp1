@@ -73,7 +73,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		masterGroupByCountrySum.RunWorker()
+		masterGroupByCountrySum.RunWorker("starting master group by country sum")
 		done <- true
 	}()
 
