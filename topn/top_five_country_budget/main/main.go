@@ -45,6 +45,10 @@ func main() {
 		log.Criticalf("%s", err)
 		return
 	}
+	maxMessages := v.GetInt("worker.maxmessages")
+	if maxMessages == 0 {
+		maxMessages = 10
+	}
 
 	topn := topn.NewTopFiveCountryBudget(topn.TopFiveCountryBudgetConfig{
 		WorkerConfig: worker.WorkerConfig{
@@ -52,7 +56,7 @@ func main() {
 			OutputExchange: outputExchangeSpec,
 			MessageBroker:  messageBroker,
 		},
-	})
+	}, maxMessages)
 
 	// Set up signal handling
 	sigChan := make(chan os.Signal, 1)
@@ -64,7 +68,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		topn.RunWorker()
+		topn.RunWorker("starting top five country budget")
 		done <- true
 	}()
 

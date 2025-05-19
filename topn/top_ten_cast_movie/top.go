@@ -2,6 +2,7 @@ package top_ten_cast_movie
 
 import (
 	worker "distribuidos-tp1/common/worker/worker"
+	"distribuidos-tp1/common_statefull_worker"
 	"fmt"
 	"sort"
 	"strconv"
@@ -10,20 +11,61 @@ import (
 	"github.com/op/go-logging"
 )
 
-var log = logging.MustGetLogger("top_ten_cast_movie")
-
 type TopTenCastMovieConfig struct {
 	worker.WorkerConfig
 }
 
 type TopTenCastMovie struct {
 	worker.Worker
-	top_ten map[string][]TopTenCastCount
+	top_ten                map[string][]TopTenCastCount
+	messages_before_commit int
 }
 
 type TopTenCastCount struct {
 	Actor string
 	Count int
+}
+
+var log = logging.MustGetLogger("top_ten_cast_movie")
+
+func (g *TopTenCastMovie) NewClient(client_id string) {
+	if _, ok := g.top_ten[client_id]; !ok {
+		g.top_ten[client_id] = make([]TopTenCastCount, 0)
+	}
+}
+
+func (g *TopTenCastMovie) ShouldCommit(messages_before_commit int, client_id string) bool {
+	if messages_before_commit >= g.messages_before_commit {
+		storeGroupedElements(g.top_ten[client_id], client_id)
+		return true
+	}
+	return false
+}
+
+func (g *TopTenCastMovie) MapToLines(client_id string) string {
+	return mapToLines(g.top_ten[client_id])
+}
+
+func mapToLines(top_ten []TopTenCastCount) string {
+	var lines []string
+	for _, actor_in_top := range top_ten {
+		line := fmt.Sprintf("%s%s%d", actor_in_top.Actor, worker.MESSAGE_SEPARATOR, actor_in_top.Count)
+		lines = append(lines, line)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (g *TopTenCastMovie) HandleEOF(client_id string) error {
+	err := common_statefull_worker.SendResult(g.Worker, g, client_id)
+	if err != nil {
+		return err
+	}
+	delete(g.top_ten, client_id)
+	return nil
+}
+
+func (g *TopTenCastMovie) UpdateState(lines []string, client_id string) {
+	g.top_ten[client_id] = updateTopTen(lines, g.top_ten[client_id])
 }
 
 // ---------------------------------
@@ -64,16 +106,16 @@ func updateTopTen(lines []string, top_ten []TopTenCastCount) []TopTenCastCount {
 	return top_ten
 }
 
-func mapToLines(top_ten []TopTenCastCount) string {
-	var lines []string
-	for _, actor_in_top := range top_ten {
-		line := fmt.Sprintf("%s%s%d", actor_in_top.Actor, worker.MESSAGE_SEPARATOR, actor_in_top.Count)
-		lines = append(lines, line)
-	}
-	return strings.Join(lines, "\n")
+func storeGroupedElements(results []TopTenCastCount, client_id string) {
+	// TODO: Dumpear el hashmap a un archivo
 }
 
-func NewTopTenCastMovie(config TopTenCastMovieConfig) *TopTenCastMovie {
+func getGroupedElements() []TopTenCastCount {
+	// TODO: Cuando se caiga un worker, deberia leer de este archivo lo que estuvo obteniendo
+	return []TopTenCastCount{}
+}
+
+func NewTopTenCastMovie(config TopTenCastMovieConfig, messages_before_commit int) *TopTenCastMovie {
 	log.Infof("TopTenCastMovie: %+v", config)
 	return &TopTenCastMovie{
 		Worker: worker.Worker{
@@ -81,60 +123,15 @@ func NewTopTenCastMovie(config TopTenCastMovieConfig) *TopTenCastMovie {
 			OutputExchange: config.OutputExchange,
 			MessageBroker:  config.MessageBroker,
 		},
-		top_ten: make(map[string][]TopTenCastCount),
+		top_ten:                make(map[string][]TopTenCastCount, 0),
+		messages_before_commit: messages_before_commit,
 	}
 }
 
-func (f *TopTenCastMovie) RunWorker() error {
-	log.Info("Starting TopTenCastMovie worker")
-	worker.InitSender(&f.Worker)
-	worker.InitReceiver(&f.Worker)
-
-	msgs, err := worker.ReceivedMessages(f.Worker)
+func (g *TopTenCastMovie) RunWorker(starting_message string) error {
+	msgs, err := common_statefull_worker.Init(&g.Worker, starting_message)
 	if err != nil {
-		log.Errorf("Error initializing receiver: %s", err.Error())
 		return err
 	}
-	for message := range msgs {
-		message_str := string(message.Body)
-		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
-		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
-		if _, ok := f.top_ten[client_id]; !ok {
-			f.top_ten[client_id] = make([]TopTenCastCount, 0)
-		}
-		if message_str == worker.MESSAGE_EOF {
-			log.Infof("Sending result for client %s", client_id)
-			sendResult(f, client_id)
-			delete(f.top_ten, client_id)
-			log.Infof("Client %s finished", client_id)
-			message.Ack(false)
-			continue
-		}
-		if len(message_str) == 0 {
-			continue
-		}
-		lines := strings.Split(strings.TrimSpace(message_str), "\n")
-		f.top_ten[client_id] = updateTopTen(lines, f.top_ten[client_id])
-		message.Ack(false)
-	}
-
-	return nil
-}
-
-func sendResult(f *TopTenCastMovie, client_id string) error {
-	message_to_send := mapToLines(f.top_ten[client_id])
-	send_queue_key := f.Worker.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
-	message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_to_send
-	err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
-	if err != nil {
-		log.Errorf("Error sending message: %s", err.Error())
-		return err
-	}
-	message_to_send = client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
-	err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
-	if err != nil {
-		log.Errorf("Error sending message: %s", err.Error())
-		return err
-	}
-	return nil
+	return common_statefull_worker.RunWorker(g, msgs)
 }

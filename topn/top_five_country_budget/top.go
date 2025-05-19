@@ -2,6 +2,7 @@ package top_five_country_budget
 
 import (
 	worker "distribuidos-tp1/common/worker/worker"
+	"distribuidos-tp1/common_statefull_worker"
 	"fmt"
 	"sort"
 	"strconv"
@@ -16,14 +17,55 @@ type TopFiveCountryBudgetConfig struct {
 
 type TopFiveCountryBudget struct {
 	worker.Worker
-	top_five map[string][]CountrByBudget
+	top_five               map[string][]CountrByBudget
+	messages_before_commit int
 }
-
-var log = logging.MustGetLogger("top_five_country_budget")
 
 type CountrByBudget struct {
 	Country string
 	Budget  int
+}
+
+var log = logging.MustGetLogger("top_five_country_budget")
+
+func (g *TopFiveCountryBudget) NewClient(client_id string) {
+	if _, ok := g.top_five[client_id]; !ok {
+		g.top_five[client_id] = make([]CountrByBudget, 0)
+	}
+}
+
+func (g *TopFiveCountryBudget) ShouldCommit(messages_before_commit int, client_id string) bool {
+	if messages_before_commit >= g.messages_before_commit {
+		storeGroupedElements(g.top_five[client_id], client_id)
+		return true
+	}
+	return false
+}
+
+func (g *TopFiveCountryBudget) MapToLines(client_id string) string {
+	return mapToLines(g.top_five[client_id])
+}
+
+func mapToLines(top_five []CountrByBudget) string {
+	var lines []string
+	for _, country_in_top := range top_five {
+		line := fmt.Sprintf("%s%s%d", country_in_top.Country, worker.MESSAGE_SEPARATOR, country_in_top.Budget)
+		lines = append(lines, line)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (g *TopFiveCountryBudget) HandleEOF(client_id string) error {
+	err := common_statefull_worker.SendResult(g.Worker, g, client_id)
+	if err != nil {
+		return err
+	}
+	delete(g.top_five, client_id)
+	return nil
+}
+
+func (g *TopFiveCountryBudget) UpdateState(lines []string, client_id string) {
+	g.top_five[client_id] = updateTopFive(lines, g.top_five[client_id])
 }
 
 // ---------------------------------
@@ -55,19 +97,20 @@ func updateTopFive(lines []string, top_five []CountrByBudget) []CountrByBudget {
 		}
 
 	}
+
 	return top_five
 }
 
-func mapToLines(top_five []CountrByBudget) string {
-	var lines []string
-	for _, country_in_top := range top_five {
-		line := fmt.Sprintf("%s%s%d", country_in_top.Country, worker.MESSAGE_SEPARATOR, country_in_top.Budget)
-		lines = append(lines, line)
-	}
-	return strings.Join(lines, "\n")
+func storeGroupedElements(results []CountrByBudget, client_id string) {
+	// TODO: Dumpear el hashmap a un archivo
 }
 
-func NewTopFiveCountryBudget(config TopFiveCountryBudgetConfig) *TopFiveCountryBudget {
+func getGroupedElements() []CountrByBudget {
+	// TODO: Cuando se caiga un worker, deberia leer de este archivo lo que estuvo obteniendo
+	return []CountrByBudget{}
+}
+
+func NewTopFiveCountryBudget(config TopFiveCountryBudgetConfig, messages_before_commit int) *TopFiveCountryBudget {
 	log.Infof("TopFiveCountryBudget: %+v", config)
 	return &TopFiveCountryBudget{
 		Worker: worker.Worker{
@@ -75,61 +118,15 @@ func NewTopFiveCountryBudget(config TopFiveCountryBudgetConfig) *TopFiveCountryB
 			OutputExchange: config.OutputExchange,
 			MessageBroker:  config.MessageBroker,
 		},
+		top_five:               make(map[string][]CountrByBudget, 0),
+		messages_before_commit: messages_before_commit,
 	}
 }
 
-func (f *TopFiveCountryBudget) RunWorker() error {
-	log.Info("Starting TopFiveCountryBudget worker")
-	worker.InitSender(&f.Worker)
-	worker.InitReceiver(&f.Worker)
-
-	msgs, err := worker.ReceivedMessages(f.Worker)
+func (g *TopFiveCountryBudget) RunWorker(starting_message string) error {
+	msgs, err := common_statefull_worker.Init(&g.Worker, starting_message)
 	if err != nil {
-		log.Errorf("Error initializing receiver: %s", err.Error())
 		return err
 	}
-	f.top_five = make(map[string][]CountrByBudget)
-	for message := range msgs {
-		message_str := string(message.Body)
-		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
-		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
-		if _, ok := f.top_five[client_id]; !ok {
-			f.top_five[client_id] = make([]CountrByBudget, 0)
-		}
-		log.Debugf("Received message: %s", message_str)
-		if message_str == worker.MESSAGE_EOF {
-			log.Infof("Sending result for client %s", client_id)
-			sendResult(f, client_id)
-			delete(f.top_five, client_id)
-			log.Infof("Client %s finished", client_id)
-			message.Ack(false)
-			continue
-		}
-		if len(message_str) == 0 {
-			continue
-		}
-		lines := strings.Split(strings.TrimSpace(message_str), "\n")
-		f.top_five[client_id] = updateTopFive(lines, f.top_five[client_id])
-		message.Ack(false)
-	}
-
-	return nil
-}
-
-func sendResult(f *TopFiveCountryBudget, client_id string) error {
-	message_to_send := mapToLines(f.top_five[client_id])
-	send_queue_key := f.Worker.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
-	message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_to_send
-	err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
-	if err != nil {
-		log.Errorf("Error sending message: %s", err.Error())
-		return err
-	}
-	message_to_send = client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
-	err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
-	if err != nil {
-		log.Errorf("Error sending message: %s", err.Error())
-		return err
-	}
-	return nil
+	return common_statefull_worker.RunWorker(g, msgs)
 }

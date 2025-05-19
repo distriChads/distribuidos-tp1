@@ -2,6 +2,7 @@ package first_and_last
 
 import (
 	worker "distribuidos-tp1/common/worker/worker"
+	"distribuidos-tp1/common_statefull_worker"
 	"fmt"
 	"strconv"
 	"strings"
@@ -15,10 +16,9 @@ type FirstAndLastConfig struct {
 
 type FirstAndLast struct {
 	worker.Worker
-	firstAndLastMovies map[string]FirstAndLastMovies
+	first_and_last_movies  map[string]FirstAndLastMovies
+	messages_before_commit int
 }
-
-var log = logging.MustGetLogger("first_and_last")
 
 type MovieAvgByScore struct {
 	Movie   string
@@ -28,6 +28,50 @@ type MovieAvgByScore struct {
 type FirstAndLastMovies struct {
 	first MovieAvgByScore
 	last  MovieAvgByScore
+}
+
+var log = logging.MustGetLogger("first_and_last")
+
+func (g *FirstAndLast) NewClient(client_id string) {
+	if _, ok := g.first_and_last_movies[client_id]; !ok {
+		g.first_and_last_movies[client_id] = FirstAndLastMovies{}
+	}
+}
+
+func (g *FirstAndLast) ShouldCommit(messages_before_commit int, client_id string) bool {
+	if messages_before_commit >= g.messages_before_commit {
+		storeGroupedElements(g.first_and_last_movies[client_id], client_id)
+		return true
+	}
+	return false
+}
+
+func (g *FirstAndLast) MapToLines(client_id string) string {
+	return mapToLines(g.first_and_last_movies[client_id])
+}
+
+func mapToLines(first_and_last_movies FirstAndLastMovies) string {
+	var lines []string
+
+	line := fmt.Sprintf("%s%s%f", first_and_last_movies.first.Movie, worker.MESSAGE_SEPARATOR, first_and_last_movies.first.Average)
+	lines = append(lines, line)
+	line = fmt.Sprintf("%s%s%f", first_and_last_movies.last.Movie, worker.MESSAGE_SEPARATOR, first_and_last_movies.last.Average)
+	lines = append(lines, line)
+
+	return strings.Join(lines, "\n")
+}
+
+func (g *FirstAndLast) HandleEOF(client_id string) error {
+	err := common_statefull_worker.SendResult(g.Worker, g, client_id)
+	if err != nil {
+		return err
+	}
+	delete(g.first_and_last_movies, client_id)
+	return nil
+}
+
+func (g *FirstAndLast) UpdateState(lines []string, client_id string) {
+	g.first_and_last_movies[client_id] = updateFirstAndLast(lines, g.first_and_last_movies[client_id])
 }
 
 // ---------------------------------
@@ -59,7 +103,16 @@ func updateFirstAndLast(lines []string, firstAndLastMovies FirstAndLastMovies) F
 	return firstAndLastMovies
 }
 
-func NewFirstAndLast(config FirstAndLastConfig) *FirstAndLast {
+func storeGroupedElements(results FirstAndLastMovies, client_id string) {
+	// TODO: Dumpear el hashmap a un archivo
+}
+
+func getGroupedElements() FirstAndLastMovies {
+	// TODO: Cuando se caiga un worker, deberia leer de este archivo lo que estuvo obteniendo
+	return FirstAndLastMovies{}
+}
+
+func NewFirstAndLast(config FirstAndLastConfig, messages_before_commit int) *FirstAndLast {
 	log.Infof("FirstAndLast: %+v", config)
 	return &FirstAndLast{
 		Worker: worker.Worker{
@@ -67,72 +120,15 @@ func NewFirstAndLast(config FirstAndLastConfig) *FirstAndLast {
 			OutputExchange: config.OutputExchange,
 			MessageBroker:  config.MessageBroker,
 		},
-		firstAndLastMovies: make(map[string]FirstAndLastMovies),
+		first_and_last_movies:  make(map[string]FirstAndLastMovies, 0),
+		messages_before_commit: messages_before_commit,
 	}
 }
 
-func mapToLines(firstAndLastMovies FirstAndLastMovies) string {
-	var lines []string
-
-	line := fmt.Sprintf("%s%s%f", firstAndLastMovies.first.Movie, worker.MESSAGE_SEPARATOR, firstAndLastMovies.first.Average)
-	lines = append(lines, line)
-	line = fmt.Sprintf("%s%s%f", firstAndLastMovies.last.Movie, worker.MESSAGE_SEPARATOR, firstAndLastMovies.last.Average)
-	lines = append(lines, line)
-
-	return strings.Join(lines, "\n")
-}
-
-func (f *FirstAndLast) RunWorker() error {
-	log.Info("Starting FirstAndLast worker")
-	worker.InitSender(&f.Worker)
-	worker.InitReceiver(&f.Worker)
-
-	msgs, err := worker.ReceivedMessages(f.Worker)
+func (g *FirstAndLast) RunWorker(starting_message string) error {
+	msgs, err := common_statefull_worker.Init(&g.Worker, starting_message)
 	if err != nil {
-		log.Errorf("Error initializing receiver: %s", err.Error())
 		return err
 	}
-	for message := range msgs {
-		message_str := string(message.Body)
-		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
-		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
-		if _, ok := f.firstAndLastMovies[client_id]; !ok {
-			f.firstAndLastMovies[client_id] = FirstAndLastMovies{}
-		}
-		log.Debugf("Received message: %s", message_str)
-		if message_str == worker.MESSAGE_EOF {
-			log.Infof("Sending result for client %s", client_id)
-			sendResult(f, client_id)
-			delete(f.firstAndLastMovies, client_id)
-			log.Infof("Client %s finished", client_id)
-			message.Ack(false)
-			continue
-		}
-		if len(message_str) == 0 {
-			continue
-		}
-		lines := strings.Split(strings.TrimSpace(message_str), "\n")
-		f.firstAndLastMovies[client_id] = updateFirstAndLast(lines, f.firstAndLastMovies[client_id])
-		message.Ack(false)
-	}
-
-	return nil
-}
-
-func sendResult(f *FirstAndLast, client_id string) error {
-	message_to_send := mapToLines(f.firstAndLastMovies[client_id])
-	send_queue_key := f.Worker.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
-	message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_to_send
-	err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
-	if err != nil {
-		log.Errorf("Error sending message: %s", err.Error())
-		return err
-	}
-	message_to_send = client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
-	err = worker.SendMessage(f.Worker, message_to_send, send_queue_key)
-	if err != nil {
-		log.Errorf("Error sending message: %s", err.Error())
-		return err
-	}
-	return nil
+	return common_statefull_worker.RunWorker(g, msgs)
 }

@@ -10,6 +10,7 @@ WORKDIR /app
 COPY --from=deps /app/go.mod /app/go.sum ./
 COPY ./common ./common
 COPY ./topn/top_ten_cast_movie ./topn/top_ten_cast_movie
+COPY ./common_statefull_worker ./common_statefull_worker
 RUN CGO_ENABLED=0 GOOS=linux go build -o bin/run_worker ./topn/top_ten_cast_movie/main/main.go
 
 # Image final
