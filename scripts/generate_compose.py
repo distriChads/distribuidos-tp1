@@ -229,21 +229,11 @@ def generate_compose(spec_path, output_path):
               # It will receive messages potentially from all replicas of the source service
               expected_eof = input_service_spec.get('replicas', 1)
 
-      if input_keys_list: # Only add if keys were assigned
-          env.append(f"CLI_WORKER_EXCHANGE_INPUT_NAME={input_exchange}")
-          env.append(f"CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS={','.join(input_keys_list)}")
-          # Use the first assigned input key as the base for the queue name
-          # Ensure queue names are unique per consumer replica even if they listen to the same key in 'all' mode?
-          # For now, assume queue name matches the first key it binds.
-          queue_name = ith_service['container_name']
-          # Let's make queue name unique per replica instance when input type is 'all'
-          # if input_type == 'all' and service['replicas'] > 1:
-          #    queue_name = f"{service['name']}.{i+1}.{input_keys_list[0]}" # Append replica index
-          # else:
-          #    queue_name = input_keys_list[0] # Use key directly for seq or single replica
-          # Sticking to simpler logic for now: queue name = first key
-          env.append(f"CLI_WORKER_QUEUE_NAME={queue_name}")
-          env.append(f"CLI_WORKER_EXPECTEDEOF={expected_eof}")
+      # if input_keys_list: # Only add if keys were assigned
+      env.append(f"CLI_WORKER_EXCHANGE_INPUT_NAME={input_exchange}")
+      env.append(f"CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS={','.join(input_keys_list)}")
+      env.append(f"CLI_WORKER_QUEUE_NAME={service['name']}")
+      env.append(f"CLI_WORKER_EXPECTEDEOF={expected_eof}")
 
       # --- Output Handling ---
       output_spec = service['output']
@@ -324,7 +314,7 @@ def generate_compose(spec_path, output_path):
           if sec_input_keys_list:
               env.append(f"CLI_WORKER_EXCHANGE_SECONDINPUT_NAME={sec_input_exchange}")
               env.append(f"CLI_WORKER_EXCHANGE_SECONDINPUT_ROUTINGKEYS={sec_input_keys_list[i]}")
-              env.append(f"CLI_WORKER_SECONDQUEUE_NAME={ith_service['container_name']}")
+              env.append(f"CLI_WORKER_SECONDQUEUE_NAME={service['name']}")
               env.append(f"CLI_WORKER_EXPECTEDEOF2={sec_expected_eof}")
 
       # --- Machine Learning ---
