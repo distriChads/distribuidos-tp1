@@ -56,13 +56,14 @@ func main() {
 		expectedEof = 1
 	}
 
+	node_name := v.GetString("worker.nodename")
 	groupByActorCount := group_by.NewGroupByActorAndCount(group_by.GroupByActorAndCountConfig{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange:  inputExchangeSpec,
 			OutputExchange: outputExchangeSpec,
 			MessageBroker:  messageBroker,
 		},
-	}, maxMessages, expectedEof)
+	}, maxMessages, expectedEof, node_name)
 
 	// Set up signal handling
 	sigChan := make(chan os.Signal, 1)

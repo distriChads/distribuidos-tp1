@@ -20,6 +20,7 @@ type MasterGroupByActorAndCount struct {
 	expected_eof           int
 	grouped_elements       map[string]map[string]int
 	eofs                   map[string]int
+	node_name              string
 }
 
 var log = logging.MustGetLogger("master_group_by_actor_count")
@@ -35,7 +36,7 @@ func (g *MasterGroupByActorAndCount) NewClient(client_id string) {
 
 func (g *MasterGroupByActorAndCount) ShouldCommit(messages_before_commit int, client_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		storeGroupedElements(g.grouped_elements[client_id], client_id)
+		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.node_name)
 		return true
 	}
 	return false
@@ -88,17 +89,9 @@ func groupByActorAndUpdate(lines []string, grouped_elements map[string]int) {
 	}
 }
 
-func storeGroupedElements(results map[string]int, client_id string) {
-	// TODO: Dumpear el hashmap a un archivo
-}
-
-func getGroupedElements() map[string]int {
-	// TODO: Cuando se caiga un worker, deberia leer de este archivo lo que estuvo obteniendo
-	return nil
-}
-
-func NewGroupByActorAndCount(config MasterGroupByActorAndCountConfig, messages_before_commit int, expected_eof int) *MasterGroupByActorAndCount {
+func NewGroupByActorAndCount(config MasterGroupByActorAndCountConfig, messages_before_commit int, expected_eof int, node_name string) *MasterGroupByActorAndCount {
 	log.Infof("MasterGroupByActorAndCount: %+v", config)
+	grouped_elements := common_statefull_worker.GetElements[int](node_name)
 	return &MasterGroupByActorAndCount{
 		Worker: worker.Worker{
 			InputExchange:  config.InputExchange,
@@ -107,8 +100,9 @@ func NewGroupByActorAndCount(config MasterGroupByActorAndCountConfig, messages_b
 		},
 		messages_before_commit: messages_before_commit,
 		expected_eof:           expected_eof,
-		grouped_elements:       make(map[string]map[string]int),
+		grouped_elements:       grouped_elements,
 		eofs:                   make(map[string]int),
+		node_name:              node_name,
 	}
 }
 

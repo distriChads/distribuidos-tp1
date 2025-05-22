@@ -20,6 +20,7 @@ type GroupByCountryAndSum struct {
 	expected_eof           int
 	grouped_elements       map[string]map[string]int
 	eofs                   map[string]int
+	node_name              string
 }
 
 var log = logging.MustGetLogger("group_by_country_sum")
@@ -35,7 +36,7 @@ func (g *GroupByCountryAndSum) NewClient(client_id string) {
 
 func (g *GroupByCountryAndSum) ShouldCommit(messages_before_commit int, client_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		storeGroupedElements(g.grouped_elements[client_id], client_id)
+		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.node_name)
 		return true
 	}
 	return false
@@ -88,17 +89,9 @@ func groupByCountryAndSum(lines []string, grouped_elements map[string]int) {
 	}
 }
 
-func storeGroupedElements(results map[string]int, client_id string) {
-	// TODO: Dumpear el hashmap a un archivo
-}
-
-func getGroupedElements() map[string]int {
-	// TODO: Cuando se caiga un worker, deberia leer de este archivo lo que estuvo obteniendo
-	return nil
-}
-
-func NewGroupByCountryAndSum(config GroupByCountryAndSumConfig, messages_before_commit int, eof_counter int) *GroupByCountryAndSum {
+func NewGroupByCountryAndSum(config GroupByCountryAndSumConfig, messages_before_commit int, eof_counter int, node_name string) *GroupByCountryAndSum {
 	log.Infof("GroupByCountryAndSum: %+v", config)
+	grouped_elements := common_statefull_worker.GetElements[int](node_name)
 	return &GroupByCountryAndSum{
 		Worker: worker.Worker{
 			InputExchange:  config.InputExchange,
@@ -107,7 +100,7 @@ func NewGroupByCountryAndSum(config GroupByCountryAndSumConfig, messages_before_
 		},
 		messages_before_commit: messages_before_commit,
 		expected_eof:           eof_counter,
-		grouped_elements:       make(map[string]map[string]int),
+		grouped_elements:       grouped_elements,
 		eofs:                   make(map[string]int),
 	}
 }

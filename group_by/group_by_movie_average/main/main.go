@@ -56,13 +56,14 @@ func main() {
 		expectedEof = 1
 	}
 
+	node_name := v.GetString("worker.nodename")
 	groupByMovieAverage := group_by.NewGroupByMovieAndAvg(group_by.GroupByMovieAndAvgConfig{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange:  inputExchangeSpec,
 			OutputExchange: outputExchangeSpec,
 			MessageBroker:  messageBroker,
 		},
-	}, maxMessages, expectedEof)
+	}, maxMessages, expectedEof, node_name)
 
 	// Set up signal handling
 	sigChan := make(chan os.Signal, 1)
