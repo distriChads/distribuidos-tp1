@@ -35,8 +35,8 @@ class Client:
 
         # TODO: we have only one routing key now for working queue, change worker with it
         if type(self.batch_processor) == MoviesProcessor:
-            routing_key = self.worker.output_exchange1.routing_keys[0]
-            exchange = self.worker.output_exchange1
+            routing_key = self.worker.output_exchange.routing_keys[0]
+            exchange = self.worker.output_exchange
         elif type(self.batch_processor) == CreditsProcessor:
             routing_key = self.worker.output_exchange2.routing_keys[0]
             exchange = self.worker.output_exchange2

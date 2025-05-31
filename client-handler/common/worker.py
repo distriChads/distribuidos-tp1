@@ -19,16 +19,9 @@ class ExchangeSpec:
 
 
 class WorkerConfig:
-    def __init__(self,
-                 input_exchange,
-                 output_exchange1,
-                 output_exchange2,
-                 output_exchange3,
-                 message_broker):
+    def __init__(self, input_exchange, output_exchange, message_broker):
         self.input_exchange = input_exchange
-        self.output_exchange1 = output_exchange1
-        self.output_exchange2 = output_exchange2
-        self.output_exchange3 = output_exchange3
+        self.output_exchange = output_exchange
         self.message_broker = message_broker
 
 
@@ -50,9 +43,7 @@ class Worker:
     def __init__(self, config: WorkerConfig):
         uuid_str = str(uuid.uuid4())
         self.input_exchange = config.input_exchange
-        self.output_exchange1 = config.output_exchange1
-        self.output_exchange2 = config.output_exchange2
-        self.output_exchange3 = config.output_exchange3
+        self.output_exchange = config.output_exchange
         self.message_broker = config.message_broker
         self.sender = None
         self.receiver = None
@@ -81,19 +72,7 @@ class Worker:
         ch = conn.channel()
 
         ch.exchange_declare(
-            exchange=self.output_exchange1.name,
-            exchange_type='topic',
-            durable=False,
-            auto_delete=False
-        )
-        ch.exchange_declare(
-            exchange=self.output_exchange2.name,
-            exchange_type='topic',
-            durable=False,
-            auto_delete=False
-        )
-        ch.exchange_declare(
-            exchange=self.output_exchange3.name,
+            exchange=self.output_exchange.name,
             exchange_type='topic',
             durable=False,
             auto_delete=False
