@@ -21,6 +21,7 @@ type MasterGroupByMovieAndAvg struct {
 	grouped_elements       map[string]map[string]ScoreAndCount
 	eofs                   map[string]int
 	node_name              string
+	log_replicas           int
 }
 
 type ScoreAndCount struct {
@@ -41,7 +42,7 @@ func (g *MasterGroupByMovieAndAvg) NewClient(client_id string) {
 
 func (g *MasterGroupByMovieAndAvg) ShouldCommit(messages_before_commit int, client_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.node_name)
+		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.node_name, g.log_replicas)
 		return true
 	}
 	return false
@@ -104,7 +105,8 @@ func groupByMovieAndUpdate(lines []string, grouped_elements map[string]ScoreAndC
 
 func NewGroupByMovieAndAvg(config MasterGroupByMovieAndAvgConfig, messages_before_commit int, expected_eof int, node_name string) *MasterGroupByMovieAndAvg {
 	log.Infof("MasterGroupByMovieAndAvg: %+v", config)
-	grouped_elements := common_statefull_worker.GetElements[ScoreAndCount](node_name)
+	replicas := 3
+	grouped_elements, _ := common_statefull_worker.GetElements[ScoreAndCount](node_name, replicas+1)
 	return &MasterGroupByMovieAndAvg{
 		Worker: worker.Worker{
 			InputExchange:  config.InputExchange,
@@ -116,6 +118,7 @@ func NewGroupByMovieAndAvg(config MasterGroupByMovieAndAvgConfig, messages_befor
 		grouped_elements:       grouped_elements,
 		eofs:                   make(map[string]int),
 		node_name:              node_name,
+		log_replicas:           replicas,
 	}
 }
 func (g *MasterGroupByMovieAndAvg) RunWorker(starting_message string) error {

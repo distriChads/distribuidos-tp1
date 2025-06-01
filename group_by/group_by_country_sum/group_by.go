@@ -21,6 +21,7 @@ type GroupByCountryAndSum struct {
 	grouped_elements       map[string]map[string]int
 	eofs                   map[string]int
 	node_name              string
+	log_replicas           int
 }
 
 var log = logging.MustGetLogger("group_by_country_sum")
@@ -36,7 +37,7 @@ func (g *GroupByCountryAndSum) NewClient(client_id string) {
 
 func (g *GroupByCountryAndSum) ShouldCommit(messages_before_commit int, client_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.node_name)
+		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.node_name, g.log_replicas)
 		return true
 	}
 	return false
@@ -91,7 +92,8 @@ func groupByCountryAndSum(lines []string, grouped_elements map[string]int) {
 
 func NewGroupByCountryAndSum(config GroupByCountryAndSumConfig, messages_before_commit int, eof_counter int, node_name string) *GroupByCountryAndSum {
 	log.Infof("GroupByCountryAndSum: %+v", config)
-	grouped_elements := common_statefull_worker.GetElements[int](node_name)
+	replicas := 3
+	grouped_elements, _ := common_statefull_worker.GetElements[int](node_name, replicas+1)
 	return &GroupByCountryAndSum{
 		Worker: worker.Worker{
 			InputExchange:  config.InputExchange,
@@ -102,6 +104,7 @@ func NewGroupByCountryAndSum(config GroupByCountryAndSumConfig, messages_before_
 		expected_eof:           eof_counter,
 		grouped_elements:       grouped_elements,
 		eofs:                   make(map[string]int),
+		log_replicas:           3,
 	}
 }
 
