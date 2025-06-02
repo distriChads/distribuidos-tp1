@@ -109,16 +109,13 @@ func getGroupedElements() map[string]int {
 	return nil
 }
 
-func NewGroupByMovieAndAvg(config GroupByMovieAndAvgConfig, messages_before_commit int, eof_counter int) *GroupByMovieAndAvg {
+func NewGroupByMovieAndAvg(config GroupByMovieAndAvgConfig, messages_before_commit int) *GroupByMovieAndAvg {
 	log.Infof("GroupByMovieAndAvg: %+v", config)
 	return &GroupByMovieAndAvg{
 		Worker: worker.Worker{
-			InputExchange:  config.InputExchange,
-			OutputExchange: config.OutputExchange,
-			MessageBroker:  config.MessageBroker,
+			MessageBroker: config.MessageBroker,
 		},
 		messages_before_commit: messages_before_commit,
-		expected_eof:           eof_counter,
 		eofs:                   make(map[string]int),
 		grouped_elements:       make(map[string]map[string]ScoreAndCount),
 	}

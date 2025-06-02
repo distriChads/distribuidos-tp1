@@ -91,12 +91,19 @@ def router_service(spec, replicas, replicas_services, replica_index):
     }
 
 
-def generic_worker_service(name, dockerfile_path, replica, spec, input_routing_key_postfix, entrypoint):
+def generic_worker_service(name, dockerfile_path, replica, spec, entrypoint):
     broker = spec.get("broker", DEFAULT_BROKER)
+    input_routing_keys = spec['input_routing_keys']
+
+    if name.startswith("join") or name.startswith("group-by"):
+        routing_keys = spec['input_routing_keys']
+        input_routing_keys = [
+            f"{key}.{replica}" for key in routing_keys]
+
     env = [
         f"CLI_WORKER_BROKER={broker}",
         f"CLI_LOG_LEVEL={spec['log_level']}",
-        f"CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS={','.join(spec['input_routing_keys'])}{input_routing_key_postfix}",
+        f"CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS={','.join(input_routing_keys)}",
         f"CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS={','.join(spec['output_routing_keys'])}"
     ]
 
@@ -192,7 +199,8 @@ def generate_compose(spec_path, output_path):
             for i in range(1, replicas + 1):
                 instance_name = f"{name}-{i}"
                 compose["services"][instance_name] = generic_worker_service(
-                    name, dockerfile_path, i, service_spec, str(i) if postfix_routing_key else "", entrypoint)
+                    name, dockerfile_path, i, service_spec, entrypoint
+                )
 
     with open(output_path, "w") as f:
         f.write("version: '3.8'\n")

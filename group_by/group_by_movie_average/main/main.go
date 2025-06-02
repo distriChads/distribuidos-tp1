@@ -24,20 +24,15 @@ func main() {
 	}
 
 	log_level := v.GetString("log.level")
-	queueName := v.GetString("worker.queue.name")
-	inputExchangeSpec := worker.ExchangeSpec{
-		Name:        v.GetString("worker.exchange.input.name"),
-		RoutingKeys: strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
-		QueueName:   queueName,
-	}
-	outputExchangeSpec := worker.ExchangeSpec{
-		Name:        v.GetString("worker.exchange.output.name"),
-		RoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
-		QueueName:   queueName,
+
+	exchangeSpec := worker.ExchangeSpec{
+		InputRoutingKeys:  strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
+		OutputRoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
+		QueueName:         v.GetString("worker.queue.name"),
 	}
 	messageBroker := v.GetString("worker.broker")
 
-	if inputExchangeSpec.Name == "" || inputExchangeSpec.RoutingKeys[0] == "" || outputExchangeSpec.Name == "" || outputExchangeSpec.RoutingKeys[0] == "" || messageBroker == "" {
+	if exchangeSpec.InputRoutingKeys[0] == "" || exchangeSpec.OutputRoutingKeys[0] == "" || messageBroker == "" {
 		log.Criticalf("Error: one or more environment variables are empty")
 		return
 	}
@@ -51,18 +46,12 @@ func main() {
 	if maxMessages == 0 {
 		maxMessages = 10
 	}
-	expectedEof := v.GetInt("worker.expectedeof")
-	if expectedEof == 0 {
-		expectedEof = 1
-	}
 
-	groupByMovieAverage := group_by.NewGroupByMovieAndAvg(group_by.GroupByMovieAndAvgConfig{
+	groupByActorCount := group_by.NewGroupByMovieAndAvg(group_by.GroupByMovieAndAvgConfig{
 		WorkerConfig: worker.WorkerConfig{
-			InputExchange:  inputExchangeSpec,
-			OutputExchange: outputExchangeSpec,
-			MessageBroker:  messageBroker,
+			MessageBroker: messageBroker,
 		},
-	}, maxMessages, expectedEof)
+	}, maxMessages)
 
 	// Set up signal handling
 	sigChan := make(chan os.Signal, 1)
@@ -74,7 +63,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		groupByMovieAverage.RunWorker("starting group by movie average")
+		groupByActorCount.RunWorker("Starting groupByActorCount")
 		done <- true
 	}()
 
@@ -82,7 +71,7 @@ func main() {
 	select {
 	case sig := <-sigChan:
 		if sig == syscall.SIGTERM {
-			groupByMovieAverage.CloseWorker()
+			groupByActorCount.CloseWorker()
 			log.Info("Worker shut down successfully")
 			<-done
 		} else {

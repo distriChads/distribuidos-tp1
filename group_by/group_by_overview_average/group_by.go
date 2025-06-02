@@ -119,16 +119,13 @@ func getGroupedElements() map[string]int {
 	return nil
 }
 
-func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_before_commit int, eof_counter int) *GroupByOverviewAndAvg {
+func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_before_commit int) *GroupByOverviewAndAvg {
 	log.Infof("GroupByOverviewAndAvg: %+v", config)
 	return &GroupByOverviewAndAvg{
 		Worker: worker.Worker{
-			InputExchange:  config.InputExchange,
-			OutputExchange: config.OutputExchange,
-			MessageBroker:  config.MessageBroker,
+			MessageBroker: config.MessageBroker,
 		},
 		messages_before_commit: messages_before_commit,
-		expected_eof:           eof_counter,
 		eofs:                   make(map[string]int),
 		grouped_elements:       make(map[string]map[string]RevenueBudgetCount),
 	}
