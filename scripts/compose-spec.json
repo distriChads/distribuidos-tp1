@@ -6,19 +6,19 @@
             "log_level": "info",
             "replicas": 1,
             "input_routing_keys": ["*.results"],
-            "output_routing_keys": ["movies.client_handler_output", "ratings.joiner.router", "credits.joiner.router"],
+            "output_routing_keys": ["movies.client_handler", "ratings.joiner.router", "credits.joiner.router"],
             "listen_backlog": 5
         },
         {
             "name": "filter-argentina",
-            "replicas": 3,
+            "replicas": 1,
             "log_level": "info",
             "input_routing_keys": ["movies.client_handler"],
             "output_routing_keys": ["movies.argentina"]
         },
         {
             "name": "filter-spain-2000",
-            "replicas": 3,
+            "replicas": 2,
             "log_level": "info",
             "input_routing_keys": ["movies.argentina"],
             "output_routing_keys": ["query1.results"]
@@ -32,37 +32,37 @@
         },
         {
             "name": "filter-after-2000",
-            "replicas": 3,
+            "replicas": 4,
             "log_level": "info",
             "input_routing_keys": ["movies.argentina"],
             "output_routing_keys": ["movies.after_2000"]
         },
         {
             "name": "group-by-country-sum",
-            "replicas": 3,
+            "replicas": 1,
             "log_level": "info",
-            "input_routing_keys": ["country_sum.router"],
+            "input_routing_keys": ["group-by-country-sum"],
             "output_routing_keys": ["movies.group_by_country_sum"]
         },
         {
             "name": "group-by-movie-average",
-            "replicas": 3,
+            "replicas": 2,
             "log_level": "info",
-            "input_routing_keys": ["movie_average.router"],
+            "input_routing_keys": ["group-by-movie-average"],
             "output_routing_keys": ["movies.group_by_movie_average"]
         },
         {
             "name": "group-by-actor-count",
             "replicas": 3,
             "log_level": "info",
-            "input_routing_keys": ["actor_count.router"],
+            "input_routing_keys": ["group-by-actor-count"],
             "output_routing_keys": ["movies.group_by_actor_count"]
         },
         {
             "name": "group-by-overview-average",
-            "replicas": 3,
+            "replicas": 4,
             "log_level": "info",
-            "input_routing_keys": ["overview_average.router"],
+            "input_routing_keys": ["group-by-overview-average"],
             "output_routing_keys": ["movies.group_by_overview_average"]
         },
         {
@@ -95,7 +95,7 @@
         },
         {
             "name": "machine-learning",
-            "replicas": 3,
+            "replicas": 2,
             "log_level": "info",
             "input_routing_keys": ["movies.client_handler"],
             "output_routing_keys": ["movies.machine_learning"]
@@ -116,16 +116,16 @@
         },
         {
             "name": "join-movie-ratings",
-            "replicas": 3,
+            "replicas": 2,
             "log_level": "info",
-            "input_routing_keys": ["movies.joiner.router", "ratings.joiner.router"],
+            "input_routing_keys": ["join-movie-ratings.movies.router", "join-movie-ratings.ratings.router"],
             "output_routing_keys": ["join_movie_ratings"]
         },
         {
             "name": "join-movie-credits",
-            "replicas": 3,
+            "replicas": 4,
             "log_level": "info",
-            "input_routing_keys": ["movies.joiner.router", "credits.joiner.router"],
+            "input_routing_keys": ["join-movie-credits.movies.router", "join-movie-credits.credits.router"],
             "output_routing_keys": ["join_movie_credits"]
         },
         {
@@ -137,7 +137,7 @@
         },
         {
             "name": "router",
-            "replicas": 3,
+            "replicas": 2,
             "log_level": "info",
             "input_routing_keys": ["movies.after_2000", "ratings.joiner.router", "credits.joiner.router", "movies.filter_only_one_country", "movies.machine_learning", "join_movie_ratings", "join_movie_credits"]
         }

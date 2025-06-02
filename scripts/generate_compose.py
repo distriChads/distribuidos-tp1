@@ -3,52 +3,47 @@ import yaml
 import sys
 
 DEFAULT_BROKER = "amqp://guest:guest@rabbitmq:5672/"
+CLI_HANDLER_PORT = 3000
+CLI_HANDLER_BACKLOG = 5
+
+COMMON_NETWORK = "movies_net"
+COMMON_NETWORKS = [COMMON_NETWORK]
+COMMON_DEPENDS_ON = ["rabbitmq"]
+
+RABBIT_PORTS = ["5672:5672", "15672:15672"]
 
 
 def rabbitmq_service(silent):
     service = {
         "image": "rabbitmq:management",
         "container_name": "rabbitmq",
-        "networks": ["movies_net"],
-        "ports": ["5672:5672", "15672:15672"]
+        "networks": COMMON_NETWORKS,
+        "ports": RABBIT_PORTS
     }
     if silent:
-        service["logging"] = {
-            "driver": "none"
-        }
+        service["logging"] = {"driver": "none"}
     return service
 
 
-def client_handler_service(spec, movies_input_replicas, credits_input_replicas, ratings_input_replicas, output_replicas_first_query):
-    assert spec["replicas"] == 1
+def client_handler_service(broker,
+                           logging_level,
+                           listen_backlog,
+                           input_routing_keys,
+                           output_routing_keys):
+    input_routing_keys = ",".join(input_routing_keys)
+    output_routing_keys = ",".join(output_routing_keys)
 
     env = []
-    broker = spec.get("broker", DEFAULT_BROKER)
-    env.append(f"CLIENT_HANDLER_PORT=3000")
-    env.append(f"LOGGING_LEVEL={spec['log_level']}")
-    env.append(f"CLI_WORKER_BROKER={broker}")
-    env.append(
-        f"CLI_WORKER_EXCHANGE1_OUTPUT_NAME={spec['movies_exchange_name']}")
-    env.append(
-        f"CLI_WORKER_EXCHANGE2_OUTPUT_NAME={spec['credits_exchange_name']}")
-    env.append(
-        f"CLI_WORKER_EXCHANGE3_OUTPUT_NAME={spec['ratings_exchange_name']}")
-    env.append(
-        f"CLIENT_HANDLER_FILTER_SPAIN_2000_REPLICAS={output_replicas_first_query-1}")
-    env.append(f"CLIENT_HANDLER_LISTEN_BACKLOG={spec["listen_backlog"]}")
+    env.extend([
+        f"CLIENT_HANDLER_PORT={CLI_HANDLER_PORT}",
+        f"LOGGING_LEVEL={logging_level}",
+        f"CLI_WORKER_BROKER={broker}",
+        f"CLIENT_HANDLER_LISTEN_BACKLOG={listen_backlog}",
+        f"CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS={input_routing_keys}",
+        f"CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS={output_routing_keys}"
+    ])
 
-    movies_input_routing_keys = []
-    for i in range(movies_input_replicas):
-        movies_input_routing_keys.append(f"movies.input{i+1}")
-    env.append(
-        f"CLI_WORKER_EXCHANGE1_OUTPUT_ROUTINGKEYS={','.join(movies_input_routing_keys)}")
-
-    env.append(
-        f"CLI_WORKER_EXCHANGE_INPUT_NAME={spec['results_exchange_name']}")
-    input_keys = ",".join(spec["results_exchange_routing_keys"])
-    env.append(f"CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS={input_keys}")
-
-    service = {
+    return {
         "container_name": "client-handler",
         "build": {
             "context": ".",
@@ -56,311 +51,165 @@ def client_handler_service(spec, movies_input_replicas, credits_input_replicas, 
         },
         "image": "client-handler:latest",
         "entrypoint": "python main.py",
-        "networks": ["movies_net"],
-        "ports": ["3000:3000"],
-        "depends_on": ["rabbitmq"],
+        "networks": COMMON_NETWORKS,
+        "ports": [f"{CLI_HANDLER_PORT}:{CLI_HANDLER_PORT}"],
+        "depends_on": COMMON_DEPENDS_ON[:],
         "environment": env
     }
-    return service
+
+
+def router_service(spec, replicas, replicas_services, replica_index):
+    env = [
+        f"CLI_LOG_LEVEL={spec['log_level']}",
+        f"CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS={','.join(spec['input_routing_keys'])}",
+    ]
+
+    for service in replicas_services:
+        replica_for_service = replicas[service]
+        output_routing_keys = ",".join(
+            f"{service}.{i}" for i in range(1, replica_for_service + 1))
+        env.append(
+            f"CLI_WORKER_OUTPUT_ROUTINGKEYS_{service.upper()}={output_routing_keys}"
+        )
+
+    env.extend([
+        f"CLI_WORKER_BROKER={spec.get('broker', DEFAULT_BROKER)}",
+        f"ClI_WORKER_INPUT_ROUTINGKEYS={','.join(spec['input_routing_keys'])}"
+    ])
+
+    return {
+        "build": {
+            "context": ".",
+            "dockerfile": "router/Dockerfile"
+        },
+        "container_name": f"router-{replica_index}",
+        "entrypoint": "python main.py",
+        "image": "router:latest",
+        "networks": COMMON_NETWORKS,
+        "depends_on": COMMON_DEPENDS_ON,
+        "environment": env
+    }
+
+
+def generic_worker_service(name, dockerfile_path, replica, spec, input_routing_key_postfix, entrypoint):
+    broker = spec.get("broker", DEFAULT_BROKER)
+    env = [
+        f"CLI_WORKER_BROKER={broker}",
+        f"CLI_LOG_LEVEL={spec['log_level']}",
+        f"CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS={','.join(spec['input_routing_keys'])}{input_routing_key_postfix}",
+        f"CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS={','.join(spec['output_routing_keys'])}"
+    ]
+
+    return {
+        "build": {
+            "context": ".",
+            "dockerfile": dockerfile_path
+        },
+        "container_name": f"{name}-{replica}",
+        "depends_on": ["rabbitmq"],
+        "entrypoint": entrypoint,
+        "environment": env,
+        "image": f"{name.replace('-', '_')}:latest",
+        "networks": ["movies_net"],
+    }
 
 
 def generate_compose(spec_path, output_path):
     with open(spec_path, "r") as f:
-        compose_spec = json.load(f)
+        spec = json.load(f)
 
-    compose = {}
-    compose["name"] = "tp1"
-    compose["networks"] = {
-        "movies_net": {
-            "ipam": {
-                "driver": "default",
-                "config": [
-                    {
-                        "subnet": "172.25.125.0/24"
-                    }
-                ]
+    compose = {
+        "name": spec.get("name", "tp1"),
+        "networks": {
+            COMMON_NETWORK: {
+                "ipam": {
+                    "driver": "default",
+                    "config": [{"subnet": "172.25.125.0/24"}]
+                }
             }
+        },
+        "services": {
+            "rabbitmq": rabbitmq_service(silent=True)
         }
     }
-    services = {
-        "rabbitmq": rabbitmq_service(silent=True)
-    }
 
-    specs = {service["name"]: service for service in compose_spec["services"]}
+    for service_spec in spec["services"]:
+        name = service_spec["name"]
+        replicas = service_spec["replicas"]
 
-    movies_input_replicas = specs["filter-argentina"]["replicas"]
-    output_replicas_first_query = specs["filter-spain-2000"]["replicas"]
-    credits_input_replicas = specs["join-movie-ratings"]["replicas"]
-    ratings_input_replicas = specs["join-movie-credits"]["replicas"]
+        if name == "client-handler":
+            broker = service_spec.get("broker", DEFAULT_BROKER)
+            logging_level = service_spec.get("log_level", "INFO")
+            listen_backlog = service_spec.get(
+                "listen_backlog", CLI_HANDLER_BACKLOG)
+            input_routing_keys = service_spec.get("input_routing_keys", [])
+            output_routing_keys = service_spec.get("output_routing_keys", [])
 
-    # first pass to get output keys
-    for service in compose_spec["services"]:
-        if service["name"] == "client-handler":
-            continue
+            compose["services"][name] = client_handler_service(
+                broker=broker,
+                logging_level=logging_level,
+                listen_backlog=listen_backlog,
+                input_routing_keys=input_routing_keys,
+                output_routing_keys=output_routing_keys
+            )
 
-        if "output" in service:
-            output_keys = service["output"]["routing_key"]
-            if "%d" in output_keys:
-                replica_service = service["output"].get(
-                    "replicas", service["name"])
-                replica_count = specs[replica_service]["replicas"]
-                output_keys = [output_keys % (i + 1)
-                               for i in range(replica_count)]
-            else:
-                output_keys = [output_keys]
-            service["output_keys"] = output_keys
+        elif name == "router":
+            replicas_services = ["join-movie-credits", "join-movie-ratings",
+                                 "group-by-overview-average", "group-by-actor-count",
+                                 "group-by-movie-average", "group-by-country-sum"]
+            replicas_for_nodes = get_service_replica_for_router(
+                spec["services"], replicas_services
+            )
+            for i in range(1, replicas + 1):
+                name_with_index = f"{name}-{i}"
+                compose["services"][name_with_index] = router_service(
+                    service_spec, replicas_for_nodes, replicas_services, i
+                )
 
-    # second pass to generate compose
-    for service in compose_spec["services"]:
-        if service["name"] == "client-handler":
-            services["client-handler"] = client_handler_service(
-                specs["client-handler"], movies_input_replicas, credits_input_replicas, ratings_input_replicas, output_replicas_first_query)
-            continue
-
-        srv = {}
-        prefix = ""
-        if service["name"].startswith("filter"):
-            prefix = "filters/"
-        elif service["name"].startswith("join"):
-            prefix = "joins/"
-        elif service["name"].startswith("group-by"):
-            prefix = "group_by/"
-        elif service["name"].startswith("master-group-by"):
-            prefix = "master_group_by/"
-        elif service["name"].startswith("top") or service["name"].startswith("first"):
-            prefix = "topn/"
-        elif service["name"].startswith("machine-learning"):
+        else:
             prefix = ""
+            postfix_routing_key = False
+            entrypoint = "./run_worker"
 
-        dockerfile = f"{prefix}{service['name'].replace('-', '_')}/Dockerfile"
-        srv["build"] = {
-            "context": ".",
-            "dockerfile": dockerfile
-        }
-        srv["image"] = f"{service['name'].replace('-', '_')}:latest"
-        srv["networks"] = ["movies_net"]
-        srv["depends_on"] = ["rabbitmq"]
-        srv["entrypoint"] = "python main.py" if service["name"] == "machine-learning" else "./run_worker"
+            if name.startswith("filter"):
+                prefix = "filters/"
+            elif name.startswith("join"):
+                prefix = "joins/"
+                postfix_routing_key = True
+            elif name.startswith("group-by"):
+                prefix = "group_by/"
+                postfix_routing_key = True
+            elif name.startswith("master-group-by"):
+                prefix = "master_group_by/"
+            elif name.startswith("top") or name.startswith("first"):
+                prefix = "topn/"
+            elif name.startswith("machine-learning"):
+                prefix = ""
+                entrypoint = "python main.py"
 
-        env = []
-        env.append(f"CLI_WORKER_BROKER={DEFAULT_BROKER}")
-        env.append(f"CLI_LOG_LEVEL={service['log_level']}")
-        env.append(
-            f"CLI_WORKER_EXCHANGE_OUTPUT_NAME={service['output']['exchange_name']}")
+            dockerfile_path = f"{prefix}{name.replace('-', '_')}/Dockerfile"
 
-        srv["environment"] = env
-
-        for i in range(service["replicas"]):
-            ith_service = {}
-            for k, v in srv.items():
-                ith_service[k] = v
-            ith_service["container_name"] = f"{service['name']}-{i+1}"
-            env = ith_service["environment"]
-
-            # Make a copy for this replica
-            env = list(ith_service["environment"])
-
-            # --- Input Handling ---
-            input_spec = service['input']
-            input_from = input_spec['from']
-            input_type = input_spec['type']
-            input_keys_list = []
-            input_exchange = ""
-            expected_eof = 1
-
-            # Use specs which is the compose_spec after the first pass modifications
-            # It should contain the calculated 'output_keys' for each service.
-            # The client-handler service logic (outside this loop) should handle calculating
-            # its specific output keys based on consumers. We assume 'specs' contains this info.
-
-            if input_from in ["movies", "credits", "ratings"]:
-                # Input comes from the central client-handler
-                client_handler_spec = specs['client-handler']
-
-                if input_from == "movies":
-                    client_handler_keys_for_consumer = [
-                        # Placeholder/Fallback
-                        f"{input_from}.input{k+1}" for k in range(movies_input_replicas)]
-                if input_from == "credits":
-                    client_handler_keys_for_consumer = [
-                        # Placeholder/Fallback
-                        f"{input_from}.input{k+1}" for k in range(credits_input_replicas)]
-                if input_from == "ratings":
-                    client_handler_keys_for_consumer = [
-                        # Placeholder/Fallback
-                        f"{input_from}.input{k+1}" for k in range(ratings_input_replicas)]
-
-                if input_from == "movies":
-                    input_exchange = client_handler_spec['movies_exchange_name']
-                elif input_from == "credits":
-                    input_exchange = client_handler_spec['credits_exchange_name']
-                elif input_from == "ratings":
-                    input_exchange = client_handler_spec['ratings_exchange_name']
-
-                if input_type == 'seq':
-                    # This replica gets the i-th key generated by the client-handler for this service group
-                    for j, key in enumerate(client_handler_keys_for_consumer):
-                        if j % service['replicas'] == i:
-                            input_keys_list.append(key)
-
-                else:  # 'all'
-                    # This replica listens to all keys generated by the client-handler for this service group
-                    input_keys_list = client_handler_keys_for_consumer
-                expected_eof = 1  # Client Handler sends 1 logical EOF per stream it manages
-
-            else:
-                # Input comes from another service
-                if input_from not in specs:
-                    raise ValueError(
-                        f"Input source service '{input_from}' not found in specs for service '{service['name']}'")
-                input_service_spec = specs[input_from]
-                input_exchange = input_service_spec['output']['exchange_name']
-                # 'output_keys' should have been calculated in the first pass
-                all_input_source_keys = input_service_spec.get(
-                    'output_keys', [])
-
-                if not all_input_source_keys:
-                    print(
-                        f"Warning: Input source service '{input_from}' has no output keys defined for service '{service['name']}'.")
-
-                if input_type == 'seq':
-                    # This replica gets the i-th output key from the source service
-                    for j, key in enumerate(all_input_source_keys):
-                        if j % service['replicas'] == i:
-                            input_keys_list.append(key)
-
-                    # Determine EOF based on the source's output behavior and replicas
-                    if input_service_spec['output']['type'] == 'all':
-                        # Source fans out from all its replicas via one exchange, this replica gets one key
-                        expected_eof = input_service_spec.get('replicas', 1)
-                    # 'seq', 'unique' -> source sends specific key from one replica (or corresponding replica)
-                    else:
-                        expected_eof = 1
-                else:  # 'all'
-                    # This replica listens to all output keys from the source service
-                    input_keys_list = all_input_source_keys
-                    # It will receive messages potentially from all replicas of the source service
-                    expected_eof = input_service_spec.get('replicas', 1)
-
-            # if input_keys_list: # Only add if keys were assigned
-            env.append(f"CLI_WORKER_EXCHANGE_INPUT_NAME={input_exchange}")
-            env.append(
-                f"CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS={','.join(input_keys_list)}")
-            env.append(f"CLI_WORKER_QUEUE_NAME={service['name']}")
-            env.append(f"CLI_WORKER_EXPECTEDEOF={expected_eof}")
-
-            # --- Output Handling ---
-            output_spec = service['output']
-            output_type = output_spec['type']
-            # 'output_keys' for *this* service were calculated in the first pass
-            all_output_keys = service.get('output_keys', [])
-            output_keys_list = []
-
-            if not all_output_keys:
-                print(
-                    f"Warning: Service '{service['name']}' has no output keys defined.")
-
-            if output_type == 'seq':
-                # This replica is responsible for sending to the i-th output key
-                for j, key in enumerate(all_output_keys):
-                    if j % service['replicas'] == i:
-                        output_keys_list.append(key)
-            else:  # 'all', 'unique'
-                # This replica sends to all output keys defined for the service
-                output_keys_list = all_output_keys
-
-            if output_keys_list:  # Only add if keys were assigned
-                # Output exchange name is already added before the loop
-                env.append(
-                    f"CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS={','.join(output_keys_list)}")
-
-            # --- Second Input Handling (if exists) ---
-            if 'second_input' in service:
-                sec_input_spec = service['second_input']
-                sec_input_from = sec_input_spec['from']
-                sec_input_type = sec_input_spec['type']
-                sec_input_keys_list = []
-                sec_input_exchange = ""
-                sec_expected_eof = 1
-
-                if sec_input_from in ["movies", "credits", "ratings"]:
-                    client_handler_spec = specs['client-handler']
-                    if sec_input_from == "movies":
-                        client_handler_keys_for_consumer = [
-                            f"{sec_input_from}.input{k+1}" for k in range(movies_input_replicas)]
-                    if sec_input_from == "credits":
-                        client_handler_keys_for_consumer = [
-                            f"{sec_input_from}.input{k+1}" for k in range(credits_input_replicas)]
-                    if sec_input_from == "ratings":
-                        client_handler_keys_for_consumer = [
-                            f"{sec_input_from}.input{k+1}" for k in range(ratings_input_replicas)]
-
-                    if sec_input_from == "movies":
-                        sec_input_exchange = client_handler_spec['movies_exchange_name']
-                    elif sec_input_from == "credits":
-                        sec_input_exchange = client_handler_spec['credits_exchange_name']
-                    elif sec_input_from == "ratings":
-                        sec_input_exchange = client_handler_spec['ratings_exchange_name']
-
-                    if sec_input_type == 'seq':
-                        for j, key in enumerate(client_handler_keys_for_consumer):
-                            if j % service['replicas'] == i:
-                                sec_input_keys_list.append(key)
-                    else:  # 'all'
-                        sec_input_keys_list = client_handler_keys_for_consumer
-                    sec_expected_eof = 1
-                else:
-                    # Input from another service
-                    if sec_input_from not in specs:
-                        raise ValueError(
-                            f"Second input source service '{sec_input_from}' not found in specs for service '{service['name']}'")
-                    sec_input_service_spec = specs[sec_input_from]
-                    sec_input_exchange = sec_input_service_spec['output']['exchange_name']
-                    sec_all_input_source_keys = sec_input_service_spec.get(
-                        'output_keys', [])
-
-                    if not sec_all_input_source_keys:
-                        print(
-                            f"Warning: Second input source service '{sec_input_from}' has no output keys defined for service '{service['name']}'.")
-
-                    if sec_input_type == 'seq':
-                        if i < len(sec_all_input_source_keys):
-                            sec_input_keys_list = [
-                                sec_all_input_source_keys[i]]
-                        else:
-                            sec_input_keys_list = []
-
-                        if sec_input_service_spec['output']['type'] == 'all':
-                            sec_expected_eof = sec_input_service_spec.get(
-                                'replicas', 1)
-                        else:  # seq, unique
-                            sec_expected_eof = 1
-                    else:  # 'all'
-                        sec_input_keys_list = sec_all_input_source_keys
-                        sec_expected_eof = sec_input_service_spec.get(
-                            'replicas', 1)
-
-                if sec_input_keys_list:
-                    env.append(
-                        f"CLI_WORKER_EXCHANGE_SECONDINPUT_NAME={sec_input_exchange}")
-                    env.append(
-                        f"CLI_WORKER_EXCHANGE_SECONDINPUT_ROUTINGKEYS={sec_input_keys_list[i]}")
-                    env.append(
-                        f"CLI_WORKER_SECONDQUEUE_NAME={service['name']}")
-                    env.append(f"CLI_WORKER_EXPECTEDEOF2={sec_expected_eof}")
-
-            # --- Machine Learning ---
-            if service['name'] == "machine-learning":
-                ith_service["cpus"] = "2"
-
-            ith_service["environment"] = env
-
-            services[f"{service['name']}-{i+1}"] = ith_service
-
-    compose["services"] = services
+            for i in range(1, replicas + 1):
+                instance_name = f"{name}-{i}"
+                compose["services"][instance_name] = generic_worker_service(
+                    name, dockerfile_path, i, service_spec, str(i) if postfix_routing_key else "", entrypoint)
 
     with open(output_path, "w") as f:
-        yaml.dump(compose, f)
+        f.write("version: '3.8'\n")
+        f.write(yaml.dump(compose, sort_keys=False))
+
+
+def get_service_replica_for_router(spec, replicas_services):
+    replicas = {}
+    for service in replicas_services:
+        service_spec = next(
+            (s for s in spec if s.get("name") == service), None)
+        replicas[service] = service_spec.get("replicas", -1)
+        if replicas == -1:
+            raise ValueError(
+                f"Service {service} must have a defined number of replicas.")
+
+    return replicas
 
 
 if __name__ == "__main__":
