@@ -7,21 +7,22 @@ import uuid
 MESSAGE_SEPARATOR = "|"
 MESSAGE_ARRAY_SEPARATOR = ","
 MESSAGE_EOF = "EOF"
+EXCHANGE_NAME = "control_exchange"
 
 log = logging.getLogger("worker")
 
 
 class ExchangeSpec:
-    def __init__(self, name, routing_keys, queue_name):
-        self.name = name
-        self.routing_keys = routing_keys
+    def __init__(self, input_routing_keys, output_routing_keys, queue_name):
+        self.name = EXCHANGE_NAME
+        self.input_routing_keys = input_routing_keys
+        self.output_routing_keys = output_routing_keys
         self.queue_name = queue_name
 
 
 class WorkerConfig:
-    def __init__(self, input_exchange, output_exchange, message_broker):
-        self.input_exchange = input_exchange
-        self.output_exchange = output_exchange
+    def __init__(self, exchange, message_broker):
+        self.exchange = exchange
         self.message_broker = message_broker
 
 
@@ -42,8 +43,7 @@ class Receiver:
 class Worker:
     def __init__(self, config: WorkerConfig):
         uuid_str = str(uuid.uuid4())
-        self.input_exchange = config.input_exchange
-        self.output_exchange = config.output_exchange
+        self.exchange = config.exchange
         self.message_broker = config.message_broker
         self.sender = None
         self.receiver = None
@@ -64,6 +64,7 @@ class Worker:
                     f"Failed to connect to broker on attempt {i+1}: {e}")
                 if i < max_retries - 1:
                     time.sleep(i * backoff_factor + retry_sleep)
+
         log.error("Failed to connect to broker")
         raise ConnectionError("Failed to connect to broker")
 
@@ -72,7 +73,7 @@ class Worker:
         ch = conn.channel()
 
         ch.exchange_declare(
-            exchange=self.output_exchange.name,
+            exchange=self.exchange.name,
             exchange_type='topic',
             durable=False,
             auto_delete=False
@@ -82,48 +83,45 @@ class Worker:
         log.info("Sender initialized")
 
     def init_receiver(self):
-        self.receiver = self._init_generic_receiver(self.input_exchange)
-        log.info("Receiver initialized")
-
-    def _init_generic_receiver(self, exchange_spec):
         conn = self._init_connection()
         ch = conn.channel()
 
         ch.exchange_declare(
-            exchange=exchange_spec.name,
+            exchange=self.exchange.name,
             exchange_type='topic',
             durable=False,
             auto_delete=False
         )
 
         result = ch.queue_declare(
-            queue=exchange_spec.queue_name, exclusive=False, auto_delete=False)
+            queue=self.exchange.queue_name, exclusive=False, auto_delete=False
+        )
         queue_name = result.method.queue
 
-        for routing_key in exchange_spec.routing_keys:
+        for routing_key in self.exchange.input_routing_keys:
             ch.queue_bind(
-                exchange=exchange_spec.name,
+                exchange=self.exchange.name,
                 queue=queue_name,
                 routing_key=routing_key
             )
 
         messages = ch.consume(queue=queue_name, auto_ack=True)
-        return Receiver(conn, ch, queue_name, messages)
+        self.receiver = Receiver(conn, ch, queue_name, messages)
+        log.info("Receiver initialized")
 
-    def send_message(self, message, routing_key, exchange):
+    def send_message(self, message, routing_key):
         if not self.sender:
             raise Exception("Sender not initialized")
 
         message = f"{self.client_id}|{message}"
         self.sender.ch.basic_publish(
-            exchange=exchange.name,
+            exchange=self.exchange.name,
             routing_key=routing_key,
             body=message,
             properties=pika.BasicProperties(content_type="text/plain")
         )
 
-        log.debug(f"Sent message to exchange {exchange} "
-                  f"{message}")
+        log.debug(f"Sent message to routing_key {routing_key}: "f"{message}")
 
     def received_messages(self):
         if not self.receiver:
