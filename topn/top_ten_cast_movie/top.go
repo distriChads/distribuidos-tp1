@@ -119,9 +119,7 @@ func NewTopTenCastMovie(config TopTenCastMovieConfig, messages_before_commit int
 	log.Infof("TopTenCastMovie: %+v", config)
 	return &TopTenCastMovie{
 		Worker: worker.Worker{
-			InputExchange:  config.InputExchange,
-			OutputExchange: config.OutputExchange,
-			MessageBroker:  config.MessageBroker,
+			MessageBroker: config.MessageBroker,
 		},
 		top_ten:                make(map[string][]TopTenCastCount, 0),
 		messages_before_commit: messages_before_commit,

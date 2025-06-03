@@ -114,9 +114,7 @@ func NewTopFiveCountryBudget(config TopFiveCountryBudgetConfig, messages_before_
 	log.Infof("TopFiveCountryBudget: %+v", config)
 	return &TopFiveCountryBudget{
 		Worker: worker.Worker{
-			InputExchange:  config.InputExchange,
-			OutputExchange: config.OutputExchange,
-			MessageBroker:  config.MessageBroker,
+			MessageBroker: config.MessageBroker,
 		},
 		top_five:               make(map[string][]CountrByBudget, 0),
 		messages_before_commit: messages_before_commit,

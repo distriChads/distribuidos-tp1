@@ -29,25 +29,25 @@ class Client:
         return self.client_socket.send(data)
 
     def send_message(self, data):
-        logging.info(f"Sending data to worker: {data}")
+        
         exchange = None
         routing_key = None
 
         # TODO: we have only one routing key now for working queue, change worker with it
         if type(self.batch_processor) == MoviesProcessor:
-            routing_key = self.worker.output_exchange.routing_keys[0]
-            exchange = self.worker.output_exchange
+            routing_key = self.worker.exchange.output_routing_keys[0]
+            exchange = self.worker.exchange.name
         elif type(self.batch_processor) == CreditsProcessor:
-            routing_key = self.worker.output_exchange2.routing_keys[0]
-            exchange = self.worker.output_exchange2
+            routing_key = self.worker.exchange.output_routing_keys[0]
+            exchange = self.worker.exchange.name
         else:  # RatingsProcessor
-            routing_key = self.worker.output_exchange3.routing_keys[0]
-            exchange = self.worker.output_exchange3
+            routing_key = self.worker.exchange.output_routing_keys[0]
+            exchange = self.worker.exchange.name
 
         if not routing_key or not exchange:
             raise ValueError("Routing key or exchange is not set.")
 
-        self.worker.send_message(data, routing_key, exchange)
+        self.worker.send_message(data, routing_key)
 
     def set_next_processor(self):
         if type(self.batch_processor) == MoviesProcessor:
