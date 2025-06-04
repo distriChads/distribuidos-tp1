@@ -13,6 +13,8 @@ const MESSAGE_SEPARATOR = "|"
 const MESSAGE_ARRAY_SEPARATOR = ","
 const MESSAGE_EOF = "EOF"
 
+const EXCHANGE_NAME = "data_exchange"
+
 var log = logging.MustGetLogger("worker")
 
 type sender struct {
@@ -28,26 +30,22 @@ type receiver struct {
 }
 
 type ExchangeSpec struct {
-	Name        string
-	RoutingKeys []string
-	QueueName   string
+	InputRoutingKeys  []string
+	OutputRoutingKeys []string
+	QueueName         string
 }
 
 type WorkerConfig struct {
-	InputExchange       ExchangeSpec
-	SecondInputExchange ExchangeSpec
-	OutputExchange      ExchangeSpec
-	MessageBroker       string
+	Exchange      ExchangeSpec
+	MessageBroker string
 }
 
 type Worker struct {
-	InputExchange       ExchangeSpec
-	SecondInputExchange ExchangeSpec
-	OutputExchange      ExchangeSpec
-	MessageBroker       string
-	sender              *sender
-	receiver            *receiver
-	secondReceiver      *receiver // solo necesario para los joins que van a tener 2 receivers :)
+	Exchange       ExchangeSpec
+	MessageBroker  string
+	sender         *sender
+	receiver       *receiver
+	secondReceiver *receiver // solo necesario para los joins que van a tener 2 receivers :)
 }
 
 func initConnection(broker string) (*amqp.Connection, error) {
@@ -57,6 +55,7 @@ func initConnection(broker string) (*amqp.Connection, error) {
 	max_retries := 3 // TODO: make these env variables
 	retry_sleep := 10 * time.Second
 	backoff_factor := 2
+
 	for i := range max_retries {
 		conn, err = amqp.Dial(broker)
 		if err == nil {
@@ -67,6 +66,7 @@ func initConnection(broker string) (*amqp.Connection, error) {
 			time.Sleep(time.Duration(i*backoff_factor) + retry_sleep)
 		}
 	}
+
 	if err != nil {
 		log.Errorf("Failed to connect to broker: %s", err)
 		return nil, err
@@ -87,13 +87,13 @@ func InitSender(worker *Worker) error {
 	}
 
 	err = ch.ExchangeDeclare(
-		worker.OutputExchange.Name, // name
-		"topic",                    // type
-		false,                      // durable
-		false,                      // auto-deleted
-		false,                      // internal
-		false,                      // no-wait
-		nil,                        // arguments
+		EXCHANGE_NAME, // name
+		"topic",       // type
+		false,         // durable
+		false,         // auto-deleted
+		false,         // internal
+		false,         // no-wait
+		nil,           // arguments
 	)
 	if err != nil {
 		return err
@@ -129,11 +129,23 @@ func InitReceiver(worker *Worker) error {
 	}
 
 	err = ch.ExchangeDeclare(
-		worker.InputExchange.Name, // name
-		"topic",                   // type
+		EXCHANGE_NAME, // name
+		"topic",       // type
+		false,         // durable
+		false,         // auto-deleted
+		false,         // internal
+		false,         // no-wait
+		nil,           // arguments
+	)
+	if err != nil {
+		return err
+	}
+
+	q, err := ch.QueueDeclare(
+		worker.Exchange.QueueName, // name
 		false,                     // durable
-		false,                     // auto-deleted
-		false,                     // internal
+		false,                     // delete when unused
+		false,                     // exclusive
 		false,                     // no-wait
 		nil,                       // arguments
 	)
@@ -141,23 +153,11 @@ func InitReceiver(worker *Worker) error {
 		return err
 	}
 
-	q, err := ch.QueueDeclare(
-		worker.InputExchange.QueueName, // name
-		false,                          // durable
-		false,                          // delete when unused
-		false,                          // exclusive
-		false,                          // no-wait
-		nil,                            // arguments
-	)
-	if err != nil {
-		return err
-	}
-
-	for _, routingKey := range worker.InputExchange.RoutingKeys {
+	for _, routingKey := range worker.Exchange.InputRoutingKeys {
 		err = ch.QueueBind(
-			q.Name,                    // queue name
-			routingKey,                // routing key
-			worker.InputExchange.Name, // exchange
+			q.Name,        // queue name
+			routingKey,    // routing key
+			EXCHANGE_NAME, // exchange
 			false,
 			nil,
 		)
@@ -201,36 +201,23 @@ func InitSecondReceiver(worker *Worker) error {
 		return err
 	}
 
-	err = ch.ExchangeDeclare(
-		worker.SecondInputExchange.Name, // name
-		"topic",                         // type
-		false,                           // durable
-		false,                           // auto-deleted
-		false,                           // internal
-		false,                           // no-wait
-		nil,                             // arguments
-	)
-	if err != nil {
-		return err
-	}
-
 	q, err := ch.QueueDeclare(
-		worker.SecondInputExchange.QueueName, // name
-		false,                                // durable
-		false,                                // delete when unused
-		false,                                // exclusive
-		false,                                // no-wait
-		nil,                                  // arguments
+		worker.secondReceiver.queue.Name, // name
+		false,                            // durable
+		false,                            // delete when unused
+		false,                            // exclusive
+		false,                            // no-wait
+		nil,                              // arguments
 	)
 	if err != nil {
 		return err
 	}
 
-	for _, routingKey := range worker.SecondInputExchange.RoutingKeys {
+	for _, routingKey := range worker.Exchange.InputRoutingKeys {
 		err = ch.QueueBind(
-			q.Name,                          // queue name
-			routingKey,                      // routing key
-			worker.SecondInputExchange.Name, // exchange
+			q.Name,        // queue name
+			routingKey,    // routing key
+			EXCHANGE_NAME, // exchange
 			false,
 			nil,
 		)
@@ -272,10 +259,10 @@ func SendMessage(worker Worker, message string, routingKey string) error {
 	defer cancel()
 
 	err := worker.sender.ch.PublishWithContext(ctx,
-		worker.OutputExchange.Name, // exchange
-		routingKey,                 // routing key
-		false,                      // mandatory
-		false,                      // immediate
+		EXCHANGE_NAME, // exchange
+		routingKey,    // routing key
+		false,         // mandatory
+		false,         // immediate
 		amqp.Publishing{
 			ContentType: "text/plain",
 			Body:        []byte(message),
@@ -283,7 +270,7 @@ func SendMessage(worker Worker, message string, routingKey string) error {
 	if err != nil {
 		return err
 	}
-	log.Debugf("Sent message to exchange %s (routing key: %s): %s", worker.OutputExchange.Name, routingKey, message)
+	log.Debugf("Sent message to (routing key: %s): %s", routingKey, message)
 
 	return nil
 }

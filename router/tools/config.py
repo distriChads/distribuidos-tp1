@@ -18,7 +18,8 @@ def init_config() -> dict[str, str | int]:
 def load_environmental_variables(config: ConfigParser, config_params: dict[str, str | int]):
     try:
         setup_client_handler_config_esentials(config, config_params)
-        load_exchange_config(config, config_params)
+        load_input_exchange_config(config, config_params)
+        load_output_exchange_config(config, config_params)
     except KeyError as e:
         raise KeyError(
             "Key was not found. Error: {} .Aborting client_handler".format(e))
@@ -27,18 +28,23 @@ def load_environmental_variables(config: ConfigParser, config_params: dict[str, 
             "Key could not be parsed. Error: {}. Aborting client_handler".format(e))
 
 
-def load_exchange_config(config, config_params):
+def load_output_exchange_config(config, config_params):
+    config_params["CLI_WORKER_EXCHANGE1_OUTPUT_NAME"] = os.getenv(
+        'CLI_WORKER_EXCHANGE1_OUTPUT_NAME') or config["DEFAULT"]["CLI_WORKER_EXCHANGE1_OUTPUT_NAME"]
+
+    config_params["CLI_WORKER_EXCHANGE1_OUTPUT_ROUTINGKEYS"] = os.getenv(
+        'CLI_WORKER_EXCHANGE1_OUTPUT_ROUTINGKEYS') or config["DEFAULT"]["CLI_WORKER_EXCHANGE1_OUTPUT_ROUTINGKEYS"]
+
+
+def load_input_exchange_config(config, config_params):
+    config_params["CLI_WORKER_EXCHANGE_INPUT_NAME"] = os.getenv(
+        'CLI_WORKER_EXCHANGE_INPUT_NAME') or config["DEFAULT"]["CLI_WORKER_EXCHANGE_INPUT_NAME"]
+
     config_params["CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS"] = os.getenv(
         'CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS') or config["DEFAULT"]["CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS"]
-    config_params["CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS"] = os.getenv(
-        'CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS') or config["DEFAULT"]["CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS"]
 
 
 def setup_client_handler_config_esentials(config, config_params):
-    config_params["port"] = int(
-        os.getenv('CLIENT_HANDLER_PORT') or config["DEFAULT"]["CLIENT_HANDLER_PORT"])
-    config_params["listen_backlog"] = int(
-        os.getenv('CLIENT_HANDLER_LISTEN_BACKLOG') or config["DEFAULT"]["CLIENT_HANDLER_LISTEN_BACKLOG"])
     config_params["logging_level"] = os.getenv(
         'LOGGING_LEVEL') or config["DEFAULT"]["LOGGING_LEVEL"]
     config_params["CLI_WORKER_BROKER"] = os.getenv(

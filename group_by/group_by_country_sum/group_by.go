@@ -103,16 +103,13 @@ func getGroupedElements() map[string]int {
 	return nil
 }
 
-func NewGroupByCountryAndSum(config GroupByCountryAndSumConfig, messages_before_commit int, eof_counter int) *GroupByCountryAndSum {
+func NewGroupByCountryAndSum(config GroupByCountryAndSumConfig, messages_before_commit int) *GroupByCountryAndSum {
 	log.Infof("GroupByCountryAndSum: %+v", config)
 	return &GroupByCountryAndSum{
 		Worker: worker.Worker{
-			InputExchange:  config.InputExchange,
-			OutputExchange: config.OutputExchange,
-			MessageBroker:  config.MessageBroker,
+			MessageBroker: config.MessageBroker,
 		},
 		messages_before_commit: messages_before_commit,
-		expected_eof:           eof_counter,
 		grouped_elements:       make(map[string]map[string]int),
 		eofs:                   make(map[string]int),
 	}

@@ -27,16 +27,10 @@ func InitConfig() (*viper.Viper, error) {
 
 	// Add env variables supported
 	v.BindEnv("log", "level")
-	v.BindEnv("worker", "exchange", "input", "name")
 	v.BindEnv("worker", "exchange", "input", "routingkeys")
-	v.BindEnv("worker", "exchange", "secondinput", "name")
-	v.BindEnv("worker", "exchange", "secondinput", "routingkeys")
-	v.BindEnv("worker", "exchange", "output", "name")
 	v.BindEnv("worker", "exchange", "output", "routingkeys")
-	v.BindEnv("worker", "queue", "name")
 	v.BindEnv("worker", "broker")
 	v.BindEnv("worker", "maxmessages")
-	v.BindEnv("worker", "expectedeof")
 	// Try to read configuration from config file. If config file
 	// does not exists then ReadInConfig will fail but configuration
 	// can be loaded from the environment variables so we shouldn't

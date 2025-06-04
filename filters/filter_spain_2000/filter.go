@@ -17,21 +17,14 @@ type FilterBySpainAndOf2000Config struct {
 
 type FilterBySpainAndOf2000 struct {
 	worker.Worker
-	queue_to_send int
-	expected_eof  int
-	eofs          map[string]int
 }
 
-func NewFilterBySpainAndOf2000(config FilterBySpainAndOf2000Config, eof_counter int) *FilterBySpainAndOf2000 {
+func NewFilterBySpainAndOf2000(config FilterBySpainAndOf2000Config) *FilterBySpainAndOf2000 {
 	log.Infof("FilterBySpainAndOf2000: %+v", config)
 	return &FilterBySpainAndOf2000{
 		Worker: worker.Worker{
-			InputExchange:  config.InputExchange,
-			OutputExchange: config.OutputExchange,
-			MessageBroker:  config.MessageBroker,
+			MessageBroker: config.MessageBroker,
 		},
-		expected_eof: eof_counter,
-		eofs:         make(map[string]int),
 	}
 }
 
@@ -68,32 +61,33 @@ func (f *FilterBySpainAndOf2000) Filter(lines []string) []string {
 }
 
 func (f *FilterBySpainAndOf2000) HandleEOF(client_id string) error {
-	if _, ok := f.eofs[client_id]; !ok {
-		f.eofs[client_id] = 0
-	}
-	f.eofs[client_id]++
-	if f.eofs[client_id] >= f.expected_eof {
-		log.Infof("Sending EOF for client %s", client_id)
-		for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
-			routing_key := queue_name
-			message := client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
-			err := worker.SendMessage(f.Worker, message, routing_key)
-			if err != nil {
-				return err
-			}
-		}
-		log.Infof("Client %s finished", client_id)
-	}
+	// if _, ok := f.eofs[client_id]; !ok {
+	// 	f.eofs[client_id] = 0
+	// }
+	// f.eofs[client_id]++
+	// if f.eofs[client_id] >= f.expected_eof {
+	// 	log.Infof("Sending EOF for client %s", client_id)
+	// 	for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
+	// 		routing_key := queue_name
+	// 		message := client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
+	// 		err := worker.SendMessage(f.Worker, message, routing_key)
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 	}
+	// 	log.Infof("Client %s finished", client_id)
+	// }
 	return nil
 }
 
 func (f *FilterBySpainAndOf2000) SendMessage(message_to_send []string, client_id string) error {
 	message := strings.Join(message_to_send, "\n")
 	if len(message) != 0 {
-		send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
+		// send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
+		send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
 		message = client_id + worker.MESSAGE_SEPARATOR + message
 		err := worker.SendMessage(f.Worker, message, send_queue_key)
-		f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
+		// f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
 		if err != nil {
 			return err
 		}

@@ -22,26 +22,27 @@ class ClientHandler:
     def __init__(self,
                  port: int,
                  client_handler_config: ClientHandlerConfig,
-                 eof_for_query_1: int,
                  listen_backlog: int,
                  ):
         self._cli_hand_socket = socket.socket(
             socket.AF_INET, socket.SOCK_STREAM)
         self._cli_hand_socket.bind(('', port))
-        self._cli_hand_socket.listen(listen_backlog) 
+        self._cli_hand_socket.listen(listen_backlog)
         self._running = True
+
         # Handle SIGINT (Ctrl+C) and SIGTERM (docker stop)
         signal.signal(signal.SIGINT, self.__graceful_shutdown_handler)
         signal.signal(signal.SIGTERM, self.__graceful_shutdown_handler)
 
         self.client_handler_config = client_handler_config
-        self.eof_for_query_1 = eof_for_query_1
         self.worker = Worker(client_handler_config)
+
         try:
             self.worker.init_receiver()
         except Exception as e:
             logging.error(f"Error initializing worker: {e}")
             return e
+
         self.eof_per_client: dict[str, int] = {}  # TODO: REMOVE
         self.clients_lock = threading.Lock()
         self.clients: dict[str, Client] = {}

@@ -64,10 +64,7 @@ func NewJoinMovieCreditsById(config JoinMovieCreditsByIdConfig, messages_before_
 	log.Infof("JoinMovieCreditsById: %+v", config)
 	return &JoinMovieCreditsById{
 		Worker: worker.Worker{
-			InputExchange:       config.InputExchange,
-			SecondInputExchange: config.SecondInputExchange,
-			OutputExchange:      config.OutputExchange,
-			MessageBroker:       config.MessageBroker,
+			MessageBroker: config.MessageBroker,
 		},
 		expected_eof:           eof_counter,
 		messages_before_commit: messages_before_commit,
@@ -115,7 +112,7 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 			if message_str == worker.MESSAGE_EOF {
 				delete(f.client_movies_by_id, client_id)
 				delete(f.eofs, client_id)
-				for _, routing_key := range f.Worker.OutputExchange.RoutingKeys {
+				for _, routing_key := range f.Worker.Exchange.OutputRoutingKeys {
 					key := routing_key
 					message_to_send := client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
 					err := worker.SendMessage(f.Worker, message_to_send, key)
@@ -130,10 +127,11 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 			result := joinMovieWithCredits(lines, f.client_movies_by_id[client_id])
 			message_to_send := strings.Join(result, "\n")
 			if len(message_to_send) != 0 {
-				send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
+				// send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
+				send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
 				message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_to_send
 				err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
-				f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
+				// f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
 				if err != nil {
 					log.Infof("Error sending message: %s", err.Error())
 				}
@@ -170,10 +168,11 @@ func (f *JoinMovieCreditsById) RunWorker() error {
 					result := joinMovieWithCredits(lines, f.client_movies_by_id[client_id])
 					message_to_send := strings.Join(result, "\n")
 					if len(message_to_send) != 0 {
-						send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
+						// send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
+						send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
 						message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_to_send
 						err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
-						f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
+						// f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
 						if err != nil {
 							log.Infof("Error sending message: %s", err.Error())
 						}

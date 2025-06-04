@@ -23,30 +23,17 @@ func main() {
 		return
 	}
 
+	log_level := v.GetString("log.level")
+
 	queueName := v.GetString("worker.queue.name")
-	inputExchangeSpec := worker.ExchangeSpec{
-		Name:        v.GetString("worker.exchange.input.name"),
-		RoutingKeys: strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
-		QueueName:   queueName,
-	}
-	secondInputExchangeSpec := worker.ExchangeSpec{
-		Name:        v.GetString("worker.exchange.secondinput.name"),
-		RoutingKeys: strings.Split(v.GetString("worker.exchange.secondinput.routingkeys"), ","),
-		QueueName:   queueName + "2",
-	}
-	outputExchangeSpec := worker.ExchangeSpec{
-		Name:        v.GetString("worker.exchange.output.name"),
-		RoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
-		QueueName:   queueName,
+	exchange := worker.ExchangeSpec{
+		InputRoutingKeys:  strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
+		OutputRoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
+		QueueName:         queueName,
 	}
 	messageBroker := v.GetString("worker.broker")
 
-	log_level := v.GetString("log.level")
-
-	println(("first exchange name: " + v.GetString("worker.exchange.input.name")))
-	println(("second exchange name: " + v.GetString("worker.exchange.secondinput.name")))
-
-	if inputExchangeSpec.Name == "" || inputExchangeSpec.RoutingKeys[0] == "" || outputExchangeSpec.Name == "" || outputExchangeSpec.RoutingKeys[0] == "" || messageBroker == "" {
+	if exchange.InputRoutingKeys[0] == "" || exchange.OutputRoutingKeys[0] == "" || messageBroker == "" {
 		log.Criticalf("Error: one or more environment variables are empty")
 		return
 	}
@@ -67,10 +54,8 @@ func main() {
 
 	join := join.NewJoinMovieRatingById(join.JoinMovieRatingByIdConfig{
 		WorkerConfig: worker.WorkerConfig{
-			InputExchange:       inputExchangeSpec,
-			SecondInputExchange: secondInputExchangeSpec,
-			OutputExchange:      outputExchangeSpec,
-			MessageBroker:       messageBroker,
+			Exchange:      exchange,
+			MessageBroker: messageBroker,
 		},
 	}, maxMessages, expectedEof)
 

@@ -20,7 +20,7 @@ type StatefullWorker interface {
 var log = logging.MustGetLogger("common_group_by")
 
 func SendResult(w worker.Worker, s StatefullWorker, client_id string) error {
-	send_queue_key := w.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
+	send_queue_key := w.Exchange.OutputRoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
 	message_to_send := client_id + worker.MESSAGE_SEPARATOR + s.MapToLines(client_id)
 	err := worker.SendMessage(w, message_to_send, send_queue_key)
 	if err != nil {

@@ -1,28 +1,26 @@
 import pika
 import time
 import logging
-from contextlib import contextmanager
 import uuid
 
 MESSAGE_SEPARATOR = "|"
 MESSAGE_ARRAY_SEPARATOR = ","
 MESSAGE_EOF = "EOF"
-EXCHANGE_NAME = "control_exchange"
 
 log = logging.getLogger("worker")
 
 
 class ExchangeSpec:
-    def __init__(self, input_routing_keys, output_routing_keys, queue_name):
-        self.name = EXCHANGE_NAME
-        self.input_routing_keys = input_routing_keys
-        self.output_routing_keys = output_routing_keys
+    def __init__(self, name, routing_keys, queue_name):
+        self.name = name
+        self.routing_keys = routing_keys
         self.queue_name = queue_name
 
 
 class WorkerConfig:
-    def __init__(self, exchange, message_broker):
-        self.exchange = exchange
+    def __init__(self, input_exchange, output_exchange, message_broker):
+        self.input_exchange = input_exchange
+        self.output_exchange = output_exchange
         self.message_broker = message_broker
 
 
@@ -43,11 +41,13 @@ class Receiver:
 class Worker:
     def __init__(self, config: WorkerConfig):
         uuid_str = str(uuid.uuid4())
-        self.exchange = config.exchange
+
+        self.input_exchange = config.input_exchange
+        self.output_exchange = config.output_exchange
+
         self.message_broker = config.message_broker
         self.sender = None
-        self.receiver = None
-        self.client_id = uuid_str
+        self.receivers = None
 
     def _init_connection(self):
         max_retries = 3
@@ -62,7 +62,7 @@ class Worker:
             except Exception as e:
                 log.warning(
                     f"Failed to connect to broker on attempt {i+1}: {e}")
-                if i < max_retries - 1:
+                if i < max_retries:
                     time.sleep(i * backoff_factor + retry_sleep)
 
         log.error("Failed to connect to broker")
@@ -73,7 +73,7 @@ class Worker:
         ch = conn.channel()
 
         ch.exchange_declare(
-            exchange=self.exchange.name,
+            exchange=self.output_exchange.name,
             exchange_type='topic',
             durable=False,
             auto_delete=False
@@ -82,51 +82,67 @@ class Worker:
         self.sender = Sender(conn, ch)
         log.info("Sender initialized")
 
-    def init_receiver(self):
+    def init_receivers(self):
+        self.receivers = []
         conn = self._init_connection()
         ch = conn.channel()
 
+        for i, routing_key in enumerate(self.input_exchange.routing_keys):
+            queue_name = f"{self.input_exchange.queue_name}_{i}"
+            receiver = self._init_receiver(
+                ch=ch,
+                conn=conn,
+                routing_key=routing_key,
+                queue_name=queue_name,
+            )
+            self.receivers.append(receiver)
+
+    def _init_receiver(self,
+                       ch: pika.channel.Channel,
+                       conn: pika.BlockingConnection,
+                       routing_key: str,
+                       queue_name: str
+                       ):
         ch.exchange_declare(
-            exchange=self.exchange.name,
+            exchange=self.input_exchange.name,
             exchange_type='topic',
             durable=False,
             auto_delete=False
         )
 
         result = ch.queue_declare(
-            queue=self.exchange.queue_name, exclusive=False, auto_delete=False
-        )
+            queue=queue_name, exclusive=False, auto_delete=False)
         queue_name = result.method.queue
 
-        for routing_key in self.exchange.input_routing_keys:
-            ch.queue_bind(
-                exchange=self.exchange.name,
-                queue=queue_name,
-                routing_key=routing_key
-            )
+        ch.queue_bind(
+            exchange=self.input_exchange.name,
+            queue=queue_name,
+            routing_key=routing_key
+        )
 
         messages = ch.consume(queue=queue_name, auto_ack=True)
-        self.receiver = Receiver(conn, ch, queue_name, messages)
-        log.info("Receiver initialized")
+        log.info(
+            f"Receiver initialized: queue={queue_name}, routing_key={routing_key}")
+        return Receiver(conn, ch, queue_name, messages)
 
-    def send_message(self, message, routing_key):
+    def send_message(self, message, routing_key, exchange):
         if not self.sender:
             raise Exception("Sender not initialized")
 
-        message = f"{self.client_id}|{message}"
         self.sender.ch.basic_publish(
-            exchange=self.exchange.name,
+            exchange=exchange.name,
             routing_key=routing_key,
             body=message,
             properties=pika.BasicProperties(content_type="text/plain")
         )
 
-        log.debug(f"Sent message to routing_key {routing_key}: "f"{message}")
+        log.debug(f"Sent message to exchange {exchange} "
+                  f"{message}")
 
-    def received_messages(self):
-        if not self.receiver:
+    def received_messages_from_routing(self, routing_key):
+        if not self.receivers:
             raise Exception("Receiver not initialized")
-        return self.receiver.messages
+        return self.receivers[routing_key].messages
 
     def close_worker(self):
         self._close_sender()

@@ -56,15 +56,12 @@ func mapToLines(grouped_elements map[string]int) string {
 }
 
 func (g *MasterGroupByCountryAndSum) HandleEOF(client_id string) error {
-	g.eofs[client_id]++
-	if g.eofs[client_id] >= g.expected_eof {
-		err := common_statefull_worker.SendResult(g.Worker, g, client_id)
-		if err != nil {
-			return err
-		}
-		delete(g.grouped_elements, client_id)
-		delete(g.eofs, client_id)
+	err := common_statefull_worker.SendResult(g.Worker, g, client_id)
+	if err != nil {
+		return err
 	}
+	delete(g.grouped_elements, client_id)
+	delete(g.eofs, client_id)
 	return nil
 }
 
@@ -102,12 +99,10 @@ func NewGroupByCountryAndSum(config MasterGroupByCountryAndSumConfig, messages_b
 	log.Infof("MasterGroupByCountryAndSum: %+v", config)
 	return &MasterGroupByCountryAndSum{
 		Worker: worker.Worker{
-			InputExchange:  config.InputExchange,
-			OutputExchange: config.OutputExchange,
-			MessageBroker:  config.MessageBroker,
+
+			MessageBroker: config.MessageBroker,
 		},
 		messages_before_commit: messages_before_commit,
-		expected_eof:           expected_eof,
 		grouped_elements:       make(map[string]map[string]int),
 		eofs:                   make(map[string]int),
 	}

@@ -24,19 +24,14 @@ func main() {
 	}
 
 	log_level := v.GetString("log.level")
-	inputExchangeSpec := worker.ExchangeSpec{
-		Name:        v.GetString("worker.exchange.input.name"),
-		RoutingKeys: strings.Split(v.GetString("worker.exchange.input.routingKeys"), ","),
-		QueueName:   "master_group_by_movie_average_queue",
-	}
-	outputExchangeSpec := worker.ExchangeSpec{
-		Name:        v.GetString("worker.exchange.output.name"),
-		RoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingKeys"), ","),
-		QueueName:   "master_group_by_movie_average_queue",
+	exchangeSpec := worker.ExchangeSpec{
+		InputRoutingKeys:  strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
+		OutputRoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
+		QueueName:         v.GetString("worker.queue.name"),
 	}
 	messageBroker := v.GetString("worker.broker")
 
-	if inputExchangeSpec.Name == "" || inputExchangeSpec.RoutingKeys[0] == "" || outputExchangeSpec.Name == "" || outputExchangeSpec.RoutingKeys[0] == "" || messageBroker == "" {
+	if exchangeSpec.InputRoutingKeys[0] == "" || exchangeSpec.OutputRoutingKeys[0] == "" || messageBroker == "" {
 		log.Criticalf("Error: one or more environment variables are empty")
 		return
 	}
@@ -57,9 +52,7 @@ func main() {
 
 	masterGroupByMovieAverage := master_group_by.NewGroupByMovieAndAvg(master_group_by.MasterGroupByMovieAndAvgConfig{
 		WorkerConfig: worker.WorkerConfig{
-			InputExchange:  inputExchangeSpec,
-			OutputExchange: outputExchangeSpec,
-			MessageBroker:  messageBroker,
+			MessageBroker: messageBroker,
 		},
 	}, maxMessages, expectedEof)
 
