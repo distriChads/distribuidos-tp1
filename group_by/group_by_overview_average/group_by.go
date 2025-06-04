@@ -20,6 +20,8 @@ type GroupByOverviewAndAvg struct {
 	expected_eof           int
 	grouped_elements       map[string]map[string]RevenueBudgetCount
 	eofs                   map[string]int
+	node_name              string
+	log_replicas           int
 }
 
 type RevenueBudgetCount struct {
@@ -40,7 +42,7 @@ func (g *GroupByOverviewAndAvg) NewClient(client_id string) {
 
 func (g *GroupByOverviewAndAvg) ShouldCommit(messages_before_commit int, client_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		storeGroupedElements(g.grouped_elements[client_id], client_id)
+		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.node_name, g.log_replicas)
 		return true
 	}
 	return false
@@ -110,17 +112,10 @@ func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]Revenu
 	}
 }
 
-func storeGroupedElements(results map[string]RevenueBudgetCount, client_id string) {
-	// TODO: Dumpear el hashmap a un archivo
-}
-
-func getGroupedElements() map[string]int {
-	// TODO: Cuando se caiga un worker, deberia leer de este archivo lo que estuvo obteniendo
-	return nil
-}
-
-func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_before_commit int, eof_counter int) *GroupByOverviewAndAvg {
+func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_before_commit int, eof_counter int, node_name string) *GroupByOverviewAndAvg {
 	log.Infof("GroupByOverviewAndAvg: %+v", config)
+	replicas := 3
+	grouped_elements, _ := common_statefull_worker.GetElements[RevenueBudgetCount](node_name, replicas+1)
 	return &GroupByOverviewAndAvg{
 		Worker: worker.Worker{
 			InputExchange:  config.InputExchange,
@@ -130,7 +125,9 @@ func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_befor
 		messages_before_commit: messages_before_commit,
 		expected_eof:           eof_counter,
 		eofs:                   make(map[string]int),
-		grouped_elements:       make(map[string]map[string]RevenueBudgetCount),
+		grouped_elements:       grouped_elements,
+		node_name:              node_name,
+		log_replicas:           replicas,
 	}
 }
 func (g *GroupByOverviewAndAvg) RunWorker(starting_message string) error {

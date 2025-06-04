@@ -55,13 +55,14 @@ func main() {
 		expectedEof = 1
 	}
 
+	node_name := v.GetString("worker.nodename")
 	masterGroupByOverviewAverage := master_group_by.NewGroupByOverviewAndAvg(master_group_by.MasterGroupByOverviewAndAvgConfig{
 		WorkerConfig: worker.WorkerConfig{
 			InputExchange:  inputExchangeSpec,
 			OutputExchange: outputExchangeSpec,
 			MessageBroker:  messageBroker,
 		},
-	}, maxMessages, expectedEof)
+	}, maxMessages, expectedEof, node_name)
 
 	// Set up signal handling
 	sigChan := make(chan os.Signal, 1)

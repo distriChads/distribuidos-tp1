@@ -20,6 +20,8 @@ type GroupByMovieAndAvg struct {
 	expected_eof           int
 	grouped_elements       map[string]map[string]ScoreAndCount
 	eofs                   map[string]int
+	node_name              string
+	log_replicas           int
 }
 
 type ScoreAndCount struct {
@@ -40,7 +42,7 @@ func (g *GroupByMovieAndAvg) NewClient(client_id string) {
 
 func (g *GroupByMovieAndAvg) ShouldCommit(messages_before_commit int, client_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		storeGroupedElements(g.grouped_elements[client_id], client_id)
+		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.node_name, g.log_replicas)
 		return true
 	}
 	return false
@@ -100,17 +102,10 @@ func groupByMovieAndUpdate(lines []string, grouped_elements map[string]ScoreAndC
 	log.Debugf("Grouped elements: %+v", grouped_elements)
 }
 
-func storeGroupedElements(results map[string]ScoreAndCount, client_id string) {
-	// TODO: Dumpear el hashmap a un archivo
-}
-
-func getGroupedElements() map[string]int {
-	// TODO: Cuando se caiga un worker, deberia leer de este archivo lo que estuvo obteniendo
-	return nil
-}
-
-func NewGroupByMovieAndAvg(config GroupByMovieAndAvgConfig, messages_before_commit int, eof_counter int) *GroupByMovieAndAvg {
+func NewGroupByMovieAndAvg(config GroupByMovieAndAvgConfig, messages_before_commit int, eof_counter int, node_name string) *GroupByMovieAndAvg {
 	log.Infof("GroupByMovieAndAvg: %+v", config)
+	replicas := 3
+	grouped_elements, _ := common_statefull_worker.GetElements[ScoreAndCount](node_name, replicas+1)
 	return &GroupByMovieAndAvg{
 		Worker: worker.Worker{
 			InputExchange:  config.InputExchange,
@@ -120,7 +115,9 @@ func NewGroupByMovieAndAvg(config GroupByMovieAndAvgConfig, messages_before_comm
 		messages_before_commit: messages_before_commit,
 		expected_eof:           eof_counter,
 		eofs:                   make(map[string]int),
-		grouped_elements:       make(map[string]map[string]ScoreAndCount),
+		grouped_elements:       grouped_elements,
+		node_name:              node_name,
+		log_replicas:           replicas,
 	}
 }
 func (g *GroupByMovieAndAvg) RunWorker(starting_message string) error {
