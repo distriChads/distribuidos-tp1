@@ -47,12 +47,13 @@ func main() {
 		maxMessages = 10
 	}
 
+	node_name := v.GetString("worker.nodename")
 	groupByActorCount := group_by.NewGroupByActorAndCount(group_by.GroupByActorAndCountConfig{
 		WorkerConfig: worker.WorkerConfig{
 			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
 		},
-	}, maxMessages)
+	}, maxMessages, node_name)
 
 	// Set up signal handling
 	sigChan := make(chan os.Signal, 1)

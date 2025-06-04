@@ -50,12 +50,13 @@ func main() {
 		expectedEof = 1
 	}
 
+	node_name := v.GetString("worker.nodename")
 	masterGroupByCountrySum := master_group_by.NewGroupByCountryAndSum(master_group_by.MasterGroupByCountryAndSumConfig{
 		WorkerConfig: worker.WorkerConfig{
 			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
 		},
-	}, maxMessages, expectedEof)
+	}, maxMessages, expectedEof, node_name)
 
 	// Set up signal handling
 	sigChan := make(chan os.Signal, 1)

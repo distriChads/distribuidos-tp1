@@ -19,6 +19,8 @@ type GroupByActorAndCount struct {
 	expected_eof           int
 	grouped_elements       map[string]map[string]int
 	eofs                   map[string]int
+	node_name              string
+	log_replicas           int
 }
 
 var log = logging.MustGetLogger("group_by_actor_count")
@@ -34,7 +36,7 @@ func (g *GroupByActorAndCount) NewClient(client_id string) {
 
 func (g *GroupByActorAndCount) ShouldCommit(messages_before_commit int, client_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		storeGroupedElements(g.grouped_elements[client_id], client_id)
+		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.node_name, g.log_replicas)
 		return true
 	}
 	return false
@@ -85,25 +87,20 @@ func groupByActorAndUpdate(lines []string, grouped_elements map[string]int) {
 	}
 }
 
-func storeGroupedElements(results map[string]int, client_id string) {
-	// TODO: Dumpear el hashmap a un archivo
-}
-
-func getGroupedElements() map[string]int {
-	// TODO: Cuando se caiga un worker, deberia leer de este archivo lo que estuvo obteniendo
-	return nil
-}
-
-func NewGroupByActorAndCount(config GroupByActorAndCountConfig, messages_before_commit int) *GroupByActorAndCount {
+func NewGroupByActorAndCount(config GroupByActorAndCountConfig, messages_before_commit int, node_name string) *GroupByActorAndCount {
 	log.Infof("GroupByActorAndCount: %+v", config)
+	replicas := 3
+	grouped_elements, _ := common_statefull_worker.GetElements[int](node_name, replicas+1)
 	return &GroupByActorAndCount{
 		Worker: worker.Worker{
 			Exchange:      config.Exchange,
 			MessageBroker: config.MessageBroker,
 		},
 		messages_before_commit: messages_before_commit,
-		grouped_elements:       make(map[string]map[string]int),
+		grouped_elements:       grouped_elements,
 		eofs:                   make(map[string]int),
+		node_name:              node_name,
+		log_replicas:           3,
 	}
 }
 
