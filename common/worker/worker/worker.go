@@ -119,6 +119,15 @@ func InitReceiver(worker *Worker) error {
 		return err
 	}
 
+	err = ch.Qos(
+		1,     // prefetch count
+		0,     // prefetch size
+		false, // global
+	)
+	if err != nil {
+		return err
+	}
+
 	err = ch.ExchangeDeclare(
 		worker.InputExchange.Name, // name
 		"topic",                   // type
@@ -136,7 +145,7 @@ func InitReceiver(worker *Worker) error {
 		worker.InputExchange.QueueName, // name
 		false,                          // durable
 		false,                          // delete when unused
-		true,                           // exclusive
+		false,                          // exclusive
 		false,                          // no-wait
 		nil,                            // arguments
 	)
@@ -209,7 +218,7 @@ func InitSecondReceiver(worker *Worker) error {
 		worker.SecondInputExchange.QueueName, // name
 		false,                                // durable
 		false,                                // delete when unused
-		true,                                 // exclusive
+		false,                                // exclusive
 		false,                                // no-wait
 		nil,                                  // arguments
 	)

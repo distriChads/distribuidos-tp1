@@ -40,11 +40,13 @@ func SendResult(w worker.Worker, s StatefullWorker, client_id string) error {
 		log.Errorf("Error sending message: %s", err.Error())
 		return err
 	}
+	log.Debugf("Sent message: %s", message_to_send)
 	return nil
 }
 
 func Init(w *worker.Worker, starting_message string) (<-chan amqp091.Delivery, error) {
 	log.Info(starting_message)
+	log.Debug("in debug")
 
 	err := worker.InitSender(w)
 	if err != nil {
@@ -67,9 +69,10 @@ func Init(w *worker.Worker, starting_message string) (<-chan amqp091.Delivery, e
 
 func RunWorker(s StatefullWorker, msgs <-chan amqp091.Delivery) error {
 
-	messages_before_commit := 0
+	messages_since_last_commit := 0
 	for message := range msgs {
 		message_str := string(message.Body)
+		log.Debugf("Received message: %s", message_str)
 		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
 		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
 		s.NewClient(client_id)
@@ -82,11 +85,11 @@ func RunWorker(s StatefullWorker, msgs <-chan amqp091.Delivery) error {
 			message.Ack(false)
 			continue
 		}
-		messages_before_commit += 1
+		messages_since_last_commit += 1
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		s.UpdateState(lines, client_id)
-		if s.ShouldCommit(messages_before_commit, client_id) {
-			messages_before_commit = 0
+		if s.ShouldCommit(messages_since_last_commit, client_id) {
+			messages_since_last_commit = 0
 		}
 		message.Ack(false)
 	}

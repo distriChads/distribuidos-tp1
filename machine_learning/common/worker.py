@@ -91,6 +91,8 @@ class Worker:
     def _init_generic_receiver(self, exchange_spec):
         conn = self._init_connection()
         ch = conn.channel()
+        
+        ch.basic_qos(prefetch_count=1) # Prefetch
 
         ch.exchange_declare(
             exchange=exchange_spec.name,
@@ -100,7 +102,7 @@ class Worker:
         )
 
         result = ch.queue_declare(
-            queue=exchange_spec.queue_name, exclusive=True, auto_delete=False)
+            queue=exchange_spec.queue_name, exclusive=False, auto_delete=False)
         queue_name = result.method.queue
 
         for routing_key in exchange_spec.routing_keys:

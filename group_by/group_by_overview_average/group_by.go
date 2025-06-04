@@ -63,15 +63,21 @@ func mapToLines(grouped_elements map[string]RevenueBudgetCount) string {
 }
 
 func (g *GroupByOverviewAndAvg) HandleEOF(client_id string) error {
-	g.eofs[client_id]++
-	if g.eofs[client_id] >= g.expected_eof {
-		err := common_statefull_worker.SendResult(g.Worker, g, client_id)
-		if err != nil {
-			return err
-		}
-		delete(g.grouped_elements, client_id)
-		delete(g.eofs, client_id)
+	// g.eofs[client_id]++
+	// if g.eofs[client_id] >= g.expected_eof {
+	// 	err := common_statefull_worker.SendResult(g.Worker, g, client_id)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	delete(g.grouped_elements, client_id)
+	// 	delete(g.eofs, client_id)
+	// }
+	err := common_statefull_worker.SendResult(g.Worker, g, client_id)
+	if err != nil {
+		return err
 	}
+	delete(g.grouped_elements, client_id)
+	delete(g.eofs, client_id)
 	return nil
 }
 

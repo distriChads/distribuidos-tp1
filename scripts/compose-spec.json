@@ -3,26 +3,26 @@
     "services": [
         {
             "name": "client-handler",
-            "log_level": "info",
+            "log_level": "debug",
             "replicas": 1,
-            "movies_exchange_name": "movies_exchange",
-            "credits_exchange_name": "credits_exchange",
-            "ratings_exchange_name": "ratings_exchange",
-            "results_exchange_name": "results_exchange",
+            "movies_exchange_name": "data_exchange",
+            "credits_exchange_name": "data_exchange",
+            "ratings_exchange_name": "data_exchange",
+            "results_exchange_name": "data_exchange",
             "results_exchange_routing_keys": ["*.results"],
             "listen_backlog": 5
         },
         {
             "name": "filter-argentina",
             "replicas": 3,
-            "log_level": "info",
+            "log_level": "debug",
             "input": {
                 "from": "movies",
-                "type": "seq"
+                "type": "all"
             },
             "output": {
-                "exchange_name": "movies_filtered_by_argentina_exchange",
-                "routing_key": "movies.argentina.output%d",
+                "exchange_name": "data_exchange",
+                "routing_key": "movies.argentina.output",
                 "type": "all",
                 "replicas": "filter-argentina"
             }
@@ -30,13 +30,13 @@
         {
             "name": "filter-spain-2000",
             "replicas": 3,
-            "log_level": "info",
+            "log_level": "debug",
             "input": {
                 "from": "filter-argentina",
-                "type": "seq"
+                "type": "all"
             },
             "output": {
-                "exchange_name": "results_exchange",
+                "exchange_name": "data_exchange",
                 "routing_key": "query1.results",
                 "type": "unique"
             }
@@ -44,14 +44,14 @@
         {
             "name": "filter-only-one-country",
             "replicas": 3,
-            "log_level": "info",
+            "log_level": "debug",
             "input": {
                 "from": "movies",
-                "type": "seq"
+                "type": "all"
             },
             "output": {
-                "exchange_name": "one_country_groupby_sum_exchange",
-                "routing_key": "movies.groupby.country-sum.input%d",
+                "exchange_name": "data_exchange",
+                "routing_key": "movies.groupby.country-sum.input",
                 "type": "all",
                 "replicas": "group-by-country-sum"
             }
@@ -59,13 +59,13 @@
         {
             "name": "group-by-country-sum",
             "replicas": 3,
-            "log_level": "info",
+            "log_level": "debug",
             "input": {
                 "from": "filter-only-one-country",
-                "type": "seq"
+                "type": "all"
             },
             "output": {
-                "exchange_name": "master_groupby_exchange",
+                "exchange_name": "data_exchange",
                 "routing_key": "master.country-sum.input",
                 "type": "unique"
             }
@@ -73,13 +73,13 @@
         {
             "name": "master-group-by-country-sum",
             "replicas": 1,
-            "log_level": "info",
+            "log_level": "debug",
             "input": {
                 "from": "group-by-country-sum",
                 "type": "all"
             },
             "output": {
-                "exchange_name": "master_groupby_exchange",
+                "exchange_name": "data_exchange",
                 "routing_key": "master.country-sum.output",
                 "type": "unique"
             }
@@ -87,13 +87,13 @@
         {
             "name": "top-five-country-budget",
             "replicas": 1,
-            "log_level": "info",
+            "log_level": "debug",
             "input": {
                 "from": "master-group-by-country-sum",
                 "type": "all"
             },
             "output": {
-                "exchange_name": "results_exchange",
+                "exchange_name": "data_exchange",
                 "routing_key": "query2.results",
                 "type": "unique"
             }
@@ -101,13 +101,13 @@
         {
             "name": "filter-after-2000",
             "replicas": 3,
-            "log_level": "info",
+            "log_level": "debug",
             "input": {
                 "from": "filter-argentina",
-                "type": "seq"
+                "type": "all"
             },
             "output": {
-                "exchange_name": "join_exchange",
+                "exchange_name": "data_exchange",
                 "routing_key": "join.movies.input",
                 "type": "unique"
             }
@@ -115,7 +115,7 @@
         {
             "name": "join-movie-ratings",
             "replicas": 3,
-            "log_level": "info",
+            "log_level": "debug",
             "input": {
                 "from": "filter-after-2000",
                 "type": "all"
@@ -125,8 +125,8 @@
                 "type": "all"
             },
             "output": {
-                "exchange_name": "group_by_movie_average_exchange",
-                "routing_key": "groupby.movie-avg.input%d",
+                "exchange_name": "data_exchange",
+                "routing_key": "groupby.movie-avg.input",
                 "type": "all",
                 "replicas": "group-by-movie-average"
             }
@@ -134,13 +134,13 @@
         {
             "name": "group-by-movie-average",
             "replicas": 3,
-            "log_level": "info",
+            "log_level": "debug",
             "input": {
                 "from": "join-movie-ratings",
-                "type": "seq"
+                "type": "all"
             },
             "output": {
-                "exchange_name": "group_by_movie_average_exchange",
+                "exchange_name": "data_exchange",
                 "routing_key": "groupby.movie-avg.output",
                 "type": "unique"
             }
@@ -148,13 +148,13 @@
         {
             "name": "master-group-by-movie-average",
             "replicas": 1,
-            "log_level": "info",
+            "log_level": "debug",
             "input": {
                 "from": "group-by-movie-average",
                 "type": "all"
             },
             "output": {
-                "exchange_name": "first_and_last_exchange",
+                "exchange_name": "data_exchange",
                 "routing_key": "topn.first-last.input",
                 "type": "unique"
             }
@@ -162,13 +162,13 @@
         {
             "name": "first-and-last",
             "replicas": 1,
-            "log_level": "info",
+            "log_level": "debug",
             "input": {
                 "from": "master-group-by-movie-average",
                 "type": "all"
             },
             "output": {
-                "exchange_name": "results_exchange",
+                "exchange_name": "data_exchange",
                 "routing_key": "query3.results",
                 "type": "unique"
             }
@@ -176,7 +176,7 @@
         {
             "name": "join-movie-credits",
             "replicas": 3,
-            "log_level": "info",
+            "log_level": "debug",
             "input": {
                 "from": "filter-after-2000",
                 "type": "all"
@@ -186,8 +186,8 @@
                 "type": "all"
             },
             "output": {
-                "exchange_name": "group_by_actor_count_exchange",
-                "routing_key": "groupby.actor.input%d",
+                "exchange_name": "data_exchange",
+                "routing_key": "groupby.actor.input",
                 "type": "all",
                 "replicas": "group-by-actor-count"
             }
@@ -195,13 +195,13 @@
         {
             "name": "group-by-actor-count",
             "replicas": 3,
-            "log_level": "info",
+            "log_level": "debug",
             "input": {
                 "from": "join-movie-credits",
-                "type": "seq"
+                "type": "all"
             },
             "output": {
-                "exchange_name": "group_by_actor_count_exchange",
+                "exchange_name": "data_exchange",
                 "routing_key": "groupby.actor.output",
                 "type": "unique"
             }
@@ -209,13 +209,13 @@
         {
             "name": "master-group-by-actor-count",
             "replicas": 1,
-            "log_level": "info",
+            "log_level": "debug",
             "input": {
                 "from": "group-by-actor-count",
                 "type": "all"
             },
             "output": {
-                "exchange_name": "top_ten_cast_movie_exchange",
+                "exchange_name": "data_exchange",
                 "routing_key": "topn.top-10-cast.input",
                 "type": "unique"
             }
@@ -223,13 +223,13 @@
         {
             "name": "top-ten-cast-movie",
             "replicas": 1,
-            "log_level": "info",
+            "log_level": "debug",
             "input": {
                 "from": "master-group-by-actor-count",
                 "type": "all"
             },
             "output": {
-                "exchange_name": "results_exchange",
+                "exchange_name": "data_exchange",
                 "routing_key": "query4.results",
                 "type": "unique"
             }
@@ -237,14 +237,14 @@
         {
             "name": "machine-learning",
             "replicas": 3,
-            "log_level": "info",
+            "log_level": "debug",
             "input": {
                 "from": "movies",
-                "type": "seq"
+                "type": "all"
             },
             "output": {
-                "exchange_name": "groupby_overview_exchange",
-                "routing_key": "groupby.overview.input%d",
+                "exchange_name": "data_exchange",
+                "routing_key": "groupby.overview.input",
                 "type": "all",
                 "replicas": "group-by-overview-average"
             }
@@ -252,13 +252,13 @@
         {
             "name": "group-by-overview-average",
             "replicas": 3,
-            "log_level": "info",
+            "log_level": "debug",
             "input": {
                 "from": "machine-learning",
-                "type": "seq"
+                "type": "all"
             },
             "output": {
-                "exchange_name": "groupby_overview_exchange",
+                "exchange_name": "data_exchange",
                 "routing_key": "groupby.overview.output",
                 "type": "unique"
             }
@@ -266,13 +266,13 @@
         {
             "name": "master-group-by-overview-average",
             "replicas": 1,
-            "log_level": "info",
+            "log_level": "debug",
             "input": {
                 "from": "group-by-overview-average",
                 "type": "all"
             },
             "output": {
-                "exchange_name": "results_exchange",
+                "exchange_name": "data_exchange",
                 "routing_key": "query5.results",
                 "type": "unique"
             }
