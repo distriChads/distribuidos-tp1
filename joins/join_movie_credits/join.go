@@ -64,6 +64,7 @@ func NewJoinMovieCreditsById(config JoinMovieCreditsByIdConfig, messages_before_
 	log.Infof("JoinMovieCreditsById: %+v", config)
 	return &JoinMovieCreditsById{
 		Worker: worker.Worker{
+			Exchange:      config.Exchange,
 			MessageBroker: config.MessageBroker,
 		},
 		expected_eof:           eof_counter,

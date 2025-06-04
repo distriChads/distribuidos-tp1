@@ -49,6 +49,7 @@ func main() {
 
 	groupByActorCount := group_by.NewGroupByOverviewAndAvg(group_by.GroupByOverviewAndAvgConfig{
 		WorkerConfig: worker.WorkerConfig{
+			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
 		},
 	}, maxMessages)

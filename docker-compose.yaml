@@ -1,20 +1,20 @@
-version: "3.8"
+version: '3.8'
 name: tp1
 networks:
   movies_net:
     ipam:
       driver: default
       config:
-        - subnet: 172.25.125.0/24
+      - subnet: 172.25.125.0/24
 services:
   rabbitmq:
     image: rabbitmq:management
     container_name: rabbitmq
     networks: &id001
-      - movies_net
+    - movies_net
     ports:
-      - 5672:5672
-      - 15672:15672
+    - 5672:5672
+    - 15672:15672
     logging:
       driver: none
   client-handler:
@@ -26,576 +26,322 @@ services:
     entrypoint: python main.py
     networks: *id001
     ports:
-      - 3000:3000
+    - 3000:3000
     depends_on:
-      - rabbitmq
+    - rabbitmq
     environment:
-      - CLIENT_HANDLER_PORT=3000
-      - LOGGING_LEVEL=info
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLIENT_HANDLER_LISTEN_BACKLOG=5
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=*.results
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.client_handler,ratings.joiner.router,credits.joiner.router
+    - CLIENT_HANDLER_PORT=3000
+    - LOGGING_LEVEL=debug
+    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    - CLIENT_HANDLER_LISTEN_BACKLOG=5
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=*.results
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.client_handler,ratings.joiner.router,credits.joiner.router
   filter-argentina-1:
     build:
       context: .
       dockerfile: filters/filter_argentina/Dockerfile
     container_name: filter-argentina-1
     depends_on:
-      - rabbitmq
+    - rabbitmq
     entrypoint: ./run_worker
     environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.client_handler
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.argentina
+    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    - CLI_WORKER_QUEUE_NAME=filter-argentina-1
+    - CLI_LOG_LEVEL=debug
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.client_handler
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.argentina
     image: filter_argentina:latest
     networks:
-      - movies_net
+    - movies_net
   filter-spain-2000-1:
     build:
       context: .
       dockerfile: filters/filter_spain_2000/Dockerfile
     container_name: filter-spain-2000-1
     depends_on:
-      - rabbitmq
+    - rabbitmq
     entrypoint: ./run_worker
     environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.argentina
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query1.results
+    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    - CLI_WORKER_QUEUE_NAME=filter-spain-2000-1
+    - CLI_LOG_LEVEL=debug
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.argentina
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query1.results
     image: filter_spain_2000:latest
     networks:
-      - movies_net
-  filter-spain-2000-2:
-    build:
-      context: .
-      dockerfile: filters/filter_spain_2000/Dockerfile
-    container_name: filter-spain-2000-2
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.argentina
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query1.results
-    image: filter_spain_2000:latest
-    networks:
-      - movies_net
+    - movies_net
   filter-only-one-country-1:
     build:
       context: .
       dockerfile: filters/filter_only_one_country/Dockerfile
     container_name: filter-only-one-country-1
     depends_on:
-      - rabbitmq
+    - rabbitmq
     entrypoint: ./run_worker
     environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.client_handler
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.filter_only_one_country
+    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    - CLI_WORKER_QUEUE_NAME=filter-only-one-country-1
+    - CLI_LOG_LEVEL=debug
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.client_handler
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.filter_only_one_country
     image: filter_only_one_country:latest
     networks:
-      - movies_net
-  filter-only-one-country-2:
-    build:
-      context: .
-      dockerfile: filters/filter_only_one_country/Dockerfile
-    container_name: filter-only-one-country-2
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.client_handler
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.filter_only_one_country
-    image: filter_only_one_country:latest
-    networks:
-      - movies_net
-  filter-only-one-country-3:
-    build:
-      context: .
-      dockerfile: filters/filter_only_one_country/Dockerfile
-    container_name: filter-only-one-country-3
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.client_handler
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.filter_only_one_country
-    image: filter_only_one_country:latest
-    networks:
-      - movies_net
+    - movies_net
   filter-after-2000-1:
     build:
       context: .
       dockerfile: filters/filter_after_2000/Dockerfile
     container_name: filter-after-2000-1
     depends_on:
-      - rabbitmq
+    - rabbitmq
     entrypoint: ./run_worker
     environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.argentina
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.after_2000
+    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    - CLI_WORKER_QUEUE_NAME=filter-after-2000-1
+    - CLI_LOG_LEVEL=debug
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.argentina
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.after_2000
     image: filter_after_2000:latest
     networks:
-      - movies_net
-  filter-after-2000-2:
-    build:
-      context: .
-      dockerfile: filters/filter_after_2000/Dockerfile
-    container_name: filter-after-2000-2
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.argentina
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.after_2000
-    image: filter_after_2000:latest
-    networks:
-      - movies_net
-  filter-after-2000-3:
-    build:
-      context: .
-      dockerfile: filters/filter_after_2000/Dockerfile
-    container_name: filter-after-2000-3
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.argentina
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.after_2000
-    image: filter_after_2000:latest
-    networks:
-      - movies_net
-  filter-after-2000-4:
-    build:
-      context: .
-      dockerfile: filters/filter_after_2000/Dockerfile
-    container_name: filter-after-2000-4
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.argentina
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.after_2000
-    image: filter_after_2000:latest
-    networks:
-      - movies_net
+    - movies_net
   group-by-country-sum-1:
     build:
       context: .
       dockerfile: group_by/group_by_country_sum/Dockerfile
     container_name: group-by-country-sum-1
     depends_on:
-      - rabbitmq
+    - rabbitmq
     entrypoint: ./run_worker
     environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=group-by-country-sum.1
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.group_by_country_sum
+    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    - CLI_WORKER_QUEUE_NAME=group-by-country-sum-1
+    - CLI_LOG_LEVEL=debug
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=group-by-country-sum.1
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.group_by_country_sum
     image: group_by_country_sum:latest
     networks:
-      - movies_net
+    - movies_net
   group-by-movie-average-1:
     build:
       context: .
       dockerfile: group_by/group_by_movie_average/Dockerfile
     container_name: group-by-movie-average-1
     depends_on:
-      - rabbitmq
+    - rabbitmq
     entrypoint: ./run_worker
     environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=group-by-movie-average.1
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.group_by_movie_average
+    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    - CLI_WORKER_QUEUE_NAME=group-by-movie-average-1
+    - CLI_LOG_LEVEL=debug
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=group-by-movie-average.1
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.group_by_movie_average
     image: group_by_movie_average:latest
     networks:
-      - movies_net
-  group-by-movie-average-2:
-    build:
-      context: .
-      dockerfile: group_by/group_by_movie_average/Dockerfile
-    container_name: group-by-movie-average-2
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=group-by-movie-average.2
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.group_by_movie_average
-    image: group_by_movie_average:latest
-    networks:
-      - movies_net
+    - movies_net
   group-by-actor-count-1:
     build:
       context: .
       dockerfile: group_by/group_by_actor_count/Dockerfile
     container_name: group-by-actor-count-1
     depends_on:
-      - rabbitmq
+    - rabbitmq
     entrypoint: ./run_worker
     environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=group-by-actor-count.1
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.group_by_actor_count
+    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    - CLI_WORKER_QUEUE_NAME=group-by-actor-count-1
+    - CLI_LOG_LEVEL=debug
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=group-by-actor-count.1
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.group_by_actor_count
     image: group_by_actor_count:latest
     networks:
-      - movies_net
-  group-by-actor-count-2:
-    build:
-      context: .
-      dockerfile: group_by/group_by_actor_count/Dockerfile
-    container_name: group-by-actor-count-2
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=group-by-actor-count.2
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.group_by_actor_count
-    image: group_by_actor_count:latest
-    networks:
-      - movies_net
-  group-by-actor-count-3:
-    build:
-      context: .
-      dockerfile: group_by/group_by_actor_count/Dockerfile
-    container_name: group-by-actor-count-3
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=group-by-actor-count.3
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.group_by_actor_count
-    image: group_by_actor_count:latest
-    networks:
-      - movies_net
+    - movies_net
   group-by-overview-average-1:
     build:
       context: .
       dockerfile: group_by/group_by_overview_average/Dockerfile
     container_name: group-by-overview-average-1
     depends_on:
-      - rabbitmq
+    - rabbitmq
     entrypoint: ./run_worker
     environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=group-by-overview-average.1
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.group_by_overview_average
+    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    - CLI_WORKER_QUEUE_NAME=group-by-overview-average-1
+    - CLI_LOG_LEVEL=debug
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=group-by-overview-average.1
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.group_by_overview_average
     image: group_by_overview_average:latest
     networks:
-      - movies_net
-  group-by-overview-average-2:
-    build:
-      context: .
-      dockerfile: group_by/group_by_overview_average/Dockerfile
-    container_name: group-by-overview-average-2
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=group-by-overview-average.2
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.group_by_overview_average
-    image: group_by_overview_average:latest
-    networks:
-      - movies_net
-  group-by-overview-average-3:
-    build:
-      context: .
-      dockerfile: group_by/group_by_overview_average/Dockerfile
-    container_name: group-by-overview-average-3
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=group-by-overview-average.3
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.group_by_overview_average
-    image: group_by_overview_average:latest
-    networks:
-      - movies_net
-  group-by-overview-average-4:
-    build:
-      context: .
-      dockerfile: group_by/group_by_overview_average/Dockerfile
-    container_name: group-by-overview-average-4
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=group-by-overview-average.4
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.group_by_overview_average
-    image: group_by_overview_average:latest
-    networks:
-      - movies_net
+    - movies_net
   master-group-by-country-sum-1:
     build:
       context: .
       dockerfile: master_group_by/master_group_by_country_sum/Dockerfile
     container_name: master-group-by-country-sum-1
     depends_on:
-      - rabbitmq
+    - rabbitmq
     entrypoint: ./run_worker
     environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.group_by_country_sum
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=master.country_sum
+    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    - CLI_WORKER_QUEUE_NAME=master-group-by-country-sum-1
+    - CLI_LOG_LEVEL=debug
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.group_by_country_sum
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=master.country_sum
     image: master_group_by_country_sum:latest
     networks:
-      - movies_net
+    - movies_net
   master-group-by-movie-average-1:
     build:
       context: .
       dockerfile: master_group_by/master_group_by_movie_average/Dockerfile
     container_name: master-group-by-movie-average-1
     depends_on:
-      - rabbitmq
+    - rabbitmq
     entrypoint: ./run_worker
     environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.group_by_movie_average
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=master.movie_average
+    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    - CLI_WORKER_QUEUE_NAME=master-group-by-movie-average-1
+    - CLI_LOG_LEVEL=debug
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.group_by_movie_average
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=master.movie_average
     image: master_group_by_movie_average:latest
     networks:
-      - movies_net
+    - movies_net
   master-group-by-actor-count-1:
     build:
       context: .
       dockerfile: master_group_by/master_group_by_actor_count/Dockerfile
     container_name: master-group-by-actor-count-1
     depends_on:
-      - rabbitmq
+    - rabbitmq
     entrypoint: ./run_worker
     environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.group_by_actor_count
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=master.actor_count
+    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    - CLI_WORKER_QUEUE_NAME=master-group-by-actor-count-1
+    - CLI_LOG_LEVEL=debug
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.group_by_actor_count
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=master.actor_count
     image: master_group_by_actor_count:latest
     networks:
-      - movies_net
+    - movies_net
   master-group-by-overview-average-1:
     build:
       context: .
       dockerfile: master_group_by/master_group_by_overview_average/Dockerfile
     container_name: master-group-by-overview-average-1
     depends_on:
-      - rabbitmq
+    - rabbitmq
     entrypoint: ./run_worker
     environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.group_by_overview_average
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query5.results
+    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    - CLI_WORKER_QUEUE_NAME=master-group-by-overview-average-1
+    - CLI_LOG_LEVEL=debug
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.group_by_overview_average
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query5.results
     image: master_group_by_overview_average:latest
     networks:
-      - movies_net
+    - movies_net
   machine-learning-1:
     build:
       context: .
       dockerfile: machine_learning/Dockerfile
     container_name: machine-learning-1
     depends_on:
-      - rabbitmq
+    - rabbitmq
     entrypoint: python main.py
     environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.client_handler
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.machine_learning
+    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    - CLI_WORKER_QUEUE_NAME=machine-learning-1
+    - CLI_LOG_LEVEL=debug
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.client_handler
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.machine_learning
     image: machine_learning:latest
     networks:
-      - movies_net
-  machine-learning-2:
-    build:
-      context: .
-      dockerfile: machine_learning/Dockerfile
-    container_name: machine-learning-2
-    depends_on:
-      - rabbitmq
-    entrypoint: python main.py
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.client_handler
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.machine_learning
-    image: machine_learning:latest
-    networks:
-      - movies_net
+    - movies_net
   top-five-country-budget-1:
     build:
       context: .
       dockerfile: topn/top_five_country_budget/Dockerfile
     container_name: top-five-country-budget-1
     depends_on:
-      - rabbitmq
+    - rabbitmq
     entrypoint: ./run_worker
     environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=master.country_sum
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query2.results
+    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    - CLI_WORKER_QUEUE_NAME=top-five-country-budget-1
+    - CLI_LOG_LEVEL=debug
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=master.country_sum
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query2.results
     image: top_five_country_budget:latest
     networks:
-      - movies_net
+    - movies_net
   top-ten-cast-movie-1:
     build:
       context: .
       dockerfile: topn/top_ten_cast_movie/Dockerfile
     container_name: top-ten-cast-movie-1
     depends_on:
-      - rabbitmq
+    - rabbitmq
     entrypoint: ./run_worker
     environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=master.actor_count
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query4.results
+    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    - CLI_WORKER_QUEUE_NAME=top-ten-cast-movie-1
+    - CLI_LOG_LEVEL=debug
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=master.actor_count
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query4.results
     image: top_ten_cast_movie:latest
     networks:
-      - movies_net
+    - movies_net
   join-movie-ratings-1:
     build:
       context: .
       dockerfile: joins/join_movie_ratings/Dockerfile
     container_name: join-movie-ratings-1
     depends_on:
-      - rabbitmq
+    - rabbitmq
     entrypoint: ./run_worker
     environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=join-movie-ratings.movies.router.1,join-movie-ratings.ratings.router.1
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join_movie_ratings
+    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    - CLI_WORKER_QUEUE_NAME=join-movie-ratings-1
+    - CLI_LOG_LEVEL=debug
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=join-movie-ratings.movies.router.1,join-movie-ratings.ratings.router.1
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join_movie_ratings
     image: join_movie_ratings:latest
     networks:
-      - movies_net
-  join-movie-ratings-2:
-    build:
-      context: .
-      dockerfile: joins/join_movie_ratings/Dockerfile
-    container_name: join-movie-ratings-2
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=join-movie-ratings.movies.router.2,join-movie-ratings.ratings.router.2
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join_movie_ratings
-    image: join_movie_ratings:latest
-    networks:
-      - movies_net
+    - movies_net
   join-movie-credits-1:
     build:
       context: .
       dockerfile: joins/join_movie_credits/Dockerfile
     container_name: join-movie-credits-1
     depends_on:
-      - rabbitmq
+    - rabbitmq
     entrypoint: ./run_worker
     environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=join-movie-credits.movies.router.1,join-movie-credits.credits.router.1
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join_movie_credits
+    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    - CLI_WORKER_QUEUE_NAME=join-movie-credits-1
+    - CLI_LOG_LEVEL=debug
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=join-movie-credits.movies.router.1,join-movie-credits.credits.router.1
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join_movie_credits
     image: join_movie_credits:latest
     networks:
-      - movies_net
-  join-movie-credits-2:
-    build:
-      context: .
-      dockerfile: joins/join_movie_credits/Dockerfile
-    container_name: join-movie-credits-2
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=join-movie-credits.movies.router.2,join-movie-credits.credits.router.2
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join_movie_credits
-    image: join_movie_credits:latest
-    networks:
-      - movies_net
-  join-movie-credits-3:
-    build:
-      context: .
-      dockerfile: joins/join_movie_credits/Dockerfile
-    container_name: join-movie-credits-3
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=join-movie-credits.movies.router.3,join-movie-credits.credits.router.3
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join_movie_credits
-    image: join_movie_credits:latest
-    networks:
-      - movies_net
-  join-movie-credits-4:
-    build:
-      context: .
-      dockerfile: joins/join_movie_credits/Dockerfile
-    container_name: join-movie-credits-4
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=join-movie-credits.movies.router.4,join-movie-credits.credits.router.4
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join_movie_credits
-    image: join_movie_credits:latest
-    networks:
-      - movies_net
+    - movies_net
   first-and-last-1:
     build:
       context: .
       dockerfile: topn/first_and_last/Dockerfile
     container_name: first-and-last-1
     depends_on:
-      - rabbitmq
+    - rabbitmq
     entrypoint: ./run_worker
     environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=master.movie_average
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query3.results
+    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    - CLI_WORKER_QUEUE_NAME=first-and-last-1
+    - CLI_LOG_LEVEL=debug
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=master.movie_average
+    - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query3.results
     image: first_and_last:latest
     networks:
-      - movies_net
+    - movies_net
   router-1:
     build:
       context: .
@@ -604,36 +350,16 @@ services:
     entrypoint: python main.py
     image: router:latest
     networks: *id001
-    depends_on: &id002
-      - rabbitmq
+    depends_on:
+    - rabbitmq
     environment:
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.after_2000,ratings.joiner.router,credits.joiner.router,movies.filter_only_one_country,movies.machine_learning,join_movie_ratings,join_movie_credits
-      - CLI_WORKER_OUTPUT_ROUTINGKEYS_JOIN-MOVIE-CREDITS=join-movie-credits.1,join-movie-credits.2,join-movie-credits.3,join-movie-credits.4
-      - CLI_WORKER_OUTPUT_ROUTINGKEYS_JOIN-MOVIE-RATINGS=join-movie-ratings.1,join-movie-ratings.2
-      - CLI_WORKER_OUTPUT_ROUTINGKEYS_GROUP-BY-OVERVIEW-AVERAGE=group-by-overview-average.1,group-by-overview-average.2,group-by-overview-average.3,group-by-overview-average.4
-      - CLI_WORKER_OUTPUT_ROUTINGKEYS_GROUP-BY-ACTOR-COUNT=group-by-actor-count.1,group-by-actor-count.2,group-by-actor-count.3
-      - CLI_WORKER_OUTPUT_ROUTINGKEYS_GROUP-BY-MOVIE-AVERAGE=group-by-movie-average.1,group-by-movie-average.2
-      - CLI_WORKER_OUTPUT_ROUTINGKEYS_GROUP-BY-COUNTRY-SUM=group-by-country-sum.1
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - ClI_WORKER_INPUT_ROUTINGKEYS=movies.after_2000,ratings.joiner.router,credits.joiner.router,movies.filter_only_one_country,movies.machine_learning,join_movie_ratings,join_movie_credits
-  router-2:
-    build:
-      context: .
-      dockerfile: router/Dockerfile
-    container_name: router-2
-    entrypoint: python main.py
-    image: router:latest
-    networks: *id001
-    depends_on: *id002
-    environment:
-      - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.after_2000,ratings.joiner.router,credits.joiner.router,movies.filter_only_one_country,movies.machine_learning,join_movie_ratings,join_movie_credits
-      - CLI_WORKER_OUTPUT_ROUTINGKEYS_JOIN-MOVIE-CREDITS=join-movie-credits.1,join-movie-credits.2,join-movie-credits.3,join-movie-credits.4
-      - CLI_WORKER_OUTPUT_ROUTINGKEYS_JOIN-MOVIE-RATINGS=join-movie-ratings.1,join-movie-ratings.2
-      - CLI_WORKER_OUTPUT_ROUTINGKEYS_GROUP-BY-OVERVIEW-AVERAGE=group-by-overview-average.1,group-by-overview-average.2,group-by-overview-average.3,group-by-overview-average.4
-      - CLI_WORKER_OUTPUT_ROUTINGKEYS_GROUP-BY-ACTOR-COUNT=group-by-actor-count.1,group-by-actor-count.2,group-by-actor-count.3
-      - CLI_WORKER_OUTPUT_ROUTINGKEYS_GROUP-BY-MOVIE-AVERAGE=group-by-movie-average.1,group-by-movie-average.2
-      - CLI_WORKER_OUTPUT_ROUTINGKEYS_GROUP-BY-COUNTRY-SUM=group-by-country-sum.1
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - ClI_WORKER_INPUT_ROUTINGKEYS=movies.after_2000,ratings.joiner.router,credits.joiner.router,movies.filter_only_one_country,movies.machine_learning,join_movie_ratings,join_movie_credits
+    - CLI_LOG_LEVEL=debug
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.after_2000,ratings.joiner.router,credits.joiner.router,movies.filter_only_one_country,movies.machine_learning,join_movie_ratings,join_movie_credits
+    - CLI_WORKER_OUTPUT_ROUTINGKEYS_JOIN-MOVIE-CREDITS=join-movie-credits.1
+    - CLI_WORKER_OUTPUT_ROUTINGKEYS_JOIN-MOVIE-RATINGS=join-movie-ratings.1
+    - CLI_WORKER_OUTPUT_ROUTINGKEYS_GROUP-BY-OVERVIEW-AVERAGE=group-by-overview-average.1
+    - CLI_WORKER_OUTPUT_ROUTINGKEYS_GROUP-BY-ACTOR-COUNT=group-by-actor-count.1
+    - CLI_WORKER_OUTPUT_ROUTINGKEYS_GROUP-BY-MOVIE-AVERAGE=group-by-movie-average.1
+    - CLI_WORKER_OUTPUT_ROUTINGKEYS_GROUP-BY-COUNTRY-SUM=group-by-country-sum.1
+    - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    - ClI_WORKER_INPUT_ROUTINGKEYS=movies.after_2000,ratings.joiner.router,credits.joiner.router,movies.filter_only_one_country,movies.machine_learning,join_movie_ratings,join_movie_credits

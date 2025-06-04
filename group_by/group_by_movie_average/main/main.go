@@ -49,6 +49,7 @@ func main() {
 
 	groupByActorCount := group_by.NewGroupByMovieAndAvg(group_by.GroupByMovieAndAvgConfig{
 		WorkerConfig: worker.WorkerConfig{
+			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
 		},
 	}, maxMessages)

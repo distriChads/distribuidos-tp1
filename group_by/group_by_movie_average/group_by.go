@@ -110,6 +110,7 @@ func NewGroupByMovieAndAvg(config GroupByMovieAndAvgConfig, messages_before_comm
 	log.Infof("GroupByMovieAndAvg: %+v", config)
 	return &GroupByMovieAndAvg{
 		Worker: worker.Worker{
+			Exchange:      config.Exchange,
 			MessageBroker: config.MessageBroker,
 		},
 		messages_before_commit: messages_before_commit,

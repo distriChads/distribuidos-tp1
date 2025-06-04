@@ -45,6 +45,11 @@ func RunWorker(f Filter, msgs <-chan amqp091.Delivery) error {
 		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
 		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
 		log.Debugf("Received message: %s", message_str)
+		if len(message_str) == 0 {
+			log.Warning("Received empty message")
+			message.Ack(false)
+			continue
+		}
 		if strings.TrimSpace(message_str) == worker.MESSAGE_EOF {
 			err := f.HandleEOF(client_id)
 			if err != nil {

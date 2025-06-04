@@ -123,6 +123,7 @@ func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_befor
 	log.Infof("GroupByOverviewAndAvg: %+v", config)
 	return &GroupByOverviewAndAvg{
 		Worker: worker.Worker{
+			Exchange:      config.Exchange,
 			MessageBroker: config.MessageBroker,
 		},
 		messages_before_commit: messages_before_commit,

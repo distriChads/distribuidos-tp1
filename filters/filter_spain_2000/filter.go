@@ -23,6 +23,7 @@ func NewFilterBySpainAndOf2000(config FilterBySpainAndOf2000Config) *FilterBySpa
 	log.Infof("FilterBySpainAndOf2000: %+v", config)
 	return &FilterBySpainAndOf2000{
 		Worker: worker.Worker{
+			Exchange:      config.Exchange,
 			MessageBroker: config.MessageBroker,
 		},
 	}

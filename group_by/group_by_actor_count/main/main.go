@@ -49,6 +49,7 @@ func main() {
 
 	groupByActorCount := group_by.NewGroupByActorAndCount(group_by.GroupByActorAndCountConfig{
 		WorkerConfig: worker.WorkerConfig{
+			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
 		},
 	}, maxMessages)

@@ -7,12 +7,13 @@ MESSAGE_SEPARATOR = "|"
 MESSAGE_ARRAY_SEPARATOR = ","
 MESSAGE_EOF = "EOF"
 
+EXCHANGE_NAME = "data_exchange"
+
 log = logging.getLogger("worker")
 
 
 class ExchangeSpec:
-    def __init__(self, name, routing_keys, queue_name):
-        self.name = name
+    def __init__(self, routing_keys, queue_name):
         self.routing_keys = routing_keys
         self.queue_name = queue_name
 
@@ -75,7 +76,7 @@ class Worker:
         ch = conn.channel()
 
         ch.exchange_declare(
-            exchange=self.output_exchange.name,
+            exchange=EXCHANGE_NAME,
             exchange_type='topic',
             durable=False,
             auto_delete=False
@@ -95,7 +96,7 @@ class Worker:
         ch.basic_qos(prefetch_count=1) # Prefetch
 
         ch.exchange_declare(
-            exchange=exchange_spec.name,
+            exchange=EXCHANGE_NAME,
             exchange_type='topic',
             durable=False,
             auto_delete=False
@@ -107,7 +108,7 @@ class Worker:
 
         for routing_key in exchange_spec.routing_keys:
             ch.queue_bind(
-                exchange=exchange_spec.name,
+                exchange=EXCHANGE_NAME,
                 queue=queue_name,
                 routing_key=routing_key
             )
@@ -120,12 +121,12 @@ class Worker:
             raise Exception("Sender not initialized")
 
         self.sender.ch.basic_publish(
-            exchange=self.output_exchange.name,
+            exchange=EXCHANGE_NAME,
             routing_key=routing_key,
             body=message,
             properties=pika.BasicProperties(content_type="text/plain")
         )
-        log.debug(f"Sent message to exchange {self.output_exchange.name} "
+        log.debug(f"Sent message to exchange {EXCHANGE_NAME} "
                   f"(routing key: {routing_key}): {message}")
 
     def received_messages(self):

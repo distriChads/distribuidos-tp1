@@ -98,6 +98,7 @@ func NewGroupByActorAndCount(config MasterGroupByActorAndCountConfig, messages_b
 	log.Infof("MasterGroupByActorAndCount: %+v", config)
 	return &MasterGroupByActorAndCount{
 		Worker: worker.Worker{
+			Exchange:      config.Exchange,
 			MessageBroker: config.MessageBroker,
 		},
 		messages_before_commit: messages_before_commit,

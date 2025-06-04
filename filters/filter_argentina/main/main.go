@@ -30,6 +30,7 @@ func main() {
 		OutputRoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
 		QueueName:         v.GetString("worker.queue.name"),
 	}
+	log.Debugf("ExchangeSpec: %+v", exchangeSpec)
 	messageBroker := v.GetString("worker.broker")
 
 	if exchangeSpec.InputRoutingKeys[0] == "" || exchangeSpec.OutputRoutingKeys[0] == "" || messageBroker == "" {
@@ -59,7 +60,10 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		filter.RunWorker("Starting filter by after 2000")
+		err := filter.RunWorker("Starting filter by after 2000")
+		if err != nil {
+			log.Criticalf("Error running worker: %s", err)
+		}
 		done <- true
 	}()
 

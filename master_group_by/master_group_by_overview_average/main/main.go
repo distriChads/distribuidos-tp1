@@ -52,6 +52,7 @@ func main() {
 
 	masterGroupByOverviewAverage := master_group_by.NewGroupByOverviewAndAvg(master_group_by.MasterGroupByOverviewAndAvgConfig{
 		WorkerConfig: worker.WorkerConfig{
+			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
 		},
 	}, maxMessages, expectedEof)

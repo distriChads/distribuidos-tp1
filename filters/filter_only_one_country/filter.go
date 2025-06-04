@@ -22,6 +22,7 @@ func NewFilterByOnlyOneCountry(config FilterByOnlyOneCountryConfig) *FilterByOnl
 	log.Infof("NewFilterByOnlyOneCountry: %+v", config)
 	return &FilterByOnlyOneCountry{
 		Worker: worker.Worker{
+			Exchange:      config.Exchange,
 			MessageBroker: config.MessageBroker,
 		},
 	}

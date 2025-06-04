@@ -47,6 +47,7 @@ func main() {
 
 	topn := topn.NewTopFiveCountryBudget(topn.TopFiveCountryBudgetConfig{
 		WorkerConfig: worker.WorkerConfig{
+			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
 		},
 	}, maxMessages)

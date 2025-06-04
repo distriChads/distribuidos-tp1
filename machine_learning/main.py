@@ -20,12 +20,10 @@ def main():
     queue_name = config["worker.queue.name"]
 
     input_exchange_spec = ExchangeSpec(
-        name=config["worker.exchange.input.name"],
         routing_keys=input_routing_keys,
         queue_name=queue_name
     )
     output_exchange_spec = ExchangeSpec(
-        name=config["worker.exchange.output.name"],
         routing_keys=output_routing_keys,
         queue_name=queue_name
     )

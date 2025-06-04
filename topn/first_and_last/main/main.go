@@ -48,6 +48,7 @@ func main() {
 
 	topn := topn.NewFirstAndLast(topn.FirstAndLastConfig{
 		WorkerConfig: worker.WorkerConfig{
+			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
 		},
 	}, maxMessages)

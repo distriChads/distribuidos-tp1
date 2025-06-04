@@ -52,6 +52,7 @@ func main() {
 
 	masterGroupByMovieAverage := master_group_by.NewGroupByMovieAndAvg(master_group_by.MasterGroupByMovieAndAvgConfig{
 		WorkerConfig: worker.WorkerConfig{
+			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
 		},
 	}, maxMessages, expectedEof)

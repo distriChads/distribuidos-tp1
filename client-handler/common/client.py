@@ -25,11 +25,10 @@ class Client:
     def read(self):
         return self.client_socket.read()
 
-    def send(self, data):
+    def send(self, data: str):
         return self.client_socket.send(data)
 
-    def send_message(self, data):
-        
+    def send_message(self, data: str):
         exchange = None
         routing_key = None
 

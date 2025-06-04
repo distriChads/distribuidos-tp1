@@ -7,7 +7,7 @@ import uuid
 MESSAGE_SEPARATOR = "|"
 MESSAGE_ARRAY_SEPARATOR = ","
 MESSAGE_EOF = "EOF"
-EXCHANGE_NAME = "control_exchange"
+EXCHANGE_NAME = "data_exchange"
 
 log = logging.getLogger("worker")
 
@@ -109,7 +109,7 @@ class Worker:
         self.receiver = Receiver(conn, ch, queue_name, messages)
         log.info("Receiver initialized")
 
-    def send_message(self, message, routing_key):
+    def send_message(self, message: str, routing_key: str):
         if not self.sender:
             raise Exception("Sender not initialized")
 

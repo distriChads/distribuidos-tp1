@@ -22,6 +22,7 @@ func NewFilterByArgentina(config FilterByArgentinaConfig) *FilterByArgentina {
 	log.Infof("NewFilterByArgentina: %+v", config)
 	return &FilterByArgentina{
 		Worker: worker.Worker{
+			Exchange:      config.Exchange,
 			MessageBroker: config.MessageBroker,
 		},
 	}

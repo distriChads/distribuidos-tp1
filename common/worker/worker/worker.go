@@ -161,6 +161,7 @@ func InitReceiver(worker *Worker) error {
 			false,
 			nil,
 		)
+		log.Debugf("QueueBind: queue name: %s, routing key: %s, exchange name: %s, err: %v", q.Name, routingKey, EXCHANGE_NAME, err)
 		if err != nil {
 			return err
 		}
@@ -186,6 +187,7 @@ func InitReceiver(worker *Worker) error {
 		messages: msgs,
 	}
 
+	log.Debugf("Receiver initialized: exchange name: %s, queue name: %s, routing keys: %v", EXCHANGE_NAME, q.Name, worker.Exchange.InputRoutingKeys)
 	log.Info("Receiver initialized")
 	return nil
 }

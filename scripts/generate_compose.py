@@ -102,6 +102,7 @@ def generic_worker_service(name, dockerfile_path, replica, spec, entrypoint):
 
     env = [
         f"CLI_WORKER_BROKER={broker}",
+        f"CLI_WORKER_QUEUE_NAME={spec['name']}-{replica}",
         f"CLI_LOG_LEVEL={spec['log_level']}",
         f"CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS={','.join(input_routing_keys)}",
         f"CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS={','.join(spec['output_routing_keys'])}"

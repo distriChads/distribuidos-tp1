@@ -66,7 +66,7 @@ class ClientHandler:
             self.clients[client.worker.client_id] = client
         self.__receive_datasets(client)
 
-    def __receive_datasets(self, client):
+    def __receive_datasets(self, client: Client):
         for i in range(FILES_TO_RECEIVE):
             client.receive_first_chunck()
             logging.debug("Receiving file %d of size %d", i,

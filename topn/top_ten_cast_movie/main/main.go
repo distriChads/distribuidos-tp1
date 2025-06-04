@@ -48,6 +48,7 @@ func main() {
 
 	topn := topn.NewTopTenCastMovie(topn.TopTenCastMovieConfig{
 		WorkerConfig: worker.WorkerConfig{
+			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
 		},
 	}, maxMessages)

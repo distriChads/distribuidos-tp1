@@ -49,6 +49,7 @@ func main() {
 
 	groupByActorCount := group_by.NewGroupByCountryAndSum(group_by.GroupByCountryAndSumConfig{
 		WorkerConfig: worker.WorkerConfig{
+			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
 		},
 	}, maxMessages)

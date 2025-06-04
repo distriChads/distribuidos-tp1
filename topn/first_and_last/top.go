@@ -116,6 +116,7 @@ func NewFirstAndLast(config FirstAndLastConfig, messages_before_commit int) *Fir
 	log.Infof("FirstAndLast: %+v", config)
 	return &FirstAndLast{
 		Worker: worker.Worker{
+			Exchange:      config.Exchange,
 			MessageBroker: config.MessageBroker,
 		},
 		first_and_last_movies:  make(map[string]FirstAndLastMovies, 0),

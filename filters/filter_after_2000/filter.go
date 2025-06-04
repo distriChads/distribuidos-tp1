@@ -24,6 +24,7 @@ func NewFilterByAfterYear2000(config FilterByAfterYear2000Config) *FilterByAfter
 	log.Infof("FilterByAfterYear2000: %+v", config)
 	return &FilterByAfterYear2000{
 		Worker: worker.Worker{
+			Exchange:      config.Exchange,
 			MessageBroker: config.MessageBroker,
 		},
 		// eofs: make(map[string]int),

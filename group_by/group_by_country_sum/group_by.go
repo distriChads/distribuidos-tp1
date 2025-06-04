@@ -107,6 +107,7 @@ func NewGroupByCountryAndSum(config GroupByCountryAndSumConfig, messages_before_
 	log.Infof("GroupByCountryAndSum: %+v", config)
 	return &GroupByCountryAndSum{
 		Worker: worker.Worker{
+			Exchange:      config.Exchange,
 			MessageBroker: config.MessageBroker,
 		},
 		messages_before_commit: messages_before_commit,
