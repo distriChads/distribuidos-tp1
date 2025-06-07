@@ -9,11 +9,17 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-const MESSAGE_SEPARATOR = "|"
-const MESSAGE_ARRAY_SEPARATOR = ","
-const MESSAGE_EOF = "EOF"
+const (
+	MESSAGE_SEPARATOR       = "|"
+	MESSAGE_ARRAY_SEPARATOR = ","
+	MESSAGE_EOF             = "EOF"
 
-const EXCHANGE_NAME = "data_exchange"
+	EXCHANGE_NAME = "data_exchange"
+
+	INPUTS_COMMON_NODES = 1
+	INPUTS_JOINER_NODES = 2
+	INPUTS_ROUTER_NODES = 7
+)
 
 var log = logging.MustGetLogger("worker")
 
@@ -25,8 +31,8 @@ type sender struct {
 type receiver struct {
 	conn     *amqp.Connection
 	ch       *amqp.Channel
-	queue    amqp.Queue
-	messages <-chan amqp.Delivery
+	queue    []amqp.Queue
+	messages []<-chan amqp.Delivery
 }
 
 type ExchangeSpec struct {
@@ -41,11 +47,10 @@ type WorkerConfig struct {
 }
 
 type Worker struct {
-	Exchange       ExchangeSpec
-	MessageBroker  string
-	sender         *sender
-	receiver       *receiver
-	secondReceiver *receiver // solo necesario para los joins que van a tener 2 receivers :)
+	Exchange      ExchangeSpec
+	MessageBroker string
+	sender        *sender
+	receiver      *receiver
 }
 
 func initConnection(broker string) (*amqp.Connection, error) {
@@ -141,19 +146,21 @@ func InitReceiver(worker *Worker) error {
 		return err
 	}
 
-	q, err := ch.QueueDeclare(
-		worker.Exchange.QueueName, // name
-		false,                     // durable
-		false,                     // delete when unused
-		false,                     // exclusive
-		false,                     // no-wait
-		nil,                       // arguments
-	)
-	if err != nil {
-		return err
-	}
+	var queues []amqp.Queue
+	var messages []<-chan amqp.Delivery
 
 	for _, routingKey := range worker.Exchange.InputRoutingKeys {
+		q, err := ch.QueueDeclare(
+			routingKey, // name
+			false,      // durable
+			false,      // delete when unused
+			false,      // exclusive
+			false,      // no-wait
+			nil,        // arguments
+		)
+		if err != nil {
+			return err
+		}
 		err = ch.QueueBind(
 			q.Name,        // queue name
 			routingKey,    // routing key
@@ -165,90 +172,32 @@ func InitReceiver(worker *Worker) error {
 		if err != nil {
 			return err
 		}
-	}
 
-	msgs, err := ch.Consume(
-		q.Name, // queue
-		"",     // consumer
-		false,  // auto-ack
-		false,  // exclusive
-		false,  // no-local
-		false,  // no-wait
-		nil,    // args
-	)
-	if err != nil {
-		return err
+		msgs, err := ch.Consume(
+			q.Name, // queue
+			"",     // consumer
+			false,  // auto-ack
+			false,  // exclusive
+			false,  // no-local
+			false,  // no-wait
+			nil,    // args
+		)
+		if err != nil {
+			return err
+		}
+
+		queues = append(queues, q)
+		messages = append(messages, msgs)
 	}
 
 	worker.receiver = &receiver{
 		conn:     conn,
 		ch:       ch,
-		queue:    q,
-		messages: msgs,
+		queue:    queues,
+		messages: messages,
 	}
 
-	log.Debugf("Receiver initialized: exchange name: %s, queue name: %s, routing keys: %v", EXCHANGE_NAME, q.Name, worker.Exchange.InputRoutingKeys)
 	log.Info("Receiver initialized")
-	return nil
-}
-
-func InitSecondReceiver(worker *Worker) error {
-	conn, err := initConnection(worker.MessageBroker)
-	if err != nil {
-		return err
-	}
-
-	ch, err := conn.Channel()
-	if err != nil {
-		return err
-	}
-
-	q, err := ch.QueueDeclare(
-		worker.secondReceiver.queue.Name, // name
-		false,                            // durable
-		false,                            // delete when unused
-		false,                            // exclusive
-		false,                            // no-wait
-		nil,                              // arguments
-	)
-	if err != nil {
-		return err
-	}
-
-	for _, routingKey := range worker.Exchange.InputRoutingKeys {
-		err = ch.QueueBind(
-			q.Name,        // queue name
-			routingKey,    // routing key
-			EXCHANGE_NAME, // exchange
-			false,
-			nil,
-		)
-		if err != nil {
-			return err
-		}
-	}
-
-	msgs, err := ch.Consume(
-		q.Name, // queue
-		"",     // consumer
-		false,  // auto-ack
-		false,  // exclusive
-		false,  // no-local
-		false,  // no-wait
-		nil,    // args
-	)
-	if err != nil {
-		return err
-	}
-
-	worker.secondReceiver = &receiver{
-		conn:     conn,
-		ch:       ch,
-		queue:    q,
-		messages: msgs,
-	}
-
-	log.Info("Second Receiver initialized")
 	return nil
 }
 
@@ -277,20 +226,60 @@ func SendMessage(worker Worker, message string, routingKey string) error {
 	return nil
 }
 
-func ReceivedMessages(worker Worker) (<-chan amqp.Delivery, error) {
+func ReceivedMessages(worker Worker) (error, string, int) {
 	if worker.receiver == nil {
-		return nil, errors.New("receiver not initialized")
+		return errors.New("receiver not initialized"), "", 0
 	}
 
-	return worker.receiver.messages, nil
-}
-
-func SecondReceivedMessages(worker Worker) (<-chan amqp.Delivery, error) {
-	if worker.secondReceiver == nil {
-		return nil, errors.New("receiver not initialized")
+	switch len(worker.receiver.messages) {
+	case INPUTS_COMMON_NODES:
+		for {
+			select {
+			case msg := <-worker.receiver.messages[0]:
+				msg.Ack(false)
+				return nil, string(msg.Body), 0
+			}
+		}
+	case INPUTS_JOINER_NODES:
+		for {
+			select {
+			case msg := <-worker.receiver.messages[0]:
+				msg.Ack(false)
+				return nil, string(msg.Body), 0
+			case msg := <-worker.receiver.messages[1]:
+				msg.Ack(false)
+				return nil, string(msg.Body), 1
+			}
+		}
+	case INPUTS_ROUTER_NODES:
+		for {
+			select {
+			case msg := <-worker.receiver.messages[0]:
+				msg.Ack(false)
+				return nil, string(msg.Body), 0
+			case msg := <-worker.receiver.messages[1]:
+				msg.Ack(false)
+				return nil, string(msg.Body), 1
+			case msg := <-worker.receiver.messages[2]:
+				msg.Ack(false)
+				return nil, string(msg.Body), 2
+			case msg := <-worker.receiver.messages[3]:
+				msg.Ack(false)
+				return nil, string(msg.Body), 3
+			case msg := <-worker.receiver.messages[4]:
+				msg.Ack(false)
+				return nil, string(msg.Body), 4
+			case msg := <-worker.receiver.messages[5]:
+				msg.Ack(false)
+				return nil, string(msg.Body), 5
+			case msg := <-worker.receiver.messages[6]:
+				msg.Ack(false)
+				return nil, string(msg.Body), 6
+			}
+		}
+	default:
+		return errors.New("unsupported number of queues"), "", 0
 	}
-
-	return worker.secondReceiver.messages, nil
 }
 
 func RunWorker(worker Worker) error {
@@ -345,24 +334,5 @@ func CloseReceiver(worker *Worker) error {
 	}
 
 	worker.receiver = nil
-	return nil
-}
-
-func CloseSecondReceiver(worker *Worker) error {
-	if worker.secondReceiver == nil {
-		return errors.New("receiver not initialized")
-	}
-
-	err := worker.secondReceiver.ch.Close()
-	if err != nil {
-		return err
-	}
-
-	err = worker.secondReceiver.conn.Close()
-	if err != nil {
-		return err
-	}
-
-	worker.secondReceiver = nil
 	return nil
 }
