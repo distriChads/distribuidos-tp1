@@ -34,7 +34,7 @@ func (r *Router) init(starting_message string) error {
 
 func (r *Router) messageDispatcher() error {
 	for {
-		err, msg, inputIndex := worker.ReceivedMessages(r.Worker)
+		msg, inputIndex, err := worker.ReceivedMessages(r.Worker)
 		if err != nil {
 			log.Errorf("Error receiving messages: %s", err)
 			return err
@@ -47,7 +47,7 @@ func (r *Router) messageDispatcher() error {
 		}
 		for _, routing_key := range output_routing_keys {
 			log.Debugf("Received message: %s, routing key: %s", msg, routing_key)
-			err = worker.SendMessage(r.Worker, msg, routing_key)
+			err = worker.SendMessage(r.Worker, string(msg.Body), routing_key)
 			if err != nil {
 				log.Errorf("Error sending message: %s", err)
 				return err

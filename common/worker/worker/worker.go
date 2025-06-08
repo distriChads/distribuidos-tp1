@@ -226,29 +226,25 @@ func SendMessage(worker Worker, message string, routingKey string) error {
 	return nil
 }
 
-func ReceivedMessages(worker Worker) (error, string, int) {
+func ReceivedMessages(worker Worker) (amqp.Delivery, int, error) {
 	if worker.receiver == nil {
-		return errors.New("receiver not initialized"), "", 0
+		return amqp.Delivery{}, 0, errors.New("receiver not initialized")
 	}
 
 	switch len(worker.receiver.messages) {
 	case INPUTS_COMMON_NODES:
-		for {
-			select {
-			case msg := <-worker.receiver.messages[0]:
-				msg.Ack(false)
-				return nil, string(msg.Body), 0
-			}
-		}
+		msg := <-worker.receiver.messages[0]
+		msg.Ack(false)
+		return msg, 0, nil
 	case INPUTS_JOINER_NODES:
 		for {
 			select {
 			case msg := <-worker.receiver.messages[0]:
 				msg.Ack(false)
-				return nil, string(msg.Body), 0
+				return msg, 0, nil
 			case msg := <-worker.receiver.messages[1]:
 				msg.Ack(false)
-				return nil, string(msg.Body), 1
+				return msg, 1, nil
 			}
 		}
 	case INPUTS_ROUTER_NODES:
@@ -256,29 +252,29 @@ func ReceivedMessages(worker Worker) (error, string, int) {
 			select {
 			case msg := <-worker.receiver.messages[0]:
 				msg.Ack(false)
-				return nil, string(msg.Body), 0
+				return msg, 0, nil
 			case msg := <-worker.receiver.messages[1]:
 				msg.Ack(false)
-				return nil, string(msg.Body), 1
+				return msg, 1, nil
 			case msg := <-worker.receiver.messages[2]:
 				msg.Ack(false)
-				return nil, string(msg.Body), 2
+				return msg, 2, nil
 			case msg := <-worker.receiver.messages[3]:
 				msg.Ack(false)
-				return nil, string(msg.Body), 3
+				return msg, 3, nil
 			case msg := <-worker.receiver.messages[4]:
 				msg.Ack(false)
-				return nil, string(msg.Body), 4
+				return msg, 4, nil
 			case msg := <-worker.receiver.messages[5]:
 				msg.Ack(false)
-				return nil, string(msg.Body), 5
+				return msg, 5, nil
 			case msg := <-worker.receiver.messages[6]:
 				msg.Ack(false)
-				return nil, string(msg.Body), 6
+				return msg, 6, nil
 			}
 		}
 	default:
-		return errors.New("unsupported number of queues"), "", 0
+		return amqp.Delivery{}, 0, errors.New("unsupported number of queues")
 	}
 }
 

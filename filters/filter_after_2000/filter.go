@@ -95,9 +95,9 @@ func (f *FilterByAfterYear2000) SendMessage(message_to_send []string, client_id 
 }
 
 func (f *FilterByAfterYear2000) RunWorker(starting_message string) error {
-	msgs, err := common_filter.Init(&f.Worker, starting_message)
+	err := common_filter.Init(&f.Worker, starting_message)
 	if err != nil {
 		return err
 	}
-	return common_filter.RunWorker(f, msgs)
+	return common_filter.RunWorker(f, f.Worker)
 }

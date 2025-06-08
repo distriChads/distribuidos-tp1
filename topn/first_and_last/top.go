@@ -125,9 +125,9 @@ func NewFirstAndLast(config FirstAndLastConfig, messages_before_commit int) *Fir
 }
 
 func (g *FirstAndLast) RunWorker(starting_message string) error {
-	msgs, err := common_statefull_worker.Init(&g.Worker, starting_message)
+	err := common_statefull_worker.Init(&g.Worker, starting_message)
 	if err != nil {
 		return err
 	}
-	return common_statefull_worker.RunWorker(g, msgs)
+	return common_statefull_worker.RunWorker(g, g.Worker)
 }

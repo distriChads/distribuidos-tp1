@@ -105,9 +105,9 @@ func NewGroupByActorAndCount(config MasterGroupByActorAndCountConfig, messages_b
 }
 
 func (g *MasterGroupByActorAndCount) RunWorker(starting_message string) error {
-	msgs, err := common_statefull_worker.Init(&g.Worker, starting_message)
+	err := common_statefull_worker.Init(&g.Worker, starting_message)
 	if err != nil {
 		return err
 	}
-	return common_statefull_worker.RunWorker(g, msgs)
+	return common_statefull_worker.RunWorker(g, g.Worker)
 }

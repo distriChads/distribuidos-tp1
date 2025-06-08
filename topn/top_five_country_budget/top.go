@@ -123,9 +123,9 @@ func NewTopFiveCountryBudget(config TopFiveCountryBudgetConfig, messages_before_
 }
 
 func (g *TopFiveCountryBudget) RunWorker(starting_message string) error {
-	msgs, err := common_statefull_worker.Init(&g.Worker, starting_message)
+	err := common_statefull_worker.Init(&g.Worker, starting_message)
 	if err != nil {
 		return err
 	}
-	return common_statefull_worker.RunWorker(g, msgs)
+	return common_statefull_worker.RunWorker(g, g.Worker)
 }

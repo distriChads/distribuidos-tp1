@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/op/go-logging"
-	"github.com/rabbitmq/amqp091-go"
 )
 
 type StatefullWorker interface {
@@ -44,33 +43,29 @@ func SendResult(w worker.Worker, s StatefullWorker, client_id string) error {
 	return nil
 }
 
-func Init(w *worker.Worker, starting_message string) (<-chan amqp091.Delivery, error) {
+func Init(w *worker.Worker, starting_message string) error {
 	log.Info(starting_message)
-	log.Debug("in debug")
 
 	err := worker.InitSender(w)
 	if err != nil {
-		return nil, err
+		return err
 	}
-
 	err = worker.InitReceiver(w)
-
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	msgs, err := worker.ReceivedMessages(*w)
-	if err != nil {
-		return nil, err
-	}
-
-	return msgs, nil
+	return nil
 }
 
-func RunWorker(s StatefullWorker, msgs <-chan amqp091.Delivery) error {
-
+func RunWorker(s StatefullWorker, w worker.Worker) error {
 	messages_since_last_commit := 0
-	for message := range msgs {
+	for {
+		message, _, err := worker.ReceivedMessages(w)
+		if err != nil {
+			log.Errorf("Fatal error in run worker")
+			return err
+		}
 		message_str := string(message.Body)
 		log.Debugf("Received message: %s", message_str)
 		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
@@ -93,8 +88,6 @@ func RunWorker(s StatefullWorker, msgs <-chan amqp091.Delivery) error {
 		}
 		message.Ack(false)
 	}
-
-	return nil
 }
 
 // hay 2 tipos de errores.
