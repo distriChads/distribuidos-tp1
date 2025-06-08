@@ -3,6 +3,7 @@ package main
 import (
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
+	"distribuidos-tp1/common_statefull_worker"
 	"os"
 	"os/signal"
 	"strings"
@@ -62,7 +63,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		topn.RunWorker("starting top five country budget")
+		common_statefull_worker.RunWorker(topn, topn.Worker, "starting top five country budget")
 		done <- true
 	}()
 

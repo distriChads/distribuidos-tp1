@@ -103,11 +103,3 @@ func NewGroupByActorAndCount(config MasterGroupByActorAndCountConfig, messages_b
 		log_replicas:           replicas,
 	}
 }
-
-func (g *MasterGroupByActorAndCount) RunWorker(starting_message string) error {
-	err := common_statefull_worker.Init(&g.Worker, starting_message)
-	if err != nil {
-		return err
-	}
-	return common_statefull_worker.RunWorker(g, g.Worker)
-}

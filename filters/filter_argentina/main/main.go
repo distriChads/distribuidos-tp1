@@ -9,6 +9,7 @@ import (
 	"sync"
 	"syscall"
 
+	"distribuidos-tp1/filters/common_filter"
 	filter "distribuidos-tp1/filters/filter_argentina"
 
 	"github.com/op/go-logging"
@@ -60,7 +61,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err := filter.RunWorker("Starting filter by after 2000")
+		err := common_filter.RunWorker(filter, filter.Worker, "Starting filter by argentina")
 		if err != nil {
 			log.Criticalf("Error running worker: %s", err)
 		}

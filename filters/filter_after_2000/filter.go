@@ -2,7 +2,6 @@ package filterafter2000
 
 import (
 	worker "distribuidos-tp1/common/worker/worker"
-	"distribuidos-tp1/filters/common_filter"
 	"strconv"
 	"strings"
 
@@ -92,12 +91,4 @@ func (f *FilterByAfterYear2000) SendMessage(message_to_send []string, client_id 
 		}
 	}
 	return nil
-}
-
-func (f *FilterByAfterYear2000) RunWorker(starting_message string) error {
-	err := common_filter.Init(&f.Worker, starting_message)
-	if err != nil {
-		return err
-	}
-	return common_filter.RunWorker(f, f.Worker)
 }

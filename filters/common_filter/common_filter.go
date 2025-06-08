@@ -31,7 +31,12 @@ func Init(w *worker.Worker, starting_message string) error {
 	return nil
 }
 
-func RunWorker(f Filter, w worker.Worker) error {
+func RunWorker(f Filter, w worker.Worker, starting_message string) error {
+	err := Init(&w, starting_message)
+	if err != nil {
+		return err
+	}
+
 	for {
 		message, _, err := worker.ReceivedMessages(w)
 		if err != nil {

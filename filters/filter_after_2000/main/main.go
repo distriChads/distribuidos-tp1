@@ -9,6 +9,7 @@ import (
 	"sync"
 	"syscall"
 
+	"distribuidos-tp1/filters/common_filter"
 	filter "distribuidos-tp1/filters/filter_after_2000"
 
 	"github.com/op/go-logging"
@@ -59,7 +60,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		filter.RunWorker("Starting filter by after 2000")
+		common_filter.RunWorker(filter, filter.Worker, "Starting filter by after 2000")
 		done <- true
 	}()
 

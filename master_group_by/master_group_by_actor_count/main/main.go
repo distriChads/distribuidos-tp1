@@ -3,6 +3,7 @@ package main
 import (
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
+	"distribuidos-tp1/common_statefull_worker"
 	"os"
 	"os/signal"
 	"strings"
@@ -51,7 +52,7 @@ func main() {
 	}
 
 	node_name := v.GetString("worker.nodename")
-	masterGroupByActorCount := master_group_by.NewGroupByActorAndCount(master_group_by.MasterGroupByActorAndCountConfig{
+	master_group_by := master_group_by.NewGroupByActorAndCount(master_group_by.MasterGroupByActorAndCountConfig{
 		WorkerConfig: worker.WorkerConfig{
 			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
@@ -68,7 +69,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		masterGroupByActorCount.RunWorker("starting master group by actor count")
+		common_statefull_worker.RunWorker(master_group_by, master_group_by.Worker, "starting master group by actor count")
 		done <- true
 	}()
 
@@ -76,7 +77,7 @@ func main() {
 	select {
 	case sig := <-sigChan:
 		if sig == syscall.SIGTERM {
-			masterGroupByActorCount.CloseWorker()
+			master_group_by.CloseWorker()
 			log.Info("Worker shut down successfully")
 			<-done
 		} else {

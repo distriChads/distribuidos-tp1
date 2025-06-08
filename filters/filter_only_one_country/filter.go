@@ -2,7 +2,6 @@ package filter_only_one_country
 
 import (
 	worker "distribuidos-tp1/common/worker/worker"
-	"distribuidos-tp1/filters/common_filter"
 	"strings"
 
 	"github.com/op/go-logging"
@@ -78,12 +77,4 @@ func (f *FilterByOnlyOneCountry) SendMessage(message_to_send []string, client_id
 		}
 	}
 	return nil
-}
-
-func (f *FilterByOnlyOneCountry) RunWorker(starting_message string) error {
-	err := common_filter.Init(&f.Worker, starting_message)
-	if err != nil {
-		return err
-	}
-	return common_filter.RunWorker(f, f.Worker)
 }

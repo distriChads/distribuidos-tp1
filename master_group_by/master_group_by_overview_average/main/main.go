@@ -3,6 +3,7 @@ package main
 import (
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
+	"distribuidos-tp1/common_statefull_worker"
 	"os"
 	"os/signal"
 	"strings"
@@ -51,7 +52,7 @@ func main() {
 	}
 
 	node_name := v.GetString("worker.nodename")
-	masterGroupByOverviewAverage := master_group_by.NewGroupByOverviewAndAvg(master_group_by.MasterGroupByOverviewAndAvgConfig{
+	master_group_by := master_group_by.NewGroupByOverviewAndAvg(master_group_by.MasterGroupByOverviewAndAvgConfig{
 		WorkerConfig: worker.WorkerConfig{
 			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
@@ -68,7 +69,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		masterGroupByOverviewAverage.RunWorker("starting master group by overview average")
+		common_statefull_worker.RunWorker(master_group_by, master_group_by.Worker, "starting master group by overview average")
 		done <- true
 	}()
 
@@ -76,7 +77,7 @@ func main() {
 	select {
 	case sig := <-sigChan:
 		if sig == syscall.SIGTERM {
-			masterGroupByOverviewAverage.CloseWorker()
+			master_group_by.CloseWorker()
 			log.Info("Worker shut down successfully")
 			<-done
 		} else {

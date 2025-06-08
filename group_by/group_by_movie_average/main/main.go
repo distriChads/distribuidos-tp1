@@ -3,6 +3,7 @@ package main
 import (
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
+	"distribuidos-tp1/common_statefull_worker"
 	"os"
 	"os/signal"
 	"strings"
@@ -48,7 +49,7 @@ func main() {
 	}
 
 	node_name := v.GetString("worker.nodename")
-	groupByActorCount := group_by.NewGroupByMovieAndAvg(group_by.GroupByMovieAndAvgConfig{
+	group_by := group_by.NewGroupByMovieAndAvg(group_by.GroupByMovieAndAvgConfig{
 		WorkerConfig: worker.WorkerConfig{
 			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
@@ -65,7 +66,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		groupByActorCount.RunWorker("Starting groupByActorCount")
+		common_statefull_worker.RunWorker(group_by, group_by.Worker, "Starting group by movie average")
 		done <- true
 	}()
 
@@ -73,7 +74,7 @@ func main() {
 	select {
 	case sig := <-sigChan:
 		if sig == syscall.SIGTERM {
-			groupByActorCount.CloseWorker()
+			group_by.CloseWorker()
 			log.Info("Worker shut down successfully")
 			<-done
 		} else {

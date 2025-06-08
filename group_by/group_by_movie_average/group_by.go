@@ -115,10 +115,3 @@ func NewGroupByMovieAndAvg(config GroupByMovieAndAvgConfig, messages_before_comm
 		log_replicas:           replicas,
 	}
 }
-func (g *GroupByMovieAndAvg) RunWorker(starting_message string) error {
-	err := common_statefull_worker.Init(&g.Worker, starting_message)
-	if err != nil {
-		return err
-	}
-	return common_statefull_worker.RunWorker(g, g.Worker)
-}

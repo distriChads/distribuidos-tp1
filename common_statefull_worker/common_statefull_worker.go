@@ -58,7 +58,11 @@ func Init(w *worker.Worker, starting_message string) error {
 	return nil
 }
 
-func RunWorker(s StatefullWorker, w worker.Worker) error {
+func RunWorker(s StatefullWorker, w worker.Worker, starting_message string) error {
+	err := Init(&w, starting_message)
+	if err != nil {
+		return err
+	}
 	messages_since_last_commit := 0
 	for {
 		message, _, err := worker.ReceivedMessages(w)

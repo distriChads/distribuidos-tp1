@@ -120,10 +120,3 @@ func NewGroupByOverviewAndAvg(config MasterGroupByOverviewAndAvgConfig, messages
 		log_replicas:           replicas,
 	}
 }
-func (g *MasterGroupByOverviewAndAvg) RunWorker(starting_message string) error {
-	err := common_statefull_worker.Init(&g.Worker, starting_message)
-	if err != nil {
-		return err
-	}
-	return common_statefull_worker.RunWorker(g, g.Worker)
-}

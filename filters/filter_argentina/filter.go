@@ -2,7 +2,6 @@ package filter_argentina
 
 import (
 	"distribuidos-tp1/common/worker/worker"
-	"distribuidos-tp1/filters/common_filter"
 	"strings"
 
 	"github.com/op/go-logging"
@@ -82,12 +81,4 @@ func (f *FilterByArgentina) SendMessage(message_to_send []string, client_id stri
 		log.Debugf("Sent message to output exchange: %s", message)
 	}
 	return nil
-}
-
-func (f *FilterByArgentina) RunWorker(starting_message string) error {
-	err := common_filter.Init(&f.Worker, starting_message)
-	if err != nil {
-		return err
-	}
-	return common_filter.RunWorker(f, f.Worker)
 }

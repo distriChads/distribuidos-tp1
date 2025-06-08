@@ -121,11 +121,3 @@ func NewTopFiveCountryBudget(config TopFiveCountryBudgetConfig, messages_before_
 		messages_before_commit: messages_before_commit,
 	}
 }
-
-func (g *TopFiveCountryBudget) RunWorker(starting_message string) error {
-	err := common_statefull_worker.Init(&g.Worker, starting_message)
-	if err != nil {
-		return err
-	}
-	return common_statefull_worker.RunWorker(g, g.Worker)
-}
