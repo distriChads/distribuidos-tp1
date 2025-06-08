@@ -2,8 +2,6 @@ package router
 
 import (
 	worker "distribuidos-tp1/common/worker/worker"
-	"strconv"
-	"strings"
 
 	"github.com/op/go-logging"
 )
@@ -27,21 +25,33 @@ func (r *Router) init(starting_message string) error {
 	}
 
 	err = worker.InitReceiver(&r.Worker)
-
 	if err != nil {
 		return err
 	}
 
 	return nil
-
 }
 
-func (r *Router) router() error {
+func (r *Router) messageDispatcher() error {
 	for {
-		err, msg, input := worker.ReceivedMessages(r.Worker)
+		err, msg, inputIndex := worker.ReceivedMessages(r.Worker)
 		if err != nil {
 			log.Errorf("Error receiving messages: %s", err)
 			return err
+		}
+
+		output_routing_keys, ok := r.RoutingMap[inputIndex]
+		if !ok {
+			log.Errorf("No routing keys found for input index %d", inputIndex)
+			continue
+		}
+		for _, routing_key := range output_routing_keys {
+			log.Debugf("Received message: %s, routing key: %s", msg, routing_key)
+			err = worker.SendMessage(r.Worker, msg, routing_key)
+			if err != nil {
+				log.Errorf("Error sending message: %s", err)
+				return err
+			}
 		}
 	}
 }
@@ -57,50 +67,12 @@ func NewRouter(config RouterConfig, routingMap RoutingMap) *Router {
 	}
 }
 
-// ---------------------------------
-// MESSAGE FORMAT: ID|TITLE|DATE|...
-// ---------------------------------
-const ID = 0
-const TITLE = 1
-const DATE = 2
-
-func (f *Router) Filter(lines []string) []string {
-	var result []string
-	for _, line := range lines {
-		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
-		raw_year := strings.Split(parts[DATE], "-")[0]
-		year, err := strconv.Atoi(raw_year)
-		if err != nil {
-			continue
-		}
-		if year >= 2000 {
-			result = append(result, strings.TrimSpace(parts[ID])+worker.MESSAGE_SEPARATOR+strings.TrimSpace(parts[TITLE]))
-		}
-	}
-	return result
-}
-
-func (f *Router) HandleEOF(client_id string) error {
-	// if _, ok := f.eofs[client_id]; !ok {
-	// 	f.eofs[client_id] = 0
-	// }
-	// f.eofs[client_id]++
-	// if f.eofs[client_id] >= f.expected_eof {
-	// 	log.Infof("Sending EOF for client %s", client_id)
-	// 	for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
-	// 		routing_key := queue_name
-	// 		message := client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
-	// 		err := worker.SendMessage(f.Worker, message, routing_key)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 	}
-	// 	log.Infof("Client %s finished", client_id)
-	// }
+func (r *Router) HandleEOF(client_id string) error {
+	// TODO: implement EOF handling logic
 	return nil
 }
 
-func (f *Router) SendMessage(message_to_send []string, client_id string) error {
+func (r *Router) SendMessage(message_to_send []string, client_id string) error {
 	for _, line := range message_to_send {
 		// TODO: clean up commented code, the hasher node is used to send messages
 		// parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
@@ -109,9 +81,9 @@ func (f *Router) SendMessage(message_to_send []string, client_id string) error {
 			// if err != nil {
 			// 	return err
 			// }
-			send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
+			send_queue_key := r.Worker.Exchange.OutputRoutingKeys[0]
 			message := client_id + worker.MESSAGE_SEPARATOR + line
-			err := worker.SendMessage(f.Worker, message, send_queue_key)
+			err := worker.SendMessage(r.Worker, message, send_queue_key)
 			if err != nil {
 				return err
 			}
@@ -120,10 +92,10 @@ func (f *Router) SendMessage(message_to_send []string, client_id string) error {
 	return nil
 }
 
-func (f *Router) RunWorker(starting_message string) error {
-	err := f.init(starting_message)
+func (r *Router) RunWorker(starting_message string) error {
+	err := r.init(starting_message)
 	if err != nil {
 		return err
 	}
-	return f.router()
+	return r.messageDispatcher()
 }

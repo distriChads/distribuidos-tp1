@@ -17,29 +17,22 @@ type Filter interface {
 
 var log = logging.MustGetLogger("common_filter")
 
-func Init(w *worker.Worker, starting_message string) (<-chan amqp091.Delivery, error) {
+func Init(w *worker.Worker, starting_message string) error {
 	log.Info(starting_message)
+
 	err := worker.InitSender(w)
 	if err != nil {
-		return nil, err
+		return err
 	}
-
 	err = worker.InitReceiver(w)
-
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	msgs, err := worker.ReceivedMessages(*w)
-	if err != nil {
-		return nil, err
-	}
-
-	return msgs, nil
+	return nil
 }
 
 func RunWorker(f Filter, msgs <-chan amqp091.Delivery) error {
-
 	for message := range msgs {
 		message_str := string(message.Body)
 		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
