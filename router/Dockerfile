@@ -1,9 +1,19 @@
-# syntax=docker/dockerfile:1.4
-
-FROM python:alpine
-RUN pip install --upgrade pip
-ENV PYTHONPATH=/app
-ENV PYTHONBUFFERED=1
-COPY ./client-handler ./app
+# Dependencies stage
+FROM golang:1.24-alpine AS deps
 WORKDIR /app
-RUN pip install -r requirements.txt
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Build stage
+FROM golang:1.24-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/go.mod /app/go.sum ./
+COPY ./common ./common
+COPY ./filters/filter_after_2000 ./filters/filter_after_2000
+COPY ./filters/common_filter ./filters/common_filter
+RUN CGO_ENABLED=0 GOOS=linux go build -o bin/run_worker ./filters/filter_after_2000/main/main.go
+
+# Image final
+FROM busybox:latest
+COPY --from=builder /app/bin/run_worker /
+ENTRYPOINT ["./run_worker"]
