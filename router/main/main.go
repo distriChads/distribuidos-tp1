@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
 	"os"
@@ -9,7 +10,7 @@ import (
 	"sync"
 	"syscall"
 
-	router "distribuidos-tp1/router_go"
+	router "distribuidos-tp1/router"
 
 	"github.com/op/go-logging"
 )
@@ -30,7 +31,7 @@ func main() {
 
 	exchangeSpec := worker.ExchangeSpec{
 		InputRoutingKeys:  strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
-		OutputRoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
+		OutputRoutingKeys: strings.Split("hola", "adios"),
 		QueueName:         v.GetString("worker.queue.name"),
 	}
 
@@ -53,33 +54,31 @@ func main() {
 		routingMap,
 	)
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	// Set up signal handling
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
 
-	// Start client in a goroutine
 	done := make(chan bool)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		router.RunWorker("Starting router")
+		router.RunWorker(ctx, "Starting router")
 		done <- true
 	}()
 
 	// Wait for either completion or signal
 	select {
 	case sig := <-sigChan:
-		if sig == syscall.SIGTERM {
-			router.CloseWorker()
-			log.Info("Worker shut down successfully")
-			<-done
-		} else {
-			log.Warning("Signal %v not handled", sig)
-		}
+		log.Infof("Received signal: %s, shutting down...", sig)
+		cancel() // Gracefully shut down
+		<-done
 	case <-done:
 		log.Info("Worker finished successfully")
 	}
 
 	wg.Wait()
+	log.Info("Router has shut down gracefully")
 }

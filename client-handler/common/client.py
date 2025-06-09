@@ -5,6 +5,10 @@ from .worker import Worker, WorkerConfig
 
 EOF = "EOF"
 
+MOVIES_ROUTING_KEY_INDEX = 0
+RATINGS_ROUTING_KEY_INDEX = 1
+CREDITS_ROUTING_KEY_INDEX = 2
+
 
 class Client:
     def __init__(self, socket: Socket, config: WorkerConfig):
@@ -34,13 +38,13 @@ class Client:
 
         # TODO: we have only one routing key now for working queue, change worker with it
         if type(self.batch_processor) == MoviesProcessor:
-            routing_key = self.worker.exchange.output_routing_keys[0]
+            routing_key = self.worker.exchange.output_routing_keys[MOVIES_ROUTING_KEY_INDEX]
             exchange = self.worker.exchange.name
         elif type(self.batch_processor) == CreditsProcessor:
-            routing_key = self.worker.exchange.output_routing_keys[0]
+            routing_key = self.worker.exchange.output_routing_keys[CREDITS_ROUTING_KEY_INDEX]
             exchange = self.worker.exchange.name
         else:  # RatingsProcessor
-            routing_key = self.worker.exchange.output_routing_keys[0]
+            routing_key = self.worker.exchange.output_routing_keys[RATINGS_ROUTING_KEY_INDEX]
             exchange = self.worker.exchange.name
 
         if not routing_key or not exchange:

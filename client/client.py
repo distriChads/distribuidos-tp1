@@ -20,9 +20,9 @@ class Client:
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.client_socket = Socket(client_socket)
 
-        self.movies_path = os.path.join(storage_path, "movies_metadata1.csv")
-        self.credits_path = os.path.join(storage_path, "credits1.csv")
-        self.ratings_path = os.path.join(storage_path, "ratings1.csv")
+        self.movies_path = os.path.join(storage_path, "movies_metadata.csv")
+        self.credits_path = os.path.join(storage_path, "credits.csv")
+        self.ratings_path = os.path.join(storage_path, "ratings.csv")
 
         self.running = True
         self.results_thread = None

@@ -1,13 +1,15 @@
 package router
 
 import (
+	"context"
 	worker "distribuidos-tp1/common/worker/worker"
+	"errors"
 
 	"github.com/op/go-logging"
 )
 
 type Router struct {
-	worker.Worker
+	worker worker.Worker
 	RoutingMap
 }
 
@@ -17,25 +19,35 @@ type RouterConfig struct {
 
 var log = logging.MustGetLogger("router")
 
-func (r *Router) init(starting_message string) error {
-	log.Info(starting_message)
-	err := worker.InitSender(&r.Worker)
+func NewRouter(config RouterConfig, routingMap RoutingMap) *Router {
+	log.Infof("Router: %+v", config)
+	worker, err := worker.NewWorker(config.WorkerConfig)
 	if err != nil {
-		return err
+		log.Errorf("Error creating worker: %s", err)
+		return nil
 	}
 
-	err = worker.InitReceiver(&r.Worker)
-	if err != nil {
-		return err
+	return &Router{
+		worker:     *worker,
+		RoutingMap: routingMap,
 	}
+}
 
+func (r *Router) HandleEOF(client_id string) error {
+	// TODO: implement EOF handling logic (control exchange)
 	return nil
 }
 
-func (r *Router) messageDispatcher() error {
+func (r *Router) RunWorker(ctx context.Context, starting_message string) error {
+	log.Info(starting_message)
+
 	for {
-		msg, inputIndex, err := worker.ReceivedMessages(r.Worker)
+		msg, inputIndex, err := r.worker.ReceivedMessages(ctx)
 		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				log.Info("Shutting down message dispatcher gracefully")
+				return nil
+			}
 			log.Errorf("Error receiving messages: %s", err)
 			return err
 		}
@@ -47,55 +59,11 @@ func (r *Router) messageDispatcher() error {
 		}
 		for _, routing_key := range output_routing_keys {
 			log.Debugf("Received message: %s, routing key: %s", msg, routing_key)
-			err = worker.SendMessage(r.Worker, string(msg.Body), routing_key)
+			err = r.worker.SendMessage(string(msg.Body), routing_key)
 			if err != nil {
 				log.Errorf("Error sending message: %s", err)
 				return err
 			}
 		}
 	}
-}
-
-func NewRouter(config RouterConfig, routingMap RoutingMap) *Router {
-	log.Infof("Router: %+v", config)
-	return &Router{
-		Worker: worker.Worker{
-			Exchange:      config.Exchange,
-			MessageBroker: config.MessageBroker,
-		},
-		RoutingMap: routingMap,
-	}
-}
-
-func (r *Router) HandleEOF(client_id string) error {
-	// TODO: implement EOF handling logic
-	return nil
-}
-
-func (r *Router) SendMessage(message_to_send []string, client_id string) error {
-	for _, line := range message_to_send {
-		// TODO: clean up commented code, the hasher node is used to send messages
-		// parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
-		if len(message_to_send) != 0 {
-			// id, err := strconv.Atoi(parts[ID])
-			// if err != nil {
-			// 	return err
-			// }
-			send_queue_key := r.Worker.Exchange.OutputRoutingKeys[0]
-			message := client_id + worker.MESSAGE_SEPARATOR + line
-			err := worker.SendMessage(r.Worker, message, send_queue_key)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (r *Router) RunWorker(starting_message string) error {
-	err := r.init(starting_message)
-	if err != nil {
-		return err
-	}
-	return r.messageDispatcher()
 }

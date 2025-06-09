@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"errors"
+	"reflect"
 	"time"
 
 	"github.com/op/go-logging"
@@ -80,8 +81,32 @@ func initConnection(broker string) (*amqp.Connection, error) {
 	return conn, nil
 }
 
-func InitSender(worker *Worker) error {
-	conn, err := initConnection(worker.MessageBroker)
+func NewWorker(config WorkerConfig) (*Worker, error) {
+	log.Infof("Worker: %+v", config)
+	worker := Worker{
+		Exchange:      config.Exchange,
+		MessageBroker: config.MessageBroker,
+		sender:        nil,
+		receiver:      nil,
+	}
+
+	err := worker.initSender()
+	if err != nil {
+		log.Errorf("Error initializing sender: %s", err)
+		return nil, err
+	}
+
+	err = worker.initReceiver()
+	if err != nil {
+		log.Errorf("Error initializing sender: %s", err)
+		return nil, err
+	}
+
+	return &worker, nil
+}
+
+func (w *Worker) initSender() error {
+	conn, err := initConnection(w.MessageBroker)
 	if err != nil {
 		return err
 	}
@@ -104,7 +129,7 @@ func InitSender(worker *Worker) error {
 		return err
 	}
 
-	worker.sender = &sender{
+	w.sender = &sender{
 		conn: conn,
 		ch:   ch,
 	}
@@ -113,8 +138,8 @@ func InitSender(worker *Worker) error {
 	return nil
 }
 
-func InitReceiver(worker *Worker) error {
-	conn, err := initConnection(worker.MessageBroker)
+func (w *Worker) initReceiver() error {
+	conn, err := initConnection(w.MessageBroker)
 	if err != nil {
 		return err
 	}
@@ -149,7 +174,7 @@ func InitReceiver(worker *Worker) error {
 	var queues []amqp.Queue
 	var messages []<-chan amqp.Delivery
 
-	for _, routingKey := range worker.Exchange.InputRoutingKeys {
+	for _, routingKey := range w.Exchange.InputRoutingKeys {
 		q, err := ch.QueueDeclare(
 			routingKey, // name
 			false,      // durable
@@ -190,7 +215,7 @@ func InitReceiver(worker *Worker) error {
 		messages = append(messages, msgs)
 	}
 
-	worker.receiver = &receiver{
+	w.receiver = &receiver{
 		conn:     conn,
 		ch:       ch,
 		queue:    queues,
@@ -201,15 +226,15 @@ func InitReceiver(worker *Worker) error {
 	return nil
 }
 
-func SendMessage(worker Worker, message string, routingKey string) error {
-	if worker.sender == nil {
+func (w *Worker) SendMessage(message string, routingKey string) error {
+	if w.sender == nil {
 		return errors.New("sender not initialized")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	err := worker.sender.ch.PublishWithContext(ctx,
+	err := w.sender.ch.PublishWithContext(ctx,
 		EXCHANGE_NAME, // exchange
 		routingKey,    // routing key
 		false,         // mandatory
@@ -226,56 +251,42 @@ func SendMessage(worker Worker, message string, routingKey string) error {
 	return nil
 }
 
-func ReceivedMessages(worker Worker) (amqp.Delivery, int, error) {
-	if worker.receiver == nil {
+func (w *Worker) ReceivedMessages(ctx context.Context) (amqp.Delivery, int, error) {
+	if w.receiver == nil {
 		return amqp.Delivery{}, 0, errors.New("receiver not initialized")
 	}
 
-	switch len(worker.receiver.messages) {
-	case INPUTS_COMMON_NODES:
-		msg := <-worker.receiver.messages[0]
-		msg.Ack(false)
-		return msg, 0, nil
-	case INPUTS_JOINER_NODES:
-		for {
-			select {
-			case msg := <-worker.receiver.messages[0]:
-				msg.Ack(false)
-				return msg, 0, nil
-			case msg := <-worker.receiver.messages[1]:
-				msg.Ack(false)
-				return msg, 1, nil
-			}
-		}
-	case INPUTS_ROUTER_NODES:
-		for {
-			select {
-			case msg := <-worker.receiver.messages[0]:
-				msg.Ack(false)
-				return msg, 0, nil
-			case msg := <-worker.receiver.messages[1]:
-				msg.Ack(false)
-				return msg, 1, nil
-			case msg := <-worker.receiver.messages[2]:
-				msg.Ack(false)
-				return msg, 2, nil
-			case msg := <-worker.receiver.messages[3]:
-				msg.Ack(false)
-				return msg, 3, nil
-			case msg := <-worker.receiver.messages[4]:
-				msg.Ack(false)
-				return msg, 4, nil
-			case msg := <-worker.receiver.messages[5]:
-				msg.Ack(false)
-				return msg, 5, nil
-			case msg := <-worker.receiver.messages[6]:
-				msg.Ack(false)
-				return msg, 6, nil
-			}
-		}
-	default:
-		return amqp.Delivery{}, 0, errors.New("unsupported number of queues")
+	msgChans := w.receiver.messages
+	numInputs := len(msgChans)
+
+	selectCases := make([]reflect.SelectCase, numInputs+1)
+
+	// First case: cancell context
+	selectCases[0] = reflect.SelectCase{
+		Dir:  reflect.SelectRecv,
+		Chan: reflect.ValueOf(ctx.Done()),
 	}
+
+	// Add cases for each message channel
+	for i, ch := range msgChans {
+		selectCases[i+1] = reflect.SelectCase{
+			Dir:  reflect.SelectRecv,
+			Chan: reflect.ValueOf(ch),
+		}
+	}
+
+	chosen, recv, ok := reflect.Select(selectCases)
+	if chosen == 0 {
+		// Se canceló el contexto
+		return amqp.Delivery{}, 0, ctx.Err()
+	}
+	if !ok {
+		return amqp.Delivery{}, 0, errors.New("channel closed unexpectedly")
+	}
+
+	msg := recv.Interface().(amqp.Delivery)
+	msg.Ack(false)
+	return msg, chosen - 1, nil // -1 porque el 0 era el ctx.Done()
 }
 
 func RunWorker(worker Worker) error {

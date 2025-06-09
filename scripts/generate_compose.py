@@ -62,6 +62,7 @@ def router_service(spec, replicas, replicas_services, replica_index):
     env = [
         f"CLI_LOG_LEVEL={spec['log_level']}",
         f"CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS={','.join(spec['input_routing_keys'])}",
+        f"CLI_WORKER_BROKER={spec.get('broker', DEFAULT_BROKER)}",
     ]
 
     for service in replicas_services:
@@ -72,18 +73,13 @@ def router_service(spec, replicas, replicas_services, replica_index):
             f"CLI_WORKER_OUTPUT_ROUTINGKEYS_{service.upper()}={output_routing_keys}"
         )
 
-    env.extend([
-        f"CLI_WORKER_BROKER={spec.get('broker', DEFAULT_BROKER)}",
-        f"ClI_WORKER_INPUT_ROUTINGKEYS={','.join(spec['input_routing_keys'])}"
-    ])
-
     return {
         "build": {
             "context": ".",
             "dockerfile": "router/Dockerfile"
         },
         "container_name": f"router-{replica_index}",
-        "entrypoint": "python main.py",
+        "entrypoint": "/run_worker",
         "image": "router:latest",
         "networks": COMMON_NETWORKS,
         "depends_on": COMMON_DEPENDS_ON,
@@ -176,17 +172,14 @@ def generate_compose(spec_path, output_path):
 
         else:
             prefix = ""
-            postfix_routing_key = False
             entrypoint = "./run_worker"
 
             if name.startswith("filter"):
                 prefix = "filters/"
             elif name.startswith("join"):
                 prefix = "joins/"
-                postfix_routing_key = True
             elif name.startswith("group-by"):
                 prefix = "group_by/"
-                postfix_routing_key = True
             elif name.startswith("master-group-by"):
                 prefix = "master_group_by/"
             elif name.startswith("top") or name.startswith("first"):

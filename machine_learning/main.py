@@ -16,7 +16,6 @@ def main():
 
     input_routing_keys = config["worker.exchange.input.routingkeys"]
     output_routing_keys = config["worker.exchange.output.routingkeys"]
-
     queue_name = config["worker.queue.name"]
 
     input_exchange_spec = ExchangeSpec(

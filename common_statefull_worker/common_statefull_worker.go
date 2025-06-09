@@ -2,6 +2,7 @@ package common_statefull_worker
 
 import (
 	"bufio"
+	"context"
 	worker "distribuidos-tp1/common/worker/worker"
 	"encoding/json"
 	"fmt"
@@ -28,13 +29,14 @@ var log = logging.MustGetLogger("common_group_by")
 func SendResult(w worker.Worker, s StatefullWorker, client_id string) error {
 	send_queue_key := w.Exchange.OutputRoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
 	message_to_send := client_id + worker.MESSAGE_SEPARATOR + s.MapToLines(client_id)
-	err := worker.SendMessage(w, message_to_send, send_queue_key)
+	err := w.SendMessage(message_to_send, send_queue_key)
 	if err != nil {
 		log.Errorf("Error sending message: %s", err.Error())
 		return err
 	}
+
 	message_to_send = client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
-	err = worker.SendMessage(w, message_to_send, send_queue_key)
+	err = w.SendMessage(message_to_send, send_queue_key)
 	if err != nil {
 		log.Errorf("Error sending message: %s", err.Error())
 		return err
@@ -43,29 +45,12 @@ func SendResult(w worker.Worker, s StatefullWorker, client_id string) error {
 	return nil
 }
 
-func Init(w *worker.Worker, starting_message string) error {
+func RunWorker(s StatefullWorker, ctx context.Context, w worker.Worker, starting_message string) error {
 	log.Info(starting_message)
 
-	err := worker.InitSender(w)
-	if err != nil {
-		return err
-	}
-	err = worker.InitReceiver(w)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func RunWorker(s StatefullWorker, w worker.Worker, starting_message string) error {
-	err := Init(&w, starting_message)
-	if err != nil {
-		return err
-	}
 	messages_since_last_commit := 0
 	for {
-		message, _, err := worker.ReceivedMessages(w)
+		message, _, err := w.ReceivedMessages(ctx)
 		if err != nil {
 			log.Errorf("Fatal error in run worker")
 			return err
