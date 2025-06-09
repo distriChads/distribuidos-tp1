@@ -22,42 +22,52 @@ func RunWorker(f Filter, worker worker.Worker, ctx context.Context, starting_mes
 	log.Info(starting_message)
 
 	for {
-		message, _, err := worker.ReceivedMessages(ctx)
+		msg, _, err := worker.ReceivedMessages(ctx)
 		if err != nil {
-			log.Errorf("Fatal error in run worker")
+			log.Errorf("Fatal error in run worker: %v", err)
 			return err
 		}
-		message_str := string(message.Body)
+
+		message_str := string(msg.Body)
 		log.Debugf("Received message: %s", message_str)
 		if len(message_str) == 0 {
 			log.Warning("Received empty message")
-			message.Ack(false)
+			msg.Ack(false)
 			continue
 		}
+
 		client_id := strings.SplitN(message_str, worker_package.MESSAGE_SEPARATOR, 2)[0]
 		message_str = strings.SplitN(message_str, worker_package.MESSAGE_SEPARATOR, 2)[1]
+
 		if len(message_str) == 0 {
 			log.Warning("Received empty message")
-			message.Ack(false)
+			msg.Ack(false)
 			continue
 		}
+
 		if strings.TrimSpace(message_str) == worker_package.MESSAGE_EOF {
 			err := f.HandleEOF(client_id)
 			if err != nil {
 				log.Infof("Error sending message: %s", err.Error())
 				return err
 			}
-			message.Ack(false)
+			msg.Ack(false)
 			continue
 		}
 
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		filtered_lines := f.Filter(lines)
-		err = f.SendMessage(filtered_lines, client_id)
-		if err != nil {
-			log.Infof("Error sending message: %s", err.Error())
-			return err
+
+		if len(filtered_lines) != 0 {
+			err = f.SendMessage(filtered_lines, client_id)
+			if err != nil {
+				log.Infof("Error sending message: %s", err.Error())
+				return err
+			}
+			log.Debugf("Sent message: %s", strings.Join(filtered_lines, "\n"))
+		} else {
+			log.Debugf("No lines to send for client %s", client_id)
 		}
-		message.Ack(false)
+		msg.Ack(false)
 	}
 }

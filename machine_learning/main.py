@@ -16,7 +16,7 @@ def main():
 
     input_routing_keys = config["worker.exchange.input.routingkeys"]
     output_routing_keys = config["worker.exchange.output.routingkeys"]
-    queue_name = config["worker.queue.name"]
+    queue_name = "machine_learning_queue"
 
     input_exchange_spec = ExchangeSpec(
         routing_keys=input_routing_keys,

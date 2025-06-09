@@ -176,12 +176,12 @@ func (w *Worker) initReceiver() error {
 
 	for _, routingKey := range w.Exchange.InputRoutingKeys {
 		q, err := ch.QueueDeclare(
-			routingKey, // name
-			false,      // durable
-			false,      // delete when unused
-			false,      // exclusive
-			false,      // no-wait
-			nil,        // arguments
+			w.Exchange.QueueName, // name
+			false,                // durable
+			false,                // delete when unused
+			false,                // exclusive
+			false,                // no-wait
+			nil,                  // arguments
 		)
 		if err != nil {
 			return err
@@ -273,6 +273,7 @@ func (w *Worker) ReceivedMessages(ctx context.Context) (amqp.Delivery, int, erro
 			Dir:  reflect.SelectRecv,
 			Chan: reflect.ValueOf(ch),
 		}
+		log.Infof("Added select case for channel %d", i+1)
 	}
 
 	chosen, recv, ok := reflect.Select(selectCases)
@@ -285,7 +286,6 @@ func (w *Worker) ReceivedMessages(ctx context.Context) (amqp.Delivery, int, erro
 	}
 
 	msg := recv.Interface().(amqp.Delivery)
-	msg.Ack(false)
 	return msg, chosen - 1, nil // -1 porque el 0 era el ctx.Done()
 }
 

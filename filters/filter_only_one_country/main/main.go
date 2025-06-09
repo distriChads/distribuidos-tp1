@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
 	"os"
@@ -29,7 +30,7 @@ func main() {
 	exchangeSpec := worker.ExchangeSpec{
 		InputRoutingKeys:  strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
 		OutputRoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
-		QueueName:         v.GetString("worker.queue.name"),
+		QueueName:         "filter_only_one_country",
 	}
 	messageBroker := v.GetString("worker.broker")
 
@@ -49,31 +50,31 @@ func main() {
 			MessageBroker: messageBroker,
 		},
 	})
+	if filter == nil {
+		return
+	}
 
-	// Set up signal handling
+	ctx, cancel := context.WithCancel(context.Background())
+
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
 
-	// Start client in a goroutine
 	done := make(chan bool)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		common_filter.RunWorker(filter, filter.Worker, "Starting filter by only one country")
+		common_filter.RunWorker(filter, *filter.Worker, ctx, "Starting filter for only one country")
 		done <- true
 	}()
 
-	// Wait for either completion or signal
 	select {
 	case sig := <-sigChan:
-		if sig == syscall.SIGTERM {
-			filter.CloseWorker()
-			log.Info("Worker shut down successfully")
-			<-done
-		} else {
-			log.Warning("Signal %v not handled", sig)
-		}
+		log.Infof("Signal received: %s. Initiating shutdown...", sig)
+		cancel()
+		<-done
+		filter.CloseWorker()
+		log.Info("Worker shut down successfully")
 	case <-done:
 		log.Info("Worker finished successfully")
 	}

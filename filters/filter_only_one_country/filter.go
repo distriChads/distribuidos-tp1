@@ -14,16 +14,19 @@ type FilterByOnlyOneCountryConfig struct {
 }
 
 type FilterByOnlyOneCountry struct {
-	worker.Worker
+	Worker *worker.Worker
 }
 
 func NewFilterByOnlyOneCountry(config FilterByOnlyOneCountryConfig) *FilterByOnlyOneCountry {
-	log.Infof("NewFilterByOnlyOneCountry: %+v", config)
+	log.Infof("FilterByOnlyOneCountry: %+v", config)
+	worker, err := worker.NewWorker(config.WorkerConfig)
+	if err != nil {
+		log.Errorf("Error creating worker: %s", err)
+		return nil
+	}
+
 	return &FilterByOnlyOneCountry{
-		Worker: worker.Worker{
-			Exchange:      config.Exchange,
-			MessageBroker: config.MessageBroker,
-		},
+		Worker: worker,
 	}
 }
 
@@ -70,11 +73,18 @@ func (f *FilterByOnlyOneCountry) SendMessage(message_to_send []string, client_id
 		// send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
 		send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
 		message = client_id + worker.MESSAGE_SEPARATOR + message
-		err := worker.SendMessage(f.Worker, message, send_queue_key)
+		err := f.Worker.SendMessage(message, send_queue_key)
 		// f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (f *FilterByOnlyOneCountry) CloseWorker() {
+	if f.Worker != nil {
+		f.Worker.CloseWorker()
+	}
+	log.Info("FilterByOnlyOneCountry worker closed")
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
 	"distribuidos-tp1/common_statefull_worker"
@@ -25,11 +26,12 @@ func main() {
 	}
 
 	log_level := v.GetString("log.level")
+	queue_name := strings.Split(v.GetString("worker.exchange.input.routingkeys"), ",")[0]
 
 	exchangeSpec := worker.ExchangeSpec{
 		InputRoutingKeys:  strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
 		OutputRoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
-		QueueName:         v.GetString("worker.queue.name"),
+		QueueName:         queue_name,
 	}
 	messageBroker := v.GetString("worker.broker")
 
@@ -56,30 +58,27 @@ func main() {
 		},
 	}, maxMessages, node_name)
 
-	// Set up signal handling
+	ctx, cancel := context.WithCancel(context.Background())
+
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
 
-	// Start client in a goroutine
 	done := make(chan bool)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		common_statefull_worker.RunWorker(group_by, group_by.Worker, "Starting group by country sum")
+		common_statefull_worker.RunWorker(group_by, ctx, group_by.Worker, "Starting group by actor count")
 		done <- true
 	}()
 
-	// Wait for either completion or signal
 	select {
 	case sig := <-sigChan:
-		if sig == syscall.SIGTERM {
-			group_by.CloseWorker()
-			log.Info("Worker shut down successfully")
-			<-done
-		} else {
-			log.Warning("Signal %v not handled", sig)
-		}
+		log.Infof("Signal received: %s. Shutting down...", sig)
+		cancel() // cancelamos el contexto → avisa al worker que debe salir
+		<-done   // esperamos que termine
+		group_by.CloseWorker()
+		log.Info("Worker shut down successfully")
 	case <-done:
 		log.Info("Worker finished successfully")
 	}

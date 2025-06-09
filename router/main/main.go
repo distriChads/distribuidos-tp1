@@ -32,7 +32,7 @@ func main() {
 	exchangeSpec := worker.ExchangeSpec{
 		InputRoutingKeys:  strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
 		OutputRoutingKeys: strings.Split("hola", "adios"),
-		QueueName:         v.GetString("worker.queue.name"),
+		QueueName:         "router",
 	}
 
 	if exchangeSpec.InputRoutingKeys[0] == "" || exchangeSpec.OutputRoutingKeys[0] == "" || messageBroker == "" {
@@ -53,6 +53,9 @@ func main() {
 	},
 		routingMap,
 	)
+	if router == nil {
+		return
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 

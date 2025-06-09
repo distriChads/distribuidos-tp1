@@ -15,18 +15,19 @@ type FilterByAfterYear2000Config struct {
 }
 
 type FilterByAfterYear2000 struct {
-	worker.Worker
-	// eofs map[string]int
+	Worker *worker.Worker
 }
 
 func NewFilterByAfterYear2000(config FilterByAfterYear2000Config) *FilterByAfterYear2000 {
 	log.Infof("FilterByAfterYear2000: %+v", config)
+	worker, err := worker.NewWorker(config.WorkerConfig)
+	if err != nil {
+		log.Errorf("Error creating worker: %s", err)
+		return nil
+	}
+
 	return &FilterByAfterYear2000{
-		Worker: worker.Worker{
-			Exchange:      config.Exchange,
-			MessageBroker: config.MessageBroker,
-		},
-		// eofs: make(map[string]int),
+		Worker: worker,
 	}
 }
 
@@ -54,22 +55,6 @@ func (f *FilterByAfterYear2000) Filter(lines []string) []string {
 }
 
 func (f *FilterByAfterYear2000) HandleEOF(client_id string) error {
-	// if _, ok := f.eofs[client_id]; !ok {
-	// 	f.eofs[client_id] = 0
-	// }
-	// f.eofs[client_id]++
-	// if f.eofs[client_id] >= f.expected_eof {
-	// 	log.Infof("Sending EOF for client %s", client_id)
-	// 	for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
-	// 		routing_key := queue_name
-	// 		message := client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
-	// 		err := worker.SendMessage(f.Worker, message, routing_key)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 	}
-	// 	log.Infof("Client %s finished", client_id)
-	// }
 	return nil
 }
 
@@ -84,11 +69,18 @@ func (f *FilterByAfterYear2000) SendMessage(message_to_send []string, client_id 
 			// }
 			send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
 			message := client_id + worker.MESSAGE_SEPARATOR + line
-			err := worker.SendMessage(f.Worker, message, send_queue_key)
+			err := f.Worker.SendMessage(message, send_queue_key)
 			if err != nil {
 				return err
 			}
 		}
 	}
 	return nil
+}
+
+func (f *FilterByAfterYear2000) CloseWorker() {
+	if f.Worker != nil {
+		f.Worker.CloseWorker()
+	}
+	log.Info("FilterByAfterYear2000 worker closed")
 }

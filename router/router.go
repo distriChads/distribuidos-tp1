@@ -55,15 +55,18 @@ func (r *Router) RunWorker(ctx context.Context, starting_message string) error {
 		output_routing_keys, ok := r.RoutingMap[inputIndex]
 		if !ok {
 			log.Errorf("No routing keys found for input index %d", inputIndex)
+			msg.Ack(false)
 			continue
 		}
+
 		for _, routing_key := range output_routing_keys {
-			log.Debugf("Received message: %s, routing key: %s", msg, routing_key)
+			log.Debugf("Sending message: %s, routing key: %s", string(msg.Body), routing_key)
 			err = r.worker.SendMessage(string(msg.Body), routing_key)
 			if err != nil {
 				log.Errorf("Error sending message: %s", err)
 				return err
 			}
 		}
+		msg.Ack(false)
 	}
 }

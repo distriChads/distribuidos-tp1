@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
 	"os"
@@ -29,9 +30,8 @@ func main() {
 	exchangeSpec := worker.ExchangeSpec{
 		InputRoutingKeys:  strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
 		OutputRoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
-		QueueName:         v.GetString("worker.queue.name"),
+		QueueName:         "filter_argentina",
 	}
-	log.Debugf("ExchangeSpec: %+v", exchangeSpec)
 	messageBroker := v.GetString("worker.broker")
 
 	if exchangeSpec.InputRoutingKeys[0] == "" || exchangeSpec.OutputRoutingKeys[0] == "" || messageBroker == "" {
@@ -50,34 +50,31 @@ func main() {
 			MessageBroker: messageBroker,
 		},
 	})
+	if filter == nil {
+		return
+	}
 
-	// Set up signal handling
+	ctx, cancel := context.WithCancel(context.Background())
+
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
 
-	// Start client in a goroutine
 	done := make(chan bool)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err := common_filter.RunWorker(filter, filter.Worker, "Starting filter by argentina")
-		if err != nil {
-			log.Criticalf("Error running worker: %s", err)
-		}
+		common_filter.RunWorker(filter, *filter.Worker, ctx, "Starting filter by after 2000")
 		done <- true
 	}()
 
-	// Wait for either completion or signal
 	select {
 	case sig := <-sigChan:
-		if sig == syscall.SIGTERM {
-			filter.CloseWorker()
-			log.Info("Worker shut down successfully")
-			<-done
-		} else {
-			log.Warning("Signal %v not handled", sig)
-		}
+		log.Infof("Signal received: %s. Initiating shutdown...", sig)
+		cancel()
+		<-done
+		filter.CloseWorker()
+		log.Info("Worker shut down successfully")
 	case <-done:
 		log.Info("Worker finished successfully")
 	}
