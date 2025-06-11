@@ -57,6 +57,9 @@ func main() {
 			MessageBroker: messageBroker,
 		},
 	}, maxMessages, node_name)
+	if group_by == nil {
+		return
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -68,7 +71,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		common_statefull_worker.RunWorker(group_by, ctx, group_by.Worker, "Starting group by actor count")
+		common_statefull_worker.RunWorker(group_by, ctx, group_by.Worker, "Starting group by country and sum worker")
 		done <- true
 	}()
 

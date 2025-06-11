@@ -4,8 +4,16 @@ import (
 	"context"
 	worker "distribuidos-tp1/common/worker/worker"
 	"errors"
+	"strconv"
+	"strings"
 
 	"github.com/op/go-logging"
+)
+
+const (
+	FIELD_SEPARATOR = "|"
+	VALUE_SEPARATOR = ","
+	LINE_SEPARATOR  = "\n"
 )
 
 type Router struct {
@@ -52,6 +60,8 @@ func (r *Router) RunWorker(ctx context.Context, starting_message string) error {
 			return err
 		}
 
+		msgBody := string(msg.Body)
+
 		output_routing_keys, ok := r.RoutingMap[inputIndex]
 		if !ok {
 			log.Errorf("No routing keys found for input index %d", inputIndex)
@@ -59,9 +69,13 @@ func (r *Router) RunWorker(ctx context.Context, starting_message string) error {
 			continue
 		}
 
-		for _, routing_key := range output_routing_keys {
-			log.Debugf("Sending message: %s, routing key: %s", string(msg.Body), routing_key)
-			err = r.worker.SendMessage(string(msg.Body), routing_key)
+		dataDistributed := r.routeDataByMovieId(output_routing_keys, msgBody)
+
+		for i, routing_key := range output_routing_keys {
+			dataToSend := dataDistributed[i]
+			log.Infof("Sending message: %s, from input %s, to routing key: %s", dataToSend, inputIndex, routing_key)
+
+			err = r.worker.SendMessage(dataToSend, routing_key)
 			if err != nil {
 				log.Errorf("Error sending message: %s", err)
 				return err
@@ -69,4 +83,42 @@ func (r *Router) RunWorker(ctx context.Context, starting_message string) error {
 		}
 		msg.Ack(false)
 	}
+}
+
+func (r *Router) routeDataByMovieId(outputRoutingKeys []string, inputData string) []string {
+	dataDistributed := make([]string, len(outputRoutingKeys))
+
+	splitedData := strings.SplitN(inputData, FIELD_SEPARATOR, 2)
+	clientId, message := splitedData[0], splitedData[1]
+	lines := strings.Split(message, LINE_SEPARATOR)
+
+	for _, line := range lines {
+		if len(line) == 0 {
+			continue
+		}
+		// if strings.Contains(line, "La Cienaga") {
+		// 	log.Infof("Skipping line with 'La Cienaga': %s", line)
+		// 	// time.Sleep(10000 * time.Millisecond) // Simulate processing delay
+		// }
+
+		movieIdString := strings.SplitN(line, FIELD_SEPARATOR, 2)[0]
+		if len(movieIdString) == 0 {
+			log.Warningf("Empty movie ID in line: %s", line)
+			continue
+		}
+		movieId, err := strconv.Atoi(movieIdString)
+		if err != nil {
+			log.Errorf("Invalid movie ID '%s' in line: %s", movieIdString, line)
+			continue
+		}
+
+		indexForSharding := movieId % len(outputRoutingKeys)
+		if len(dataDistributed[indexForSharding]) == 0 {
+			dataDistributed[indexForSharding] = clientId + FIELD_SEPARATOR + line
+		} else {
+			dataDistributed[indexForSharding] += LINE_SEPARATOR + line
+		}
+	}
+
+	return dataDistributed
 }

@@ -273,12 +273,11 @@ func (w *Worker) ReceivedMessages(ctx context.Context) (amqp.Delivery, int, erro
 			Dir:  reflect.SelectRecv,
 			Chan: reflect.ValueOf(ch),
 		}
-		log.Infof("Added select case for channel %d", i+1)
+		log.Debugf("Added select case for channel %d", i+1)
 	}
 
 	chosen, recv, ok := reflect.Select(selectCases)
 	if chosen == 0 {
-		// Se canceló el contexto
 		return amqp.Delivery{}, 0, ctx.Err()
 	}
 	if !ok {

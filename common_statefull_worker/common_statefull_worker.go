@@ -52,11 +52,16 @@ func RunWorker(s StatefullWorker, ctx context.Context, w worker.Worker, starting
 	for {
 		message, _, err := w.ReceivedMessages(ctx)
 		if err != nil {
-			log.Errorf("Fatal error in run worker")
+			log.Errorf("Fatal error in run worker: %v", err)
 			return err
 		}
 		message_str := string(message.Body)
-		log.Debugf("Received message: %s", message_str)
+		log.Infof("Received message: %s", message_str)
+		if len(message_str) == 0 {
+			message.Ack(false)
+			continue
+		}
+
 		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
 		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
 		s.NewClient(client_id)
@@ -69,6 +74,7 @@ func RunWorker(s StatefullWorker, ctx context.Context, w worker.Worker, starting
 			message.Ack(false)
 			continue
 		}
+
 		messages_since_last_commit += 1
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		s.UpdateState(lines, client_id)

@@ -100,11 +100,15 @@ func NewGroupByCountryAndSum(config GroupByCountryAndSumConfig, messages_before_
 	log.Infof("GroupByCountryAndSum: %+v", config)
 	replicas := 3
 	grouped_elements, _ := common_statefull_worker.GetElements[int](node_name, replicas+1)
+
+	worker, err := worker.NewWorker(config.WorkerConfig)
+	if err != nil {
+		log.Errorf("Error creating worker")
+		return nil
+	}
+
 	return &GroupByCountryAndSum{
-		Worker: worker.Worker{
-			Exchange:      config.Exchange,
-			MessageBroker: config.MessageBroker,
-		},
+		Worker:                 *worker,
 		messages_before_commit: messages_before_commit,
 		grouped_elements:       grouped_elements,
 		eofs:                   make(map[string]int),

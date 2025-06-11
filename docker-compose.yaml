@@ -35,7 +35,7 @@ services:
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLIENT_HANDLER_LISTEN_BACKLOG=5
       - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=*.results
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.client_handler,ratings.joiner.router,credits.joiner.router
+      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.client_handler,ratings.client-handler.router,credits.client-handler.router
   filter-argentina-1:
     build:
       context: .
@@ -80,7 +80,7 @@ services:
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLI_LOG_LEVEL=info
       - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.client_handler
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.filter_only_one_country
+      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.filter_only_one_country.router
     image: filter_only_one_country:latest
     networks:
       - movies_net
@@ -240,7 +240,7 @@ services:
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLI_LOG_LEVEL=info
       - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.client_handler
-      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.machine_learning
+      - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.ml.router
     image: machine_learning:latest
     networks:
       - movies_net
@@ -288,7 +288,7 @@ services:
   #   - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
   #   - CLI_LOG_LEVEL=info
   #   - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=join-movie-ratings.movies.router.1,join-movie-ratings.ratings.router.1
-  #   - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join_movie_ratings
+  #   - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join_movie_ratings.router
   #   image: join_movie_ratings:latest
   #   networks:
   #   - movies_net
@@ -304,7 +304,7 @@ services:
   #   - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
   #   - CLI_LOG_LEVEL=info
   #   - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=join-movie-credits.movies.router.1,join-movie-credits.credits.router.1
-  #   - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join_movie_credits
+  #   - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join_movie_credits.router
   #   image: join_movie_credits:latest
   #   networks:
   #   - movies_net
@@ -336,7 +336,7 @@ services:
       - rabbitmq
     environment:
       - CLI_LOG_LEVEL=info
-      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.after_2000,ratings.joiner.router,credits.joiner.router,movies.filter_only_one_country,movies.machine_learning,join_movie_ratings,join_movie_credits
+      - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.after_2000,ratings.client-handler.router,credits.client-handler.router,movies.filter_only_one_country.router,movies.ml.router,join_movie_ratings.router,join_movie_credits.router
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLI_WORKER_OUTPUT_ROUTINGKEYS_JOIN-MOVIE-CREDITS=join-movie-credits.1
       - CLI_WORKER_OUTPUT_ROUTINGKEYS_JOIN-MOVIE-RATINGS=join-movie-ratings.1

@@ -6,7 +6,7 @@
             "log_level": "info",
             "replicas": 1,
             "input_routing_keys": ["*.results"],
-            "output_routing_keys": ["movies.client_handler", "ratings.joiner.router", "credits.joiner.router"],
+            "output_routing_keys": ["movies.client_handler", "ratings.client-handler.router", "credits.client-handler.router"],
             "listen_backlog": 5
         },
         {
@@ -28,7 +28,7 @@
             "replicas": 1,
             "log_level": "info",
             "input_routing_keys": ["movies.client_handler"],
-            "output_routing_keys": ["movies.filter_only_one_country"]
+            "output_routing_keys": ["movies.filter_only_one_country.router"]
         },
         {
             "name": "filter-after-2000",
@@ -98,7 +98,7 @@
             "replicas": 1,
             "log_level": "info",
             "input_routing_keys": ["movies.client_handler"],
-            "output_routing_keys": ["movies.machine_learning"]
+            "output_routing_keys": ["movies.ml.router"]
         },
         {
             "name": "top-five-country-budget",
@@ -119,14 +119,14 @@
             "replicas": 1,
             "log_level": "info",
             "input_routing_keys": ["join-movie-ratings.movies.router", "join-movie-ratings.ratings.router"],
-            "output_routing_keys": ["join_movie_ratings"]
+            "output_routing_keys": ["join_movie_ratings.router"]
         },
         {
             "name": "join-movie-credits",
             "replicas": 1,
             "log_level": "info",
             "input_routing_keys": ["join-movie-credits.movies.router", "join-movie-credits.credits.router"],
-            "output_routing_keys": ["join_movie_credits"]
+            "output_routing_keys": ["join_movie_credits.router"]
         },
         {
             "name": "first-and-last",
@@ -139,7 +139,7 @@
             "name": "router",
             "replicas": 1,
             "log_level": "info",
-            "input_routing_keys": ["movies.after_2000", "ratings.joiner.router", "credits.joiner.router", "movies.filter_only_one_country", "movies.machine_learning", "join_movie_ratings", "join_movie_credits"]
+            "input_routing_keys": ["movies.after_2000", "ratings.client-handler.router", "credits.client-handler.router", "movies.filter_only_one_country.router", "movies.ml.router", "join_movie_ratings.router", "join_movie_credits.router"]
         }
     ]
 }
