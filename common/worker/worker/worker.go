@@ -33,7 +33,7 @@ type sender struct {
 type receiver struct {
 	conn     *amqp.Connection
 	ch       *amqp.Channel
-	queue    []amqp.Queue
+	queues   []amqp.Queue
 	messages []<-chan amqp.Delivery
 }
 
@@ -221,7 +221,7 @@ func (w *Worker) initReceiver() error {
 	w.receiver = &receiver{
 		conn:     conn,
 		ch:       ch,
-		queue:    queues,
+		queues:   queues,
 		messages: messages,
 	}
 
@@ -276,7 +276,6 @@ func (w *Worker) ReceivedMessages(ctx context.Context) (amqp.Delivery, int, erro
 			Dir:  reflect.SelectRecv,
 			Chan: reflect.ValueOf(ch),
 		}
-		log.Debugf("Added select case for channel %d", i+1)
 	}
 
 	chosen, recv, ok := reflect.Select(selectCases)

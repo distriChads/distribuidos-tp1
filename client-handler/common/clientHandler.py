@@ -104,7 +104,7 @@ class ClientHandler:
             if result == EOF or len(result) == 0:
                 self.eof_per_client[client_id] = self.eof_per_client.get(
                     client_id, 0) + 1
-                if self.eof_per_client[client_id] >= QUERIES_NUMBER + self.eof_for_query_1:
+                if self.eof_per_client[client_id] >= QUERIES_NUMBER:
                     with self.clients_lock:
                         client = self.clients.pop(client_id)
                     client.send(EOF)

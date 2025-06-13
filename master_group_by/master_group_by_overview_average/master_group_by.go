@@ -63,6 +63,7 @@ func mapToLines(grouped_elements map[string]ScoreAndCount) string {
 }
 
 func (g *MasterGroupByOverviewAndAvg) HandleEOF(client_id string) error {
+	log.Infof("MasterGroupByOverviewAndAvg: Handling EOF for client %s", client_id)
 	err := common_statefull_worker.SendResult(g.Worker, g, client_id)
 	if err != nil {
 		return err

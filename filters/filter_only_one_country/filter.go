@@ -64,11 +64,14 @@ func (f *FilterByOnlyOneCountry) HandleEOF(client_id string) error {
 	// 	}
 	// 	log.Infof("Client %s finished", client_id)
 	// }
+
+	f.SendMessage([]string{worker.MESSAGE_EOF}, client_id)
 	return nil
 }
 
 func (f *FilterByOnlyOneCountry) SendMessage(message_to_send []string, client_id string) error {
 	message := strings.Join(message_to_send, "\n")
+	log.Infof("Sent message: %s", message)
 	if len(message) != 0 {
 		// send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
 		send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]

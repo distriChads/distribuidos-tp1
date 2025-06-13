@@ -55,6 +55,9 @@ func main() {
 			MessageBroker: messageBroker,
 		},
 	}, maxMessages)
+	if topn == nil {
+		return
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
