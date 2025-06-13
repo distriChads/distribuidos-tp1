@@ -21,6 +21,7 @@ type MasterGroupByOverviewAndAvg struct {
 	grouped_elements       map[string]map[string]ScoreAndCount
 	eofs                   map[string]int
 	node_name              string
+	log_replicas           int
 }
 
 type ScoreAndCount struct {
@@ -41,7 +42,7 @@ func (g *MasterGroupByOverviewAndAvg) NewClient(client_id string) {
 
 func (g *MasterGroupByOverviewAndAvg) ShouldCommit(messages_before_commit int, client_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.node_name)
+		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.node_name, g.log_replicas)
 		return true
 	}
 	return false
@@ -62,15 +63,13 @@ func mapToLines(grouped_elements map[string]ScoreAndCount) string {
 }
 
 func (g *MasterGroupByOverviewAndAvg) HandleEOF(client_id string) error {
-	g.eofs[client_id]++
-	if g.eofs[client_id] >= g.expected_eof {
-		err := common_statefull_worker.SendResult(g.Worker, g, client_id)
-		if err != nil {
-			return err
-		}
-		delete(g.grouped_elements, client_id)
-		delete(g.eofs, client_id)
+	log.Infof("MasterGroupByOverviewAndAvg: Handling EOF for client %s", client_id)
+	err := common_statefull_worker.SendResult(g.Worker, g, client_id)
+	if err != nil {
+		return err
 	}
+	delete(g.grouped_elements, client_id)
+	delete(g.eofs, client_id)
 	return nil
 }
 
@@ -107,24 +106,22 @@ func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]ScoreA
 
 func NewGroupByOverviewAndAvg(config MasterGroupByOverviewAndAvgConfig, messages_before_commit int, expected_eof int, node_name string) *MasterGroupByOverviewAndAvg {
 	log.Infof("MasterGroupByOverviewAndAvg: %+v", config)
-	grouped_elements := common_statefull_worker.GetElements[ScoreAndCount](node_name)
+
+	worker, err := worker.NewWorker(config.WorkerConfig)
+	if err != nil {
+		log.Errorf("Error creating worker: %s", err)
+		return nil
+	}
+
+	replicas := 3
+	grouped_elements, _ := common_statefull_worker.GetElements[ScoreAndCount](node_name, replicas+1)
 	return &MasterGroupByOverviewAndAvg{
-		Worker: worker.Worker{
-			InputExchange:  config.InputExchange,
-			OutputExchange: config.OutputExchange,
-			MessageBroker:  config.MessageBroker,
-		},
+		Worker:                 *worker,
 		messages_before_commit: messages_before_commit,
 		expected_eof:           expected_eof,
 		grouped_elements:       grouped_elements,
 		eofs:                   make(map[string]int),
 		node_name:              node_name,
+		log_replicas:           replicas,
 	}
-}
-func (g *MasterGroupByOverviewAndAvg) RunWorker(starting_message string) error {
-	msgs, err := common_statefull_worker.Init(&g.Worker, starting_message)
-	if err != nil {
-		return err
-	}
-	return common_statefull_worker.RunWorker(g, msgs)
 }

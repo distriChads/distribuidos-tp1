@@ -10,6 +10,13 @@ import (
 	"github.com/op/go-logging"
 )
 
+// ---------------------------------
+// MESSAGE FORMAT: id_client|MOVIE_ID|OVERVIEW|BUDGET|REVENUE
+// ---------------------------------
+const OVERVIEW = 1
+const BUDGET = 2
+const REVENUE = 3
+
 type GroupByOverviewAndAvgConfig struct {
 	worker.WorkerConfig
 }
@@ -21,6 +28,7 @@ type GroupByOverviewAndAvg struct {
 	grouped_elements       map[string]map[string]RevenueBudgetCount
 	eofs                   map[string]int
 	node_name              string
+	log_replicas           int
 }
 
 type RevenueBudgetCount struct {
@@ -41,7 +49,7 @@ func (g *GroupByOverviewAndAvg) NewClient(client_id string) {
 
 func (g *GroupByOverviewAndAvg) ShouldCommit(messages_before_commit int, client_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.node_name)
+		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.node_name, g.log_replicas)
 		return true
 	}
 	return false
@@ -62,28 +70,27 @@ func mapToLines(grouped_elements map[string]RevenueBudgetCount) string {
 }
 
 func (g *GroupByOverviewAndAvg) HandleEOF(client_id string) error {
-	g.eofs[client_id]++
-	if g.eofs[client_id] >= g.expected_eof {
-		err := common_statefull_worker.SendResult(g.Worker, g, client_id)
-		if err != nil {
-			return err
-		}
-		delete(g.grouped_elements, client_id)
-		delete(g.eofs, client_id)
+	// g.eofs[client_id]++
+	// if g.eofs[client_id] >= g.expected_eof {
+	// 	err := common_statefull_worker.SendResult(g.Worker, g, client_id)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	delete(g.grouped_elements, client_id)
+	// 	delete(g.eofs, client_id)
+	// }
+	err := common_statefull_worker.SendResult(g.Worker, g, client_id)
+	if err != nil {
+		return err
 	}
+	delete(g.grouped_elements, client_id)
+	delete(g.eofs, client_id)
 	return nil
 }
 
 func (g *GroupByOverviewAndAvg) UpdateState(lines []string, client_id string) {
 	groupByOverviewAndUpdate(lines, g.grouped_elements[client_id])
 }
-
-// ---------------------------------
-// MESSAGE FORMAT: OVERVIEW|BUDGET|REVENUE
-// ---------------------------------
-const OVERVIEW = 0
-const BUDGET = 1
-const REVENUE = 2
 
 func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]RevenueBudgetCount) {
 	for _, line := range lines {
@@ -105,26 +112,21 @@ func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]Revenu
 	}
 }
 
-func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_before_commit int, eof_counter int, node_name string) *GroupByOverviewAndAvg {
+func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_before_commit int, node_name string) *GroupByOverviewAndAvg {
 	log.Infof("GroupByOverviewAndAvg: %+v", config)
-	grouped_elements := common_statefull_worker.GetElements[RevenueBudgetCount](node_name)
+	worker, err := worker.NewWorker(config.WorkerConfig)
+	if err != nil {
+		log.Errorf("Error creating worker: %s", err)
+		return nil
+	}
+	replicas := 3
+	grouped_elements, _ := common_statefull_worker.GetElements[RevenueBudgetCount](node_name, replicas+1)
 	return &GroupByOverviewAndAvg{
-		Worker: worker.Worker{
-			InputExchange:  config.InputExchange,
-			OutputExchange: config.OutputExchange,
-			MessageBroker:  config.MessageBroker,
-		},
+		Worker:                 *worker,
 		messages_before_commit: messages_before_commit,
-		expected_eof:           eof_counter,
 		eofs:                   make(map[string]int),
 		grouped_elements:       grouped_elements,
 		node_name:              node_name,
+		log_replicas:           replicas,
 	}
-}
-func (g *GroupByOverviewAndAvg) RunWorker(starting_message string) error {
-	msgs, err := common_statefull_worker.Init(&g.Worker, starting_message)
-	if err != nil {
-		return err
-	}
-	return common_statefull_worker.RunWorker(g, msgs)
 }

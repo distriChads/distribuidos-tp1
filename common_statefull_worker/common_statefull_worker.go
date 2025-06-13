@@ -2,9 +2,11 @@ package common_statefull_worker
 
 import (
 	"bufio"
+	"context"
 	worker "distribuidos-tp1/common/worker/worker"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -12,7 +14,6 @@ import (
 	"strings"
 
 	"github.com/op/go-logging"
-	"github.com/rabbitmq/amqp091-go"
 )
 
 type StatefullWorker interface {
@@ -26,49 +27,41 @@ type StatefullWorker interface {
 var log = logging.MustGetLogger("common_group_by")
 
 func SendResult(w worker.Worker, s StatefullWorker, client_id string) error {
-	send_queue_key := w.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
+	send_queue_key := w.Exchange.OutputRoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
 	message_to_send := client_id + worker.MESSAGE_SEPARATOR + s.MapToLines(client_id)
-	err := worker.SendMessage(w, message_to_send, send_queue_key)
+	err := w.SendMessage(message_to_send, send_queue_key)
 	if err != nil {
 		log.Errorf("Error sending message: %s", err.Error())
 		return err
 	}
+
 	message_to_send = client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
-	err = worker.SendMessage(w, message_to_send, send_queue_key)
+	err = w.SendMessage(message_to_send, send_queue_key)
 	if err != nil {
 		log.Errorf("Error sending message: %s", err.Error())
 		return err
 	}
+	log.Debugf("Sent message: %s", message_to_send)
 	return nil
 }
 
-func Init(w *worker.Worker, starting_message string) (<-chan amqp091.Delivery, error) {
+func RunWorker(s StatefullWorker, ctx context.Context, w worker.Worker, starting_message string) error {
 	log.Info(starting_message)
 
-	err := worker.InitSender(w)
-	if err != nil {
-		return nil, err
-	}
-
-	err = worker.InitReceiver(w)
-
-	if err != nil {
-		return nil, err
-	}
-
-	msgs, err := worker.ReceivedMessages(*w)
-	if err != nil {
-		return nil, err
-	}
-
-	return msgs, nil
-}
-
-func RunWorker(s StatefullWorker, msgs <-chan amqp091.Delivery) error {
-
-	messages_before_commit := 0
-	for message := range msgs {
+	messages_since_last_commit := 0
+	for {
+		message, _, err := w.ReceivedMessages(ctx)
+		if err != nil {
+			log.Errorf("Fatal error in run worker: %v", err)
+			return err
+		}
 		message_str := string(message.Body)
+		log.Infof("Received message: %s", message_str)
+		if len(message_str) == 0 {
+			message.Ack(false)
+			continue
+		}
+
 		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
 		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
 		s.NewClient(client_id)
@@ -81,28 +74,29 @@ func RunWorker(s StatefullWorker, msgs <-chan amqp091.Delivery) error {
 			message.Ack(false)
 			continue
 		}
-		messages_before_commit += 1
+
+		messages_since_last_commit += 1
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		s.UpdateState(lines, client_id)
-		if s.ShouldCommit(messages_before_commit, client_id) {
-			messages_before_commit = 0
+		if s.ShouldCommit(messages_since_last_commit, client_id) {
+			messages_since_last_commit = 0
 		}
 		message.Ack(false)
 	}
-
-	return nil
 }
 
 // hay 2 tipos de errores.
-// error tipo 1) -> "insalvables", en este caso vamos a poner que este nodo va a dejar de brindar servicio
-// a ese client id ya que tiene su estado corrupto, por lo que cuando lea un mensaje de un id de cliente que tiene como "muerto"
-// va a reencolarlo asi lo agarra otra persona.
-// Si todos los nodos con node_name distintos murieron una vez para ese cliente,
-// No queda de otra mas que enviar con solo ese ultimo nodo que de alguna forma sepa decir "ok, soy el chavon que murio ultimo para este cliente
-// no puedo dejar de ignorar los mensjaes", por lo tanto va a enviar con su estado corrupto y te va a enviar lo que pueda
+// error tipo 1) -> "insalvables", la idea es la siguiente
+// voy a intentar leer de un archivo, si este esta corrupto voy al siguiente. Si este esta corrupto al siguiente y asi
+// hasta pasar por los N archivos que se eligieron como posible backup.
+// si NINGUNO de los archivos tenia estado, okay, se va a aceptar que hubo un error fatal, se va a colocar el estado en blanco
+// para este nodo y se va a seguir brindando servicio normalmente, pero se va a enviar un EOF-FAIL en vez de un EOF normal, asi lo sabe
+// el cliente que "che, te di un resultado pero es cualquier banana, vos fijate"
 
 // error tipo 2) -> salvable. se escribio todo bien el log, pero murio justo una linea antes de enviar el ACK
-// aca, ver que carajos hacer, sexont
+// interesados -> client handler, group by (ver como manejar estos casos...)
+// interesado facil de arreglar ya que no mantiene un estado de agregacion -> topN (solo hacer un if si esta repetido cuando lo tenga guardado, ignorar)
+// NO interesados -> filtros, ML, join (a cualquiera de estos si les llega un repetido, van a pisar estado o simplemente reenviar un proximo, no hay drama)
 
 // casos posibles:
 // si el archivo no existe y lo creo, entonces es la primera vez que voy a comitear, esta bien
@@ -113,30 +107,22 @@ func RunWorker(s StatefullWorker, msgs <-chan amqp091.Delivery) error {
 // la solucion que se me ocurre es quiza mandar los timestamps en los mensajes? quiza podemos rescatar algo de eso
 
 // node_name deberia ser algo como por ej group-by-country-sum-1 (los mismos nombres que usamos para los containers de docker seria lo ideal creo yo)
-func StoreElements[T any](results map[string]T, client_id, node_name string) {
-
+func StoreElements[T any](results map[string]T, client_id, node_name string, replicas int) {
 	dir := filepath.Join("logs", node_name)
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		panic("Che, si no puedo crear el directorio medio que cagamos fuego")
 	}
-	filename := fmt.Sprintf("%s/%s.txt", dir, client_id)
-	if info, err := os.Stat(filename); err == nil {
-		if info.Size() == 0 {
-			panic("Ya existia el archivo, es uno de los errores :) (abrio el archivo, empezo a escribir pero dejo todo en blanco)")
-		}
-	}
+	filename := fmt.Sprintf("%s/%s_0.txt", dir, client_id)
 
 	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		panic("Si no pudimos crear el archivo, medio que cagamos fuego tambien")
-		// digamos que todos los panic van a ser error de tipo 1, hay que cambiarlo a que haga el handleo especifico para decir
-		// "che, a este cliente le empiezo a rebotar los paquetes"
 	}
 	defer f.Close()
 
 	initTime := time.Now().UTC().Format(time.RFC3339)
-	fmt.Fprintf(f, "INIT %s\n", initTime)
+	fmt.Fprintf(f, "INIT %s\n", initTime) // los Fprintf tienen short writes?
 
 	data, err := json.MarshalIndent(results, "", "  ")
 	if err != nil {
@@ -147,27 +133,64 @@ func StoreElements[T any](results map[string]T, client_id, node_name string) {
 
 	endTime := time.Now().UTC().Format(time.RFC3339)
 	fmt.Fprintf(f, "END %s\n", endTime)
+
+	for i := 1; i <= replicas; i++ {
+		replicaFilename := fmt.Sprintf("%s/%s_%d.txt", dir, client_id, i)
+		err := copyFile(filename, replicaFilename)
+		if err != nil {
+			log.Infof("Error creando la replica, no nos molesta realmente %d\n", i)
+		}
+	}
 }
 
-func GetElements[T any](node_name string) map[string]map[string]T {
+func copyFile(filename_to_copy string, filename_destination string) error {
+	original, err := os.Open(filename_to_copy)
+	if err != nil {
+		return err
+	}
+	defer original.Close()
+
+	destination, err := os.Create(filename_destination)
+	if err != nil {
+		return err
+	}
+	defer destination.Close()
+
+	// Copy tiene short writes?
+	_, err = io.Copy(destination, original)
+	return err
+}
+
+func GetElements[T any](node_name string, number_of_logs_to_search int) (map[string]map[string]T, []string) {
 	grouped := make(map[string]map[string]T)
 
 	dir := fmt.Sprintf("logs/%s", node_name)
+	visited_clients := make(map[string]bool)
+	client_counter := make(map[string]int)
 	files, err := os.ReadDir(dir)
 	if err != nil {
-		return grouped // si no existia el directorio, te devuelvo las cosas como vacios
+		return grouped, nil // si no existia el directorio, te devuelvo las cosas como vacios
 	}
 
 	for _, entry := range files {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".txt") {
 			continue
 		}
-		clientID := strings.TrimSuffix(entry.Name(), ".txt")
+		clientID := strings.Split(entry.Name(), "_")[0]
+		if visited_clients[clientID] { // si ya te marque que tengo un estado OK, empeza a ignorar el resto de archivos de este cliente
+			continue
+		}
+		client_counter[clientID] = client_counter[clientID] + 1
 
 		filePath := fmt.Sprintf("%s/%s", dir, entry.Name())
+		if info, err := os.Stat(filePath); err == nil {
+			if info.Size() == 0 {
+				continue
+			}
+		}
 		f, err := os.Open(filePath)
 		if err != nil {
-			panic("NO PUDE ABRIR EL ARCHIVO, ERROR TIPO 1")
+			continue
 		}
 
 		scanner := bufio.NewScanner(f)
@@ -193,23 +216,36 @@ func GetElements[T any](node_name string) map[string]map[string]T {
 
 		initTime, err := time.Parse(time.RFC3339, initTimeStr)
 		if err != nil {
-			panic("MAL FORMATEADO, ERROR TIPO 1")
+			continue
 		}
 		endTime, err := time.Parse(time.RFC3339, endTimeStr)
 		if err != nil {
-			panic("MAL FORMATEADO, ERROR TIPO 1")
+			continue
 		}
 		if endTime.Before(initTime) {
-			panic("END ES ANTERIOR A INIT, POR LO QUE ESCRIBIO HASTA LA MITAD. ERROR TIPO 1") // este es uno de los errores
+			continue
 		}
 
 		var inner map[string]T
 		err = json.Unmarshal([]byte(strings.Join(jsonLines, "\n")), &inner)
 		if err != nil {
-			panic("LOS DATOS DEL MAP ESTAN MAL FORMATEADOS, ERROR TIPO 1")
+			continue
 		}
 		grouped[clientID] = inner
+		visited_clients[clientID] = true
+	}
+	var clients_with_wrong_state []string
+	for key, value := range client_counter {
+
+		if !visited_clients[key] && value == number_of_logs_to_search+1 {
+			clients_with_wrong_state = append(clients_with_wrong_state, key)
+		}
 	}
 
-	return grouped
+	if len(clients_with_wrong_state) != 0 {
+		return grouped, clients_with_wrong_state // aca te paso esto, seguramente lo tengamos que guardar en algun lado en el nodo
+		// asi sabe a que clientes le termina de mandar el EOF-FAIL :)
+	}
+
+	return grouped, nil
 }

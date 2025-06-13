@@ -11,6 +11,7 @@ log = logging.getLogger("machine_learning")
 FIELDS_COUNT = 8
 BATCH_SIZE = 20
 
+MOVIE_ID_INDEX = 0
 OVERVIEW_FIELD_INDEX = 6
 BUDGET_INDEX = 5
 REVENUE_INDEX = 7
@@ -112,7 +113,7 @@ class MachineLearning:
 
     def __create_message_to_send(self, sentiment: str, parts: list[str]):
         result = MESSAGE_SEPARATOR.join(
-            [sentiment, parts[BUDGET_INDEX], parts[REVENUE_INDEX]])
+            [parts[MOVIE_ID_INDEX], sentiment, parts[BUDGET_INDEX], parts[REVENUE_INDEX]])
         return result
 
     def run_worker(self):

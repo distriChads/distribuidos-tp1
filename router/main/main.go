@@ -4,19 +4,18 @@ import (
 	"context"
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
-	"distribuidos-tp1/common_statefull_worker"
 	"os"
 	"os/signal"
 	"strings"
 	"sync"
 	"syscall"
 
-	group_by "distribuidos-tp1/group_by/group_by_overview_average"
+	router "distribuidos-tp1/router"
 
 	"github.com/op/go-logging"
 )
 
-var log = logging.MustGetLogger("group_by_overview_average")
+var log = logging.MustGetLogger("router")
 
 func main() {
 	v, err := utils.InitConfig()
@@ -26,14 +25,15 @@ func main() {
 	}
 
 	log_level := v.GetString("log.level")
-	queue_name := strings.Split(v.GetString("worker.exchange.input.routingkeys"), ",")[0]
+	messageBroker := v.GetString("worker.broker")
+
+	routingMap := router.GetRoutingMap(v)
 
 	exchangeSpec := worker.ExchangeSpec{
 		InputRoutingKeys:  strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
-		OutputRoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
-		QueueName:         queue_name,
+		OutputRoutingKeys: strings.Split("hola", "adios"),
+		QueueName:         "router",
 	}
-	messageBroker := v.GetString("worker.broker")
 
 	if exchangeSpec.InputRoutingKeys[0] == "" || exchangeSpec.OutputRoutingKeys[0] == "" || messageBroker == "" {
 		log.Criticalf("Error: one or more environment variables are empty")
@@ -45,26 +45,21 @@ func main() {
 		return
 	}
 
-	maxMessages := v.GetInt("worker.maxmessages")
-	if maxMessages == 0 {
-		maxMessages = 10
-	}
-
-	number := exchangeSpec.InputRoutingKeys[0][len(exchangeSpec.InputRoutingKeys[0])-1:]
-	node_name := "group_by_overview_average_" + number
-
-	group_by := group_by.NewGroupByOverviewAndAvg(group_by.GroupByOverviewAndAvgConfig{
+	router := router.NewRouter(router.RouterConfig{
 		WorkerConfig: worker.WorkerConfig{
 			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
 		},
-	}, maxMessages, node_name)
-	if group_by == nil {
+	},
+		routingMap,
+	)
+	if router == nil {
 		return
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	// Set up signal handling
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
 
@@ -73,20 +68,20 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		common_statefull_worker.RunWorker(group_by, ctx, group_by.Worker, "Starting group by overview and average worker")
+		router.RunWorker(ctx, "Starting router")
 		done <- true
 	}()
 
+	// Wait for either completion or signal
 	select {
 	case sig := <-sigChan:
-		log.Infof("Signal received: %s. Shutting down...", sig)
-		cancel() // cancelamos el contexto → avisa al worker que debe salir
-		<-done   // esperamos que termine
-		group_by.CloseWorker()
-		log.Info("Worker shut down successfully")
+		log.Infof("Received signal: %s, shutting down...", sig)
+		cancel() // Gracefully shut down
+		<-done
 	case <-done:
 		log.Info("Worker finished successfully")
 	}
 
 	wg.Wait()
+	log.Info("Router has shut down gracefully")
 }

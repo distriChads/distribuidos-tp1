@@ -3,15 +3,25 @@ package worker
 import (
 	"context"
 	"errors"
+	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/op/go-logging"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-const MESSAGE_SEPARATOR = "|"
-const MESSAGE_ARRAY_SEPARATOR = ","
-const MESSAGE_EOF = "EOF"
+const (
+	MESSAGE_SEPARATOR       = "|"
+	MESSAGE_ARRAY_SEPARATOR = ","
+	MESSAGE_EOF             = "EOF"
+
+	EXCHANGE_NAME = "data_exchange"
+
+	INPUTS_COMMON_NODES = 1
+	INPUTS_JOINER_NODES = 2
+	INPUTS_ROUTER_NODES = 7
+)
 
 var log = logging.MustGetLogger("worker")
 
@@ -23,31 +33,26 @@ type sender struct {
 type receiver struct {
 	conn     *amqp.Connection
 	ch       *amqp.Channel
-	queue    amqp.Queue
-	messages <-chan amqp.Delivery
+	queues   []amqp.Queue
+	messages []<-chan amqp.Delivery
 }
 
 type ExchangeSpec struct {
-	Name        string
-	RoutingKeys []string
-	QueueName   string
+	InputRoutingKeys  []string
+	OutputRoutingKeys []string
+	QueueName         string
 }
 
 type WorkerConfig struct {
-	InputExchange       ExchangeSpec
-	SecondInputExchange ExchangeSpec
-	OutputExchange      ExchangeSpec
-	MessageBroker       string
+	Exchange      ExchangeSpec
+	MessageBroker string
 }
 
 type Worker struct {
-	InputExchange       ExchangeSpec
-	SecondInputExchange ExchangeSpec
-	OutputExchange      ExchangeSpec
-	MessageBroker       string
-	sender              *sender
-	receiver            *receiver
-	secondReceiver      *receiver // solo necesario para los joins que van a tener 2 receivers :)
+	Exchange      ExchangeSpec
+	MessageBroker string
+	sender        *sender
+	receiver      *receiver
 }
 
 func initConnection(broker string) (*amqp.Connection, error) {
@@ -57,6 +62,7 @@ func initConnection(broker string) (*amqp.Connection, error) {
 	max_retries := 3 // TODO: make these env variables
 	retry_sleep := 10 * time.Second
 	backoff_factor := 2
+
 	for i := range max_retries {
 		conn, err = amqp.Dial(broker)
 		if err == nil {
@@ -67,6 +73,7 @@ func initConnection(broker string) (*amqp.Connection, error) {
 			time.Sleep(time.Duration(i*backoff_factor) + retry_sleep)
 		}
 	}
+
 	if err != nil {
 		log.Errorf("Failed to connect to broker: %s", err)
 		return nil, err
@@ -75,8 +82,32 @@ func initConnection(broker string) (*amqp.Connection, error) {
 	return conn, nil
 }
 
-func InitSender(worker *Worker) error {
-	conn, err := initConnection(worker.MessageBroker)
+func NewWorker(config WorkerConfig) (*Worker, error) {
+	log.Infof("Worker: %+v", config)
+	worker := Worker{
+		Exchange:      config.Exchange,
+		MessageBroker: config.MessageBroker,
+		sender:        nil,
+		receiver:      nil,
+	}
+
+	err := worker.initSender()
+	if err != nil {
+		log.Errorf("Error initializing sender: %s", err)
+		return nil, err
+	}
+
+	err = worker.initReceiver()
+	if err != nil {
+		log.Errorf("Error initializing sender: %s", err)
+		return nil, err
+	}
+
+	return &worker, nil
+}
+
+func (w *Worker) initSender() error {
+	conn, err := initConnection(w.MessageBroker)
 	if err != nil {
 		return err
 	}
@@ -87,19 +118,19 @@ func InitSender(worker *Worker) error {
 	}
 
 	err = ch.ExchangeDeclare(
-		worker.OutputExchange.Name, // name
-		"topic",                    // type
-		false,                      // durable
-		false,                      // auto-deleted
-		false,                      // internal
-		false,                      // no-wait
-		nil,                        // arguments
+		EXCHANGE_NAME, // name
+		"topic",       // type
+		false,         // durable
+		false,         // auto-deleted
+		false,         // internal
+		false,         // no-wait
+		nil,           // arguments
 	)
 	if err != nil {
 		return err
 	}
 
-	worker.sender = &sender{
+	w.sender = &sender{
 		conn: conn,
 		ch:   ch,
 	}
@@ -108,8 +139,8 @@ func InitSender(worker *Worker) error {
 	return nil
 }
 
-func InitReceiver(worker *Worker) error {
-	conn, err := initConnection(worker.MessageBroker)
+func (w *Worker) initReceiver() error {
+	conn, err := initConnection(w.MessageBroker)
 	if err != nil {
 		return err
 	}
@@ -119,154 +150,98 @@ func InitReceiver(worker *Worker) error {
 		return err
 	}
 
+	err = ch.Qos(
+		1,     // prefetch count
+		0,     // prefetch size
+		false, // global
+	)
+	if err != nil {
+		return err
+	}
+
 	err = ch.ExchangeDeclare(
-		worker.InputExchange.Name, // name
-		"topic",                   // type
-		false,                     // durable
-		false,                     // auto-deleted
-		false,                     // internal
-		false,                     // no-wait
-		nil,                       // arguments
+		EXCHANGE_NAME, // name
+		"topic",       // type
+		false,         // durable
+		false,         // auto-deleted
+		false,         // internal
+		false,         // no-wait
+		nil,           // arguments
 	)
 	if err != nil {
 		return err
 	}
 
-	q, err := ch.QueueDeclare(
-		worker.InputExchange.QueueName, // name
-		false,                          // durable
-		false,                          // delete when unused
-		true,                           // exclusive
-		false,                          // no-wait
-		nil,                            // arguments
-	)
-	if err != nil {
-		return err
-	}
+	var queues []amqp.Queue
+	var messages []<-chan amqp.Delivery
 
-	for _, routingKey := range worker.InputExchange.RoutingKeys {
-		err = ch.QueueBind(
-			q.Name,                    // queue name
-			routingKey,                // routing key
-			worker.InputExchange.Name, // exchange
-			false,
-			nil,
+	for _, routingKey := range w.Exchange.InputRoutingKeys {
+		queueName := fmt.Sprintf("%s_%s", w.Exchange.QueueName, routingKey)
+		q, err := ch.QueueDeclare(
+			queueName, // name
+			false,     // durable
+			false,     // delete when unused
+			false,     // exclusive
+			false,     // no-wait
+			nil,       // arguments
 		)
 		if err != nil {
 			return err
 		}
+
+		err = ch.QueueBind(
+			q.Name,        // queue name
+			routingKey,    // routing key
+			EXCHANGE_NAME, // exchange
+			false,
+			nil,
+		)
+		log.Debugf("QueueBind: queue name: %s, routing key: %s, exchange name: %s, err: %v", q.Name, routingKey, EXCHANGE_NAME, err)
+		if err != nil {
+			return err
+		}
+
+		msgs, err := ch.Consume(
+			q.Name, // queue
+			"",     // consumer
+			false,  // auto-ack
+			false,  // exclusive
+			false,  // no-local
+			false,  // no-wait
+			nil,    // args
+		)
+		if err != nil {
+			return err
+		}
+
+		queues = append(queues, q)
+		messages = append(messages, msgs)
 	}
 
-	msgs, err := ch.Consume(
-		q.Name, // queue
-		"",     // consumer
-		false,  // auto-ack
-		false,  // exclusive
-		false,  // no-local
-		false,  // no-wait
-		nil,    // args
-	)
-	if err != nil {
-		return err
-	}
-
-	worker.receiver = &receiver{
+	w.receiver = &receiver{
 		conn:     conn,
 		ch:       ch,
-		queue:    q,
-		messages: msgs,
+		queues:   queues,
+		messages: messages,
 	}
 
 	log.Info("Receiver initialized")
 	return nil
 }
 
-func InitSecondReceiver(worker *Worker) error {
-	conn, err := initConnection(worker.MessageBroker)
-	if err != nil {
-		return err
-	}
-
-	ch, err := conn.Channel()
-	if err != nil {
-		return err
-	}
-
-	err = ch.ExchangeDeclare(
-		worker.SecondInputExchange.Name, // name
-		"topic",                         // type
-		false,                           // durable
-		false,                           // auto-deleted
-		false,                           // internal
-		false,                           // no-wait
-		nil,                             // arguments
-	)
-	if err != nil {
-		return err
-	}
-
-	q, err := ch.QueueDeclare(
-		worker.SecondInputExchange.QueueName, // name
-		false,                                // durable
-		false,                                // delete when unused
-		true,                                 // exclusive
-		false,                                // no-wait
-		nil,                                  // arguments
-	)
-	if err != nil {
-		return err
-	}
-
-	for _, routingKey := range worker.SecondInputExchange.RoutingKeys {
-		err = ch.QueueBind(
-			q.Name,                          // queue name
-			routingKey,                      // routing key
-			worker.SecondInputExchange.Name, // exchange
-			false,
-			nil,
-		)
-		if err != nil {
-			return err
-		}
-	}
-
-	msgs, err := ch.Consume(
-		q.Name, // queue
-		"",     // consumer
-		false,  // auto-ack
-		false,  // exclusive
-		false,  // no-local
-		false,  // no-wait
-		nil,    // args
-	)
-	if err != nil {
-		return err
-	}
-
-	worker.secondReceiver = &receiver{
-		conn:     conn,
-		ch:       ch,
-		queue:    q,
-		messages: msgs,
-	}
-
-	log.Info("Second Receiver initialized")
-	return nil
-}
-
-func SendMessage(worker Worker, message string, routingKey string) error {
-	if worker.sender == nil {
+func (w *Worker) SendMessage(message string, routingKey string) error {
+	if w.sender == nil {
 		return errors.New("sender not initialized")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	err := worker.sender.ch.PublishWithContext(ctx,
-		worker.OutputExchange.Name, // exchange
-		routingKey,                 // routing key
-		false,                      // mandatory
-		false,                      // immediate
+	err := w.sender.ch.PublishWithContext(ctx,
+		EXCHANGE_NAME, // exchange
+		routingKey,    // routing key
+		false,         // mandatory
+		false,         // immediate
 		amqp.Publishing{
 			ContentType: "text/plain",
 			Body:        []byte(message),
@@ -274,25 +249,45 @@ func SendMessage(worker Worker, message string, routingKey string) error {
 	if err != nil {
 		return err
 	}
-	log.Debugf("Sent message to exchange %s (routing key: %s): %s", worker.OutputExchange.Name, routingKey, message)
+	log.Debugf("Sent message to (routing key: %s): %s", routingKey, message)
 
 	return nil
 }
 
-func ReceivedMessages(worker Worker) (<-chan amqp.Delivery, error) {
-	if worker.receiver == nil {
-		return nil, errors.New("receiver not initialized")
+func (w *Worker) ReceivedMessages(ctx context.Context) (amqp.Delivery, int, error) {
+	if w.receiver == nil {
+		return amqp.Delivery{}, 0, errors.New("receiver not initialized")
 	}
 
-	return worker.receiver.messages, nil
-}
+	msgChans := w.receiver.messages
+	numInputs := len(msgChans)
 
-func SecondReceivedMessages(worker Worker) (<-chan amqp.Delivery, error) {
-	if worker.secondReceiver == nil {
-		return nil, errors.New("receiver not initialized")
+	selectCases := make([]reflect.SelectCase, numInputs+1)
+
+	// First case: cancell context
+	selectCases[0] = reflect.SelectCase{
+		Dir:  reflect.SelectRecv,
+		Chan: reflect.ValueOf(ctx.Done()),
 	}
 
-	return worker.secondReceiver.messages, nil
+	// Add cases for each message channel
+	for i, ch := range msgChans {
+		selectCases[i+1] = reflect.SelectCase{
+			Dir:  reflect.SelectRecv,
+			Chan: reflect.ValueOf(ch),
+		}
+	}
+
+	chosen, recv, ok := reflect.Select(selectCases)
+	if chosen == 0 {
+		return amqp.Delivery{}, 0, ctx.Err()
+	}
+	if !ok {
+		return amqp.Delivery{}, 0, errors.New("channel closed unexpectedly")
+	}
+
+	msg := recv.Interface().(amqp.Delivery)
+	return msg, chosen - 1, nil // -1 porque el 0 era el ctx.Done()
 }
 
 func RunWorker(worker Worker) error {
@@ -347,24 +342,5 @@ func CloseReceiver(worker *Worker) error {
 	}
 
 	worker.receiver = nil
-	return nil
-}
-
-func CloseSecondReceiver(worker *Worker) error {
-	if worker.secondReceiver == nil {
-		return errors.New("receiver not initialized")
-	}
-
-	err := worker.secondReceiver.ch.Close()
-	if err != nil {
-		return err
-	}
-
-	err = worker.secondReceiver.conn.Close()
-	if err != nil {
-		return err
-	}
-
-	worker.secondReceiver = nil
 	return nil
 }

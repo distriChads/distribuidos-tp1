@@ -112,21 +112,15 @@ func getGroupedElements() []CountrByBudget {
 
 func NewTopFiveCountryBudget(config TopFiveCountryBudgetConfig, messages_before_commit int) *TopFiveCountryBudget {
 	log.Infof("TopFiveCountryBudget: %+v", config)
+	worker, err := worker.NewWorker(config.WorkerConfig)
+	if err != nil {
+		log.Errorf("Error creating worker: %s", err)
+		return nil
+	}
+
 	return &TopFiveCountryBudget{
-		Worker: worker.Worker{
-			InputExchange:  config.InputExchange,
-			OutputExchange: config.OutputExchange,
-			MessageBroker:  config.MessageBroker,
-		},
+		Worker:                 *worker,
 		top_five:               make(map[string][]CountrByBudget, 0),
 		messages_before_commit: messages_before_commit,
 	}
-}
-
-func (g *TopFiveCountryBudget) RunWorker(starting_message string) error {
-	msgs, err := common_statefull_worker.Init(&g.Worker, starting_message)
-	if err != nil {
-		return err
-	}
-	return common_statefull_worker.RunWorker(g, msgs)
 }
