@@ -10,6 +10,13 @@ import (
 	"github.com/op/go-logging"
 )
 
+// ---------------------------------
+// MESSAGE FORMAT: id_client|MOVIE_ID|OVERVIEW|BUDGET|REVENUE
+// ---------------------------------
+const OVERVIEW = 1
+const BUDGET = 2
+const REVENUE = 3
+
 type GroupByOverviewAndAvgConfig struct {
 	worker.WorkerConfig
 }
@@ -85,13 +92,6 @@ func (g *GroupByOverviewAndAvg) UpdateState(lines []string, client_id string) {
 	groupByOverviewAndUpdate(lines, g.grouped_elements[client_id])
 }
 
-// ---------------------------------
-// MESSAGE FORMAT: OVERVIEW|BUDGET|REVENUE
-// ---------------------------------
-const OVERVIEW = 0
-const BUDGET = 1
-const REVENUE = 2
-
 func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]RevenueBudgetCount) {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
@@ -114,13 +114,15 @@ func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]Revenu
 
 func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_before_commit int, node_name string) *GroupByOverviewAndAvg {
 	log.Infof("GroupByOverviewAndAvg: %+v", config)
+	worker, err := worker.NewWorker(config.WorkerConfig)
+	if err != nil {
+		log.Errorf("Error creating worker: %s", err)
+		return nil
+	}
 	replicas := 3
 	grouped_elements, _ := common_statefull_worker.GetElements[RevenueBudgetCount](node_name, replicas+1)
 	return &GroupByOverviewAndAvg{
-		Worker: worker.Worker{
-			Exchange:      config.Exchange,
-			MessageBroker: config.MessageBroker,
-		},
+		Worker:                 *worker,
 		messages_before_commit: messages_before_commit,
 		eofs:                   make(map[string]int),
 		grouped_elements:       grouped_elements,

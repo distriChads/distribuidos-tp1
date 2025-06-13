@@ -282,32 +282,32 @@ services:
   #     dockerfile: joins/join_movie_ratings/Dockerfile
   #   container_name: join-movie-ratings-1
   #   depends_on:
-  #   - rabbitmq
+  #     - rabbitmq
   #   entrypoint: ./run_worker
   #   environment:
-  #   - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-  #   - CLI_LOG_LEVEL=info
-  #   - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=join-movie-ratings.movies.router.1,join-movie-ratings.ratings.router.1
-  #   - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join_movie_ratings.router
+  #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+  #     - CLI_LOG_LEVEL=info
+  #     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=join-movie-ratings.movies.router.1,join-movie-ratings.ratings.router.1
+  #     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join_movie_ratings.router
   #   image: join_movie_ratings:latest
   #   networks:
-  #   - movies_net
+  #     - movies_net
   # join-movie-credits-1:
   #   build:
   #     context: .
   #     dockerfile: joins/join_movie_credits/Dockerfile
   #   container_name: join-movie-credits-1
   #   depends_on:
-  #   - rabbitmq
+  #     - rabbitmq
   #   entrypoint: ./run_worker
   #   environment:
-  #   - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-  #   - CLI_LOG_LEVEL=info
-  #   - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=join-movie-credits.movies.router.1,join-movie-credits.credits.router.1
-  #   - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join_movie_credits.router
+  #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+  #     - CLI_LOG_LEVEL=info
+  #     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=join-movie-credits.movies.router.1,join-movie-credits.credits.router.1
+  #     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join_movie_credits.router
   #   image: join_movie_credits:latest
   #   networks:
-  #   - movies_net
+  #     - movies_net
   first-and-last-1:
     build:
       context: .

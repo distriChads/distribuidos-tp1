@@ -103,7 +103,7 @@ func NewGroupByCountryAndSum(config GroupByCountryAndSumConfig, messages_before_
 
 	worker, err := worker.NewWorker(config.WorkerConfig)
 	if err != nil {
-		log.Errorf("Error creating worker")
+		log.Errorf("Error creating worker: %s", err)
 		return nil
 	}
 

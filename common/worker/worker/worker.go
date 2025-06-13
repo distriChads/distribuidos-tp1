@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"time"
 
@@ -175,17 +176,19 @@ func (w *Worker) initReceiver() error {
 	var messages []<-chan amqp.Delivery
 
 	for _, routingKey := range w.Exchange.InputRoutingKeys {
+		queueName := fmt.Sprintf("%s_%s", w.Exchange.QueueName, routingKey)
 		q, err := ch.QueueDeclare(
-			w.Exchange.QueueName, // name
-			false,                // durable
-			false,                // delete when unused
-			false,                // exclusive
-			false,                // no-wait
-			nil,                  // arguments
+			queueName, // name
+			false,     // durable
+			false,     // delete when unused
+			false,     // exclusive
+			false,     // no-wait
+			nil,       // arguments
 		)
 		if err != nil {
 			return err
 		}
+
 		err = ch.QueueBind(
 			q.Name,        // queue name
 			routingKey,    // routing key

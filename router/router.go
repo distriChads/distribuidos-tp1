@@ -41,11 +41,6 @@ func NewRouter(config RouterConfig, routingMap RoutingMap) *Router {
 	}
 }
 
-func (r *Router) HandleEOF(client_id string) error {
-	// TODO: implement EOF handling logic (control exchange)
-	return nil
-}
-
 func (r *Router) RunWorker(ctx context.Context, starting_message string) error {
 	log.Info(starting_message)
 
@@ -73,7 +68,10 @@ func (r *Router) RunWorker(ctx context.Context, starting_message string) error {
 
 		for i, routing_key := range output_routing_keys {
 			dataToSend := dataDistributed[i]
-			log.Infof("Sending message: %s, from input %s, to routing key: %s", dataToSend, inputIndex, routing_key)
+			if len(dataToSend) == 0 {
+				continue
+			}
+			log.Infof("Sending message: %s, from input %d, to routing key: %s", dataToSend, inputIndex, routing_key)
 
 			err = r.worker.SendMessage(dataToSend, routing_key)
 			if err != nil {
@@ -92,14 +90,18 @@ func (r *Router) routeDataByMovieId(outputRoutingKeys []string, inputData string
 	clientId, message := splitedData[0], splitedData[1]
 	lines := strings.Split(message, LINE_SEPARATOR)
 
+	if message == worker.MESSAGE_EOF {
+		log.Infof("Received EOF message from client %s", clientId)
+		for i := range dataDistributed {
+			dataDistributed[i] = clientId + FIELD_SEPARATOR + worker.MESSAGE_EOF
+		}
+		return dataDistributed
+	}
+
 	for _, line := range lines {
 		if len(line) == 0 {
 			continue
 		}
-		// if strings.Contains(line, "La Cienaga") {
-		// 	log.Infof("Skipping line with 'La Cienaga': %s", line)
-		// 	// time.Sleep(10000 * time.Millisecond) // Simulate processing delay
-		// }
 
 		movieIdString := strings.SplitN(line, FIELD_SEPARATOR, 2)[0]
 		if len(movieIdString) == 0 {

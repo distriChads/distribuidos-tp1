@@ -50,13 +50,18 @@ func main() {
 		maxMessages = 10
 	}
 
-	node_name := v.GetString("worker.nodename")
+	number := exchangeSpec.InputRoutingKeys[0][len(exchangeSpec.InputRoutingKeys[0])-1:]
+	node_name := "group_by_overview_average_" + number
+
 	group_by := group_by.NewGroupByOverviewAndAvg(group_by.GroupByOverviewAndAvgConfig{
 		WorkerConfig: worker.WorkerConfig{
 			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
 		},
 	}, maxMessages, node_name)
+	if group_by == nil {
+		return
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -68,7 +73,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		common_statefull_worker.RunWorker(group_by, ctx, group_by.Worker, "Starting group by actor count")
+		common_statefull_worker.RunWorker(group_by, ctx, group_by.Worker, "Starting group by overview and average worker")
 		done <- true
 	}()
 

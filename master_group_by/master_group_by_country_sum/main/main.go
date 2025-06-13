@@ -59,6 +59,9 @@ func main() {
 			MessageBroker: messageBroker,
 		},
 	}, maxMessages, expectedEof, node_name)
+	if master_group_by == nil {
+		return
+	}
 
 	// Crear contexto cancelable
 	ctx, cancel := context.WithCancel(context.Background())

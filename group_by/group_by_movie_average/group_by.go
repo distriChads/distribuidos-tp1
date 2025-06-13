@@ -101,13 +101,15 @@ func groupByMovieAndUpdate(lines []string, grouped_elements map[string]ScoreAndC
 
 func NewGroupByMovieAndAvg(config GroupByMovieAndAvgConfig, messages_before_commit int, node_name string) *GroupByMovieAndAvg {
 	log.Infof("GroupByMovieAndAvg: %+v", config)
+	worker, err := worker.NewWorker(config.WorkerConfig)
+	if err != nil {
+		log.Errorf("Error creating worker: %s", err)
+		return nil
+	}
 	replicas := 3
 	grouped_elements, _ := common_statefull_worker.GetElements[ScoreAndCount](node_name, replicas+1)
 	return &GroupByMovieAndAvg{
-		Worker: worker.Worker{
-			Exchange:      config.Exchange,
-			MessageBroker: config.MessageBroker,
-		},
+		Worker:                 *worker,
 		messages_before_commit: messages_before_commit,
 		eofs:                   make(map[string]int),
 		grouped_elements:       grouped_elements,

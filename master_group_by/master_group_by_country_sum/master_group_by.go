@@ -90,13 +90,17 @@ func groupByCountryAndSum(lines []string, grouped_elements map[string]int) {
 
 func NewGroupByCountryAndSum(config MasterGroupByCountryAndSumConfig, messages_before_commit int, expected_eof int, node_name string) *MasterGroupByCountryAndSum {
 	log.Infof("MasterGroupByCountryAndSum: %+v", config)
+
+	worker, err := worker.NewWorker(config.WorkerConfig)
+	if err != nil {
+		log.Errorf("Error creating worker: %s", err)
+		return nil
+	}
+
 	replicas := 3
 	grouped_elements, _ := common_statefull_worker.GetElements[int](node_name, replicas+1)
 	return &MasterGroupByCountryAndSum{
-		Worker: worker.Worker{
-			Exchange:      config.Exchange,
-			MessageBroker: config.MessageBroker,
-		},
+		Worker:                 *worker,
 		messages_before_commit: messages_before_commit,
 		grouped_elements:       grouped_elements,
 		eofs:                   make(map[string]int),

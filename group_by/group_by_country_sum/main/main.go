@@ -50,7 +50,9 @@ func main() {
 		maxMessages = 10
 	}
 
-	node_name := v.GetString("worker.nodename")
+	number := exchangeSpec.InputRoutingKeys[0][len(exchangeSpec.InputRoutingKeys[0])-1:]
+	node_name := "group_by_country_sum_" + number
+
 	group_by := group_by.NewGroupByCountryAndSum(group_by.GroupByCountryAndSumConfig{
 		WorkerConfig: worker.WorkerConfig{
 			Exchange:      exchangeSpec,
