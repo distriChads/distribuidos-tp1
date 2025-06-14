@@ -78,9 +78,12 @@ func (g *GroupByActorAndCount) UpdateState(lines []string, client_id string) {
 	groupByActorAndUpdate(lines, g.grouped_elements[client_id])
 }
 
+const ACTORS = 1
+
 func groupByActorAndUpdate(lines []string, grouped_elements map[string]int) {
 	for _, line := range lines {
-		actors := strings.Split(line, worker.MESSAGE_ARRAY_SEPARATOR)
+		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		actors := strings.Split(parts[ACTORS], worker.MESSAGE_ARRAY_SEPARATOR)
 		for _, actor := range actors {
 			grouped_elements[actor] += 1
 		}
@@ -91,11 +94,13 @@ func NewGroupByActorAndCount(config GroupByActorAndCountConfig, messages_before_
 	log.Infof("GroupByActorAndCount: %+v", config)
 	replicas := 3
 	grouped_elements, _ := common_statefull_worker.GetElements[int](node_name, replicas+1)
+	worker, err := worker.NewWorker(config.WorkerConfig)
+	if err != nil {
+		log.Errorf("Error creating worker: %s", err)
+		return nil
+	}
 	return &GroupByActorAndCount{
-		Worker: worker.Worker{
-			Exchange:      config.Exchange,
-			MessageBroker: config.MessageBroker,
-		},
+		Worker:                 *worker,
 		messages_before_commit: messages_before_commit,
 		grouped_elements:       grouped_elements,
 		eofs:                   make(map[string]int),

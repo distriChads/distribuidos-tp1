@@ -23,6 +23,10 @@ const (
 	OUTPUT_GROUP_BY_ACTOR_COUNT      = "group_by_actor_count"
 	OUTPUT_GROUP_BY_MOVIE_AVERAGE    = "group_by_movie_average"
 	OUTPUT_GROUP_BY_COUNTRY_SUM      = "group_by_country_sum"
+
+	// outputs not movies
+	OUTPUT_JOIN_CREDITS = "join_credits"
+	OUTPUT_JOIN_RATINGS = "join_ratings"
 )
 
 func GetRoutingMap(v *viper.Viper) RoutingMap {
@@ -31,8 +35,8 @@ func GetRoutingMap(v *viper.Viper) RoutingMap {
 	// The routing map defines how messages are routed from input to output exchanges.
 	return RoutingMap{
 		MOVIE_AFTER_2000:      {outputRoutingKeys[OUTPUT_JOIN_MOVIE_CREDITS], outputRoutingKeys[OUTPUT_JOIN_MOVIE_RATINGS]},
-		CREDITS:               {outputRoutingKeys[OUTPUT_JOIN_MOVIE_CREDITS]},
-		RATINGS:               {outputRoutingKeys[OUTPUT_JOIN_MOVIE_RATINGS]},
+		CREDITS:               {outputRoutingKeys[OUTPUT_JOIN_CREDITS]},
+		RATINGS:               {outputRoutingKeys[OUTPUT_JOIN_RATINGS]},
 		ML:                    {outputRoutingKeys[OUTPUT_GROUP_BY_OVERVIEW_AVERAGE]},
 		JOIN_CREDITS:          {outputRoutingKeys[OUTPUT_GROUP_BY_ACTOR_COUNT]},
 		JOIN_RATINGS:          {outputRoutingKeys[OUTPUT_GROUP_BY_MOVIE_AVERAGE]},
@@ -48,5 +52,7 @@ func getOutputRoutingKeys(v *viper.Viper) map[string]string {
 		OUTPUT_GROUP_BY_ACTOR_COUNT:      v.GetString("worker.output.routingkeys.group-by-actor-count"),
 		OUTPUT_GROUP_BY_MOVIE_AVERAGE:    v.GetString("worker.output.routingkeys.group-by-movie-average"),
 		OUTPUT_GROUP_BY_COUNTRY_SUM:      v.GetString("worker.output.routingkeys.group-by-country-sum"),
+		OUTPUT_JOIN_CREDITS:              v.GetString("worker.output.routingkeys.join-credits"),
+		OUTPUT_JOIN_RATINGS:              v.GetString("worker.output.routingkeys.join-ratings"),
 	}
 }

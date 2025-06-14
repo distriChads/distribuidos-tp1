@@ -51,6 +51,7 @@ func (f *FilterByArgentina) Filter(lines []string) []string {
 }
 
 func (f *FilterByArgentina) HandleEOF(client_id string) error {
+	f.SendMessage([]string{worker.MESSAGE_EOF}, client_id)
 	return nil
 }
 

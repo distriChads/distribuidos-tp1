@@ -55,6 +55,7 @@ func (f *FilterByAfterYear2000) Filter(lines []string) []string {
 }
 
 func (f *FilterByAfterYear2000) HandleEOF(client_id string) error {
+	f.SendMessage([]string{worker.MESSAGE_EOF}, client_id)
 	return nil
 }
 
