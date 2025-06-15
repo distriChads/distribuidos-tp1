@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"reflect"
 	"time"
 
@@ -82,6 +83,34 @@ func initConnection(broker string) (*amqp.Connection, error) {
 	return conn, nil
 }
 
+func startHeartbeat() {
+	addr := net.UDPAddr{
+		Port: 9999,
+		IP:   net.ParseIP("0.0.0.0"),
+	}
+	conn, err := net.ListenUDP("udp", &addr)
+	if err != nil {
+		log.Infof("Error prendiendo UDP")
+		return
+	}
+	defer conn.Close()
+
+	buf := make([]byte, 1024)
+	log.Infof("Escuchando en puerto 9999")
+
+	for {
+		n, clientAddr, err := conn.ReadFromUDP(buf)
+		if err != nil {
+			log.Infof("Error leyendo")
+			continue
+		}
+		msg := string(buf[:n])
+		if msg == "ping" {
+			_, _ = conn.WriteToUDP([]byte("pong"), clientAddr)
+		}
+	}
+}
+
 func NewWorker(config WorkerConfig) (*Worker, error) {
 	log.Infof("Worker: %+v", config)
 	worker := Worker{
@@ -102,6 +131,8 @@ func NewWorker(config WorkerConfig) (*Worker, error) {
 		log.Errorf("Error initializing sender: %s", err)
 		return nil, err
 	}
+
+	go startHeartbeat()
 
 	return &worker, nil
 }

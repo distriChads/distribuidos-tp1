@@ -346,3 +346,10 @@ services:
       - CLI_WORKER_OUTPUT_ROUTINGKEYS_GROUP-BY-ACTOR-COUNT=group-by-actor-count.1
       - CLI_WORKER_OUTPUT_ROUTINGKEYS_GROUP-BY-MOVIE-AVERAGE=group-by-movie-average.1
       - CLI_WORKER_OUTPUT_ROUTINGKEYS_GROUP-BY-COUNTRY-SUM=group-by-country-sum.1
+  monitor:
+    build: ./monitor
+    container_name: monitor
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - movies_net
