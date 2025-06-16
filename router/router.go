@@ -41,6 +41,26 @@ func NewRouter(config RouterConfig, routingMap RoutingMap) *Router {
 	}
 }
 
+func (r *Router) SendData(output_routing_keys []string, msgBody string, inputIndex int) error {
+	dataDistributed := r.routeDataByMovieId(output_routing_keys, msgBody)
+
+	for i, routing_key := range output_routing_keys {
+		dataToSend := dataDistributed[i]
+		if len(dataToSend) == 0 {
+			continue
+		}
+		log.Infof("Sending message: %s, from input %d, to routing key: %s", dataToSend, inputIndex, routing_key)
+
+		err := r.worker.SendMessage(dataToSend, routing_key)
+		if err != nil {
+			log.Errorf("Error sending message: %s", err)
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (r *Router) RunWorker(ctx context.Context, starting_message string) error {
 	log.Info(starting_message)
 
@@ -64,20 +84,34 @@ func (r *Router) RunWorker(ctx context.Context, starting_message string) error {
 			continue
 		}
 
-		dataDistributed := r.routeDataByMovieId(output_routing_keys, msgBody)
+		if inputIndex == MOVIE_AFTER_2000 {
+			var credits []string
+			var ratings []string
 
-		for i, routing_key := range output_routing_keys {
-			dataToSend := dataDistributed[i]
-			if len(dataToSend) == 0 {
-				continue
+			for _, item := range output_routing_keys {
+				if strings.Contains(item, "join-movie-credits") {
+					credits = append(credits, item)
+				} else if strings.Contains(item, "join-movie-ratings") {
+					ratings = append(ratings, item)
+				}
 			}
-			log.Infof("Sending message: %s, from input %d, to routing key: %s", dataToSend, inputIndex, routing_key)
 
-			err = r.worker.SendMessage(dataToSend, routing_key)
+			err = r.SendData(credits, msgBody, inputIndex)
 			if err != nil {
-				log.Errorf("Error sending message: %s", err)
 				return err
 			}
+			err = r.SendData(ratings, msgBody, inputIndex)
+			if err != nil {
+				return err
+			}
+
+			msg.Ack(false)
+			continue
+		}
+
+		err = r.SendData(output_routing_keys, msgBody, inputIndex)
+		if err != nil {
+			return err
 		}
 		msg.Ack(false)
 	}

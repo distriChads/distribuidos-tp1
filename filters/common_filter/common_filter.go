@@ -47,7 +47,6 @@ func RunWorker(f Filter, worker worker.Worker, ctx context.Context, starting_mes
 
 		if strings.TrimSpace(message_str) == worker_package.MESSAGE_EOF {
 			err := f.HandleEOF(client_id)
-			log.Warning("ME LLEGO UN EOF WACHIN OWO")
 			if err != nil {
 				log.Infof("Error sending message: %s", err.Error())
 				return err

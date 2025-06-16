@@ -90,10 +90,7 @@ func (f *JoinMovieRatingById) RunWorker(ctx context.Context, starting_message st
 				f.client_movies_by_id[client_id] = make(map[string]string)
 			}
 
-			log.Warning("RECIBI ESTA MOVIE %s", message_str)
-
 			if message_str == worker.MESSAGE_EOF {
-				log.Warning("RECIBO EOF DE LAS MOVIES")
 				pending_messages := f.pending_ratings[client_id]
 				for _, pending_message := range pending_messages {
 					lines := strings.Split(strings.TrimSpace(pending_message), "\n")
