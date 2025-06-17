@@ -47,13 +47,13 @@ func main() {
 	if maxMessages == 0 {
 		maxMessages = 10
 	}
-
+	node_name := v.GetString("worker.nodename")
 	join := join_movie_ratings.NewJoinMovieRatingById(join_movie_ratings.JoinMovieRatingByIdConfig{
 		WorkerConfig: worker.WorkerConfig{
 			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
 		},
-	})
+	}, node_name)
 
 	ctx, cancel := context.WithCancel(context.Background())
 

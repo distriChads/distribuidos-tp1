@@ -3,6 +3,7 @@ package join_movie_credits
 import (
 	"context"
 	worker "distribuidos-tp1/common/worker/worker"
+	"distribuidos-tp1/common_statefull_worker"
 	"errors"
 	"strings"
 
@@ -20,6 +21,8 @@ type JoinMovieCreditsById struct {
 	client_movies_by_id map[string]map[string]string
 	received_movies     bool
 	pending_credits     map[string][]string
+	node_name           string
+	log_replicas        int
 }
 
 // ---------------------------------
@@ -54,9 +57,10 @@ func joinMovieWithCredits(lines []string, movies_by_id map[string]string) []stri
 	return result
 }
 
-func NewJoinMovieCreditsById(config JoinMovieCreditsByIdConfig) *JoinMovieCreditsById {
+func NewJoinMovieCreditsById(config JoinMovieCreditsByIdConfig, node_name string) *JoinMovieCreditsById {
 	log.Infof("JoinMovieCreditsById: %+v", config)
-
+	replicas := 3
+	grouped_elements, _ := common_statefull_worker.GetElements[string](node_name, replicas+1)
 	worker, err := worker.NewWorker(config.WorkerConfig)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
@@ -65,9 +69,11 @@ func NewJoinMovieCreditsById(config JoinMovieCreditsByIdConfig) *JoinMovieCredit
 
 	return &JoinMovieCreditsById{
 		Worker:              *worker,
-		client_movies_by_id: make(map[string]map[string]string),
+		client_movies_by_id: grouped_elements,
 		received_movies:     false,
 		pending_credits:     make(map[string][]string),
+		node_name:           node_name,
+		log_replicas:        replicas,
 	}
 }
 
@@ -118,6 +124,7 @@ func (f *JoinMovieCreditsById) RunWorker(ctx context.Context, starting_message s
 
 			line := strings.TrimSpace(message_str)
 			storeMovieWithId(line, f.client_movies_by_id[client_id])
+			common_statefull_worker.StoreElements(f.client_movies_by_id[client_id], client_id, f.node_name, f.log_replicas)
 			msg.Ack(false)
 
 		} else { // recibiendo credits
