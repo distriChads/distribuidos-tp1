@@ -16,6 +16,8 @@ import (
 	"github.com/op/go-logging"
 )
 
+const MOVIE_ID = 0
+
 type StatefullWorker interface {
 	UpdateState(lines []string, client_id string)
 	HandleEOF(client_id string) error
@@ -106,8 +108,28 @@ func RunWorker(s StatefullWorker, ctx context.Context, w worker.Worker, starting
 // si el archivo ya existe y esta todo bien, pudo o no haber pasado error de tipo 2), no lo sabemos...
 // la solucion que se me ocurre es quiza mandar los timestamps en los mensajes? quiza podemos rescatar algo de eso
 
-// node_name deberia ser algo como por ej group-by-country-sum-1 (los mismos nombres que usamos para los containers de docker seria lo ideal creo yo)
+func StoreElementsWithMovies[T any](
+	results map[string]T,
+	client_id, node_name string,
+	replicas int,
+	movies_id []string,
+) {
+	before_write_function := func(f *os.File) {
+		for _, id := range movies_id {
+			fmt.Fprintf(f, "movie: %s\n", id)
+		}
+	}
+
+	// Llamamos a la genérica con el hook
+	genericStoreElements(results, client_id, node_name, replicas, before_write_function)
+}
+
 func StoreElements[T any](results map[string]T, client_id, node_name string, replicas int) {
+	genericStoreElements(results, client_id, node_name, replicas, nil)
+}
+
+// node_name deberia ser algo como por ej group-by-country-sum-1 (los mismos nombres que usamos para los containers de docker seria lo ideal creo yo)
+func genericStoreElements[T any](results map[string]T, client_id, node_name string, replicas int, before_write_function func(f *os.File)) {
 	dir := filepath.Join("logs", node_name)
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
@@ -123,6 +145,10 @@ func StoreElements[T any](results map[string]T, client_id, node_name string, rep
 
 	initTime := time.Now().UTC().Format(time.RFC3339)
 	fmt.Fprintf(f, "INIT %s\n", initTime) // los Fprintf tienen short writes?
+
+	if before_write_function != nil {
+		before_write_function(f)
+	}
 
 	data, err := json.MarshalIndent(results, "", "  ")
 	if err != nil {
@@ -161,15 +187,16 @@ func copyFile(filename_to_copy string, filename_destination string) error {
 	return err
 }
 
-func GetElements[T any](node_name string, number_of_logs_to_search int) (map[string]map[string]T, []string) {
+func GetElements[T any](node_name string, number_of_logs_to_search int) (map[string]map[string]T, []string, map[string][]string) {
 	grouped := make(map[string]map[string]T)
+	movies_map := make(map[string][]string)
 
 	dir := fmt.Sprintf("logs/%s", node_name)
 	visited_clients := make(map[string]bool)
 	client_counter := make(map[string]int)
 	files, err := os.ReadDir(dir)
 	if err != nil {
-		return grouped, nil // si no existia el directorio, te devuelvo las cosas como vacios
+		return grouped, nil, nil // si no existia el directorio, te devuelvo las cosas como vacios
 	}
 
 	for _, entry := range files {
@@ -192,9 +219,11 @@ func GetElements[T any](node_name string, number_of_logs_to_search int) (map[str
 		if err != nil {
 			continue
 		}
+		defer f.Close()
 
 		scanner := bufio.NewScanner(f)
 		var jsonLines []string
+		var movies []string
 		var initTimeStr, endTimeStr string
 
 		for scanner.Scan() {
@@ -207,22 +236,20 @@ func GetElements[T any](node_name string, number_of_logs_to_search int) (map[str
 			case strings.HasPrefix(line, "END"):
 				endTimeStr = strings.Fields(line)[1]
 
+			case strings.HasPrefix(line, "movie:"):
+				movies = append(movies, strings.TrimPrefix(line, "movie: "))
+
 			default:
 				jsonLines = append(jsonLines, line)
 			}
 		}
-
-		f.Close()
 
 		initTime, err := time.Parse(time.RFC3339, initTimeStr)
 		if err != nil {
 			continue
 		}
 		endTime, err := time.Parse(time.RFC3339, endTimeStr)
-		if err != nil {
-			continue
-		}
-		if endTime.Before(initTime) {
+		if err != nil || endTime.Before(initTime) {
 			continue
 		}
 
@@ -232,20 +259,20 @@ func GetElements[T any](node_name string, number_of_logs_to_search int) (map[str
 			continue
 		}
 		grouped[clientID] = inner
+		movies_map[clientID] = movies
 		visited_clients[clientID] = true
 	}
 	var clients_with_wrong_state []string
 	for key, value := range client_counter {
-
 		if !visited_clients[key] && value == number_of_logs_to_search+1 {
 			clients_with_wrong_state = append(clients_with_wrong_state, key)
 		}
 	}
 
 	if len(clients_with_wrong_state) != 0 {
-		return grouped, clients_with_wrong_state // aca te paso esto, seguramente lo tengamos que guardar en algun lado en el nodo
+		return grouped, clients_with_wrong_state, movies_map // aca te paso esto, seguramente lo tengamos que guardar en algun lado en el nodo
 		// asi sabe a que clientes le termina de mandar el EOF-FAIL :)
 	}
 
-	return grouped, nil
+	return grouped, nil, movies_map
 }

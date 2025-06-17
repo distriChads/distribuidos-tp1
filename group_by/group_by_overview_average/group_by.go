@@ -29,6 +29,7 @@ type GroupByOverviewAndAvg struct {
 	eofs                   map[string]int
 	node_name              string
 	log_replicas           int
+	movies_id              map[string][]string
 }
 
 type RevenueBudgetCount struct {
@@ -49,7 +50,7 @@ func (g *GroupByOverviewAndAvg) NewClient(client_id string) {
 
 func (g *GroupByOverviewAndAvg) ShouldCommit(messages_before_commit int, client_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.node_name, g.log_replicas)
+		common_statefull_worker.StoreElementsWithMovies(g.grouped_elements[client_id], client_id, g.node_name, g.log_replicas, g.movies_id[client_id])
 		return true
 	}
 	return false
@@ -89,12 +90,13 @@ func (g *GroupByOverviewAndAvg) HandleEOF(client_id string) error {
 }
 
 func (g *GroupByOverviewAndAvg) UpdateState(lines []string, client_id string) {
-	groupByOverviewAndUpdate(lines, g.grouped_elements[client_id])
+	g.movies_id[client_id] = groupByOverviewAndUpdate(lines, g.grouped_elements[client_id], g.movies_id[client_id])
 }
 
-func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]RevenueBudgetCount) {
+func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]RevenueBudgetCount, movies_id []string) []string {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		movies_id = append(movies_id, parts[common_statefull_worker.MOVIE_ID])
 		budget, err := strconv.ParseFloat(parts[BUDGET], 64)
 		if err != nil {
 			continue
@@ -110,6 +112,7 @@ func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]Revenu
 		grouped_elements[parts[OVERVIEW]] = current
 
 	}
+	return movies_id
 }
 
 func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_before_commit int, node_name string) *GroupByOverviewAndAvg {
@@ -120,7 +123,7 @@ func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_befor
 		return nil
 	}
 	replicas := 3
-	grouped_elements, _ := common_statefull_worker.GetElements[RevenueBudgetCount](node_name, replicas+1)
+	grouped_elements, _, _ := common_statefull_worker.GetElements[RevenueBudgetCount](node_name, replicas+1)
 	return &GroupByOverviewAndAvg{
 		Worker:                 *worker,
 		messages_before_commit: messages_before_commit,
@@ -128,5 +131,6 @@ func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_befor
 		grouped_elements:       grouped_elements,
 		node_name:              node_name,
 		log_replicas:           replicas,
+		movies_id:              make(map[string][]string),
 	}
 }

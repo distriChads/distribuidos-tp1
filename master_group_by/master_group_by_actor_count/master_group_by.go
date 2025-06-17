@@ -22,6 +22,7 @@ type MasterGroupByActorAndCount struct {
 	eofs                   map[string]int
 	node_name              string
 	log_replicas           int
+	movies_id              map[string][]string
 }
 
 var log = logging.MustGetLogger("master_group_by_actor_count")
@@ -37,7 +38,7 @@ func (g *MasterGroupByActorAndCount) NewClient(client_id string) {
 
 func (g *MasterGroupByActorAndCount) ShouldCommit(messages_before_commit int, client_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.node_name, g.log_replicas)
+		common_statefull_worker.StoreElementsWithMovies(g.grouped_elements[client_id], client_id, g.node_name, g.log_replicas, g.movies_id[client_id])
 		return true
 	}
 	return false
@@ -67,7 +68,7 @@ func (g *MasterGroupByActorAndCount) HandleEOF(client_id string) error {
 }
 
 func (g *MasterGroupByActorAndCount) UpdateState(lines []string, client_id string) {
-	groupByActorAndUpdate(lines, g.grouped_elements[client_id])
+	g.movies_id[client_id] = groupByActorAndUpdate(lines, g.grouped_elements[client_id], g.movies_id[client_id])
 }
 
 // ---------------------------------
@@ -76,15 +77,17 @@ func (g *MasterGroupByActorAndCount) UpdateState(lines []string, client_id strin
 const ACTOR = 0
 const COUNT = 1
 
-func groupByActorAndUpdate(lines []string, grouped_elements map[string]int) {
+func groupByActorAndUpdate(lines []string, grouped_elements map[string]int, movies_id []string) []string {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		movies_id = append(movies_id, parts[common_statefull_worker.MOVIE_ID])
 		count, err := strconv.Atoi(parts[COUNT])
 		if err != nil {
 			continue
 		}
 		grouped_elements[parts[ACTOR]] += count
 	}
+	return movies_id
 }
 
 func NewGroupByActorAndCount(config MasterGroupByActorAndCountConfig, messages_before_commit int, expected_eof int, node_name string) *MasterGroupByActorAndCount {
@@ -97,7 +100,7 @@ func NewGroupByActorAndCount(config MasterGroupByActorAndCountConfig, messages_b
 	}
 
 	replicas := 3
-	grouped_elements, _ := common_statefull_worker.GetElements[int](node_name, replicas+1)
+	grouped_elements, _, _ := common_statefull_worker.GetElements[int](node_name, replicas+1)
 	return &MasterGroupByActorAndCount{
 		Worker:                 *worker,
 		messages_before_commit: messages_before_commit,
@@ -105,5 +108,6 @@ func NewGroupByActorAndCount(config MasterGroupByActorAndCountConfig, messages_b
 		eofs:                   make(map[string]int),
 		node_name:              node_name,
 		log_replicas:           replicas,
+		movies_id:              make(map[string][]string),
 	}
 }

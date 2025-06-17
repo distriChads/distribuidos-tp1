@@ -58,7 +58,7 @@ func NewJoinMovieRatingById(config JoinMovieRatingByIdConfig, node_name string) 
 	log.Infof("JoinMovieRatingById: %+v", config)
 
 	replicas := 3
-	grouped_elements, _ := common_statefull_worker.GetElements[string](node_name, replicas+1)
+	grouped_elements, _, _ := common_statefull_worker.GetElements[string](node_name, replicas+1)
 	worker, err := worker.NewWorker(config.WorkerConfig)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)

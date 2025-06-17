@@ -22,6 +22,7 @@ type GroupByCountryAndSum struct {
 	eofs                   map[string]int
 	node_name              string
 	log_replicas           int
+	movies_id              map[string][]string
 }
 
 var log = logging.MustGetLogger("group_by_country_sum")
@@ -37,7 +38,7 @@ func (g *GroupByCountryAndSum) NewClient(client_id string) {
 
 func (g *GroupByCountryAndSum) ShouldCommit(messages_before_commit int, client_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.node_name, g.log_replicas)
+		common_statefull_worker.StoreElementsWithMovies(g.grouped_elements[client_id], client_id, g.node_name, g.log_replicas, g.movies_id[client_id])
 		return true
 	}
 	return false
@@ -76,7 +77,7 @@ func (g *GroupByCountryAndSum) HandleEOF(client_id string) error {
 }
 
 func (g *GroupByCountryAndSum) UpdateState(lines []string, client_id string) {
-	groupByCountryAndSum(lines, g.grouped_elements[client_id])
+	g.movies_id[client_id] = groupByCountryAndSum(lines, g.grouped_elements[client_id], g.movies_id[client_id])
 }
 
 // ---------------------------------
@@ -85,21 +86,23 @@ func (g *GroupByCountryAndSum) UpdateState(lines []string, client_id string) {
 const COUNTRY = 3
 const BUDGET = 5
 
-func groupByCountryAndSum(lines []string, grouped_elements map[string]int) {
+func groupByCountryAndSum(lines []string, grouped_elements map[string]int, movies_id []string) []string {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		movies_id = append(movies_id, parts[common_statefull_worker.MOVIE_ID])
 		budget, err := strconv.Atoi(parts[BUDGET])
 		if err != nil {
 			continue
 		}
 		grouped_elements[parts[COUNTRY]] += budget
 	}
+	return movies_id
 }
 
 func NewGroupByCountryAndSum(config GroupByCountryAndSumConfig, messages_before_commit int, node_name string) *GroupByCountryAndSum {
 	log.Infof("GroupByCountryAndSum: %+v", config)
 	replicas := 3
-	grouped_elements, _ := common_statefull_worker.GetElements[int](node_name, replicas+1)
+	grouped_elements, _, _ := common_statefull_worker.GetElements[int](node_name, replicas+1)
 
 	worker, err := worker.NewWorker(config.WorkerConfig)
 	if err != nil {
@@ -113,5 +116,6 @@ func NewGroupByCountryAndSum(config GroupByCountryAndSumConfig, messages_before_
 		grouped_elements:       grouped_elements,
 		eofs:                   make(map[string]int),
 		log_replicas:           3,
+		movies_id:              make(map[string][]string),
 	}
 }

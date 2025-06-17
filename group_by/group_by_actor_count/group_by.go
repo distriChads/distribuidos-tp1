@@ -21,6 +21,7 @@ type GroupByActorAndCount struct {
 	eofs                   map[string]int
 	node_name              string
 	log_replicas           int
+	movies_id              map[string][]string // id cliente a muchos ids de mensajes recibidos
 }
 
 var log = logging.MustGetLogger("group_by_actor_count")
@@ -36,7 +37,7 @@ func (g *GroupByActorAndCount) NewClient(client_id string) {
 
 func (g *GroupByActorAndCount) ShouldCommit(messages_before_commit int, client_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.node_name, g.log_replicas)
+		common_statefull_worker.StoreElementsWithMovies(g.grouped_elements[client_id], client_id, g.node_name, g.log_replicas, g.movies_id[client_id])
 		return true
 	}
 	return false
@@ -75,25 +76,28 @@ func (g *GroupByActorAndCount) HandleEOF(client_id string) error {
 }
 
 func (g *GroupByActorAndCount) UpdateState(lines []string, client_id string) {
-	groupByActorAndUpdate(lines, g.grouped_elements[client_id])
+	g.movies_id[client_id] = groupByActorAndUpdate(lines, g.grouped_elements[client_id], g.movies_id[client_id])
 }
 
 const ACTORS = 1
 
-func groupByActorAndUpdate(lines []string, grouped_elements map[string]int) {
+func groupByActorAndUpdate(lines []string, grouped_elements map[string]int, movies_id []string) []string {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		movies_id = append(movies_id, parts[common_statefull_worker.MOVIE_ID])
+
 		actors := strings.Split(parts[ACTORS], worker.MESSAGE_ARRAY_SEPARATOR)
 		for _, actor := range actors {
 			grouped_elements[actor] += 1
 		}
 	}
+	return movies_id
 }
 
 func NewGroupByActorAndCount(config GroupByActorAndCountConfig, messages_before_commit int, node_name string) *GroupByActorAndCount {
 	log.Infof("GroupByActorAndCount: %+v", config)
 	replicas := 3
-	grouped_elements, _ := common_statefull_worker.GetElements[int](node_name, replicas+1)
+	grouped_elements, _, _ := common_statefull_worker.GetElements[int](node_name, replicas+1)
 	worker, err := worker.NewWorker(config.WorkerConfig)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
@@ -106,5 +110,6 @@ func NewGroupByActorAndCount(config GroupByActorAndCountConfig, messages_before_
 		eofs:                   make(map[string]int),
 		node_name:              node_name,
 		log_replicas:           3,
+		movies_id:              make(map[string][]string),
 	}
 }

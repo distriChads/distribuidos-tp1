@@ -22,6 +22,7 @@ type MasterGroupByCountryAndSum struct {
 	eofs                   map[string]int
 	node_name              string
 	log_replicas           int
+	movies_id              map[string][]string
 }
 
 var log = logging.MustGetLogger("master_group_by_country_sum")
@@ -38,7 +39,7 @@ func (g *MasterGroupByCountryAndSum) NewClient(client_id string) {
 
 func (g *MasterGroupByCountryAndSum) ShouldCommit(messages_before_commit int, client_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.node_name, g.log_replicas)
+		common_statefull_worker.StoreElementsWithMovies(g.grouped_elements[client_id], client_id, g.node_name, g.log_replicas, g.movies_id[client_id])
 		return true
 	}
 	return false
@@ -68,7 +69,7 @@ func (g *MasterGroupByCountryAndSum) HandleEOF(client_id string) error {
 }
 
 func (g *MasterGroupByCountryAndSum) UpdateState(lines []string, client_id string) {
-	groupByCountryAndSum(lines, g.grouped_elements[client_id])
+	g.movies_id[client_id] = groupByCountryAndSum(lines, g.grouped_elements[client_id], g.movies_id[client_id])
 }
 
 // ---------------------------------
@@ -77,15 +78,17 @@ func (g *MasterGroupByCountryAndSum) UpdateState(lines []string, client_id strin
 const COUNTRY = 0
 const BUDGET = 1
 
-func groupByCountryAndSum(lines []string, grouped_elements map[string]int) {
+func groupByCountryAndSum(lines []string, grouped_elements map[string]int, movies_id []string) []string {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		movies_id = append(movies_id, parts[common_statefull_worker.MOVIE_ID])
 		budget, err := strconv.Atoi(parts[BUDGET])
 		if err != nil {
 			continue
 		}
 		grouped_elements[parts[COUNTRY]] += budget
 	}
+	return movies_id
 }
 
 func NewGroupByCountryAndSum(config MasterGroupByCountryAndSumConfig, messages_before_commit int, expected_eof int, node_name string) *MasterGroupByCountryAndSum {
@@ -98,12 +101,13 @@ func NewGroupByCountryAndSum(config MasterGroupByCountryAndSumConfig, messages_b
 	}
 
 	replicas := 3
-	grouped_elements, _ := common_statefull_worker.GetElements[int](node_name, replicas+1)
+	grouped_elements, _, _ := common_statefull_worker.GetElements[int](node_name, replicas+1)
 	return &MasterGroupByCountryAndSum{
 		Worker:                 *worker,
 		messages_before_commit: messages_before_commit,
 		grouped_elements:       grouped_elements,
 		eofs:                   make(map[string]int),
 		log_replicas:           replicas,
+		movies_id:              make(map[string][]string),
 	}
 }

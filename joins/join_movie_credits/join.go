@@ -60,7 +60,7 @@ func joinMovieWithCredits(lines []string, movies_by_id map[string]string) []stri
 func NewJoinMovieCreditsById(config JoinMovieCreditsByIdConfig, node_name string) *JoinMovieCreditsById {
 	log.Infof("JoinMovieCreditsById: %+v", config)
 	replicas := 3
-	grouped_elements, _ := common_statefull_worker.GetElements[string](node_name, replicas+1)
+	grouped_elements, _, _ := common_statefull_worker.GetElements[string](node_name, replicas+1)
 	worker, err := worker.NewWorker(config.WorkerConfig)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)

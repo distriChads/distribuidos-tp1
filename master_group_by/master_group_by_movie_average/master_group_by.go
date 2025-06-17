@@ -22,6 +22,7 @@ type MasterGroupByMovieAndAvg struct {
 	eofs                   map[string]int
 	node_name              string
 	log_replicas           int
+	movies_id              map[string][]string
 }
 
 type ScoreAndCount struct {
@@ -42,7 +43,7 @@ func (g *MasterGroupByMovieAndAvg) NewClient(client_id string) {
 
 func (g *MasterGroupByMovieAndAvg) ShouldCommit(messages_before_commit int, client_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.node_name, g.log_replicas)
+		common_statefull_worker.StoreElementsWithMovies(g.grouped_elements[client_id], client_id, g.node_name, g.log_replicas, g.movies_id[client_id])
 		return true
 	}
 	return false
@@ -73,7 +74,7 @@ func (g *MasterGroupByMovieAndAvg) HandleEOF(client_id string) error {
 }
 
 func (g *MasterGroupByMovieAndAvg) UpdateState(lines []string, client_id string) {
-	groupByMovieAndUpdate(lines, g.grouped_elements[client_id])
+	g.movies_id[client_id] = groupByMovieAndUpdate(lines, g.grouped_elements[client_id], g.movies_id[client_id])
 }
 
 // ---------------------------------
@@ -82,12 +83,10 @@ func (g *MasterGroupByMovieAndAvg) UpdateState(lines []string, client_id string)
 const TITLE = 0
 const SCORE = 1
 
-func groupByMovieAndUpdate(lines []string, grouped_elements map[string]ScoreAndCount) {
+func groupByMovieAndUpdate(lines []string, grouped_elements map[string]ScoreAndCount, movies_id []string) []string {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
-		if len(parts) < 2 {
-			log.Errorf("Invalid message format: %s", line)
-		}
+		movies_id = append(movies_id, parts[common_statefull_worker.MOVIE_ID])
 		average, err := strconv.ParseFloat(parts[SCORE], 64)
 		if err != nil {
 			continue
@@ -98,6 +97,7 @@ func groupByMovieAndUpdate(lines []string, grouped_elements map[string]ScoreAndC
 		grouped_elements[parts[TITLE]] = current
 
 	}
+	return movies_id
 }
 
 func NewGroupByMovieAndAvg(config MasterGroupByMovieAndAvgConfig, messages_before_commit int, expected_eof int, node_name string) *MasterGroupByMovieAndAvg {
@@ -110,7 +110,7 @@ func NewGroupByMovieAndAvg(config MasterGroupByMovieAndAvgConfig, messages_befor
 	}
 
 	replicas := 3
-	grouped_elements, _ := common_statefull_worker.GetElements[ScoreAndCount](node_name, replicas+1)
+	grouped_elements, _, _ := common_statefull_worker.GetElements[ScoreAndCount](node_name, replicas+1)
 	return &MasterGroupByMovieAndAvg{
 		Worker:                 *worker,
 		messages_before_commit: messages_before_commit,
@@ -119,5 +119,6 @@ func NewGroupByMovieAndAvg(config MasterGroupByMovieAndAvgConfig, messages_befor
 		eofs:                   make(map[string]int),
 		node_name:              node_name,
 		log_replicas:           replicas,
+		movies_id:              make(map[string][]string),
 	}
 }
