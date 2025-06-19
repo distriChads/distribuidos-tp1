@@ -112,7 +112,7 @@ services:
     - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=group-by-country-sum.1
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.group_by_country_sum
-    - CLI_WORKER_STORAGE=.local-storage
+    - CLI_WORKER_STORAGE=/app/storage
     - CLI_WORKER_MAXMESSAGES=10
     image: group_by_country_sum:latest
     networks:
@@ -132,7 +132,7 @@ services:
     - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=group-by-movie-average.1
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.group_by_movie_average
-    - CLI_WORKER_STORAGE=.local-storage
+    - CLI_WORKER_STORAGE=/app/storage
     - CLI_WORKER_MAXMESSAGES=10
     image: group_by_movie_average:latest
     networks:
@@ -152,7 +152,7 @@ services:
     - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=group-by-actor-count.1
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.group_by_actor_count
-    - CLI_WORKER_STORAGE=.local-storage
+    - CLI_WORKER_STORAGE=/app/storage
     - CLI_WORKER_MAXMESSAGES=10
     image: group_by_actor_count:latest
     networks:
@@ -172,7 +172,7 @@ services:
     - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=group-by-overview-average.1
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.group_by_overview_average
-    - CLI_WORKER_STORAGE=.local-storage
+    - CLI_WORKER_STORAGE=/app/storage
     - CLI_WORKER_MAXMESSAGES=10
     image: group_by_overview_average:latest
     networks:
@@ -192,7 +192,7 @@ services:
     - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.group_by_country_sum
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=master.country_sum
-    - CLI_WORKER_STORAGE=.local-storage
+    - CLI_WORKER_STORAGE=/app/storage
     - CLI_WORKER_MAXMESSAGES=1
     image: master_group_by_country_sum:latest
     networks:
@@ -212,7 +212,7 @@ services:
     - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.group_by_movie_average
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=master.movie_average
-    - CLI_WORKER_STORAGE=.local-storage
+    - CLI_WORKER_STORAGE=/app/storage
     - CLI_WORKER_MAXMESSAGES=1
     image: master_group_by_movie_average:latest
     networks:
@@ -232,7 +232,7 @@ services:
     - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.group_by_actor_count
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=master.actor_count
-    - CLI_WORKER_STORAGE=.local-storage
+    - CLI_WORKER_STORAGE=/app/storage
     - CLI_WORKER_MAXMESSAGES=1
     image: master_group_by_actor_count:latest
     networks:
@@ -252,7 +252,7 @@ services:
     - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.group_by_overview_average
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query5.results
-    - CLI_WORKER_STORAGE=.local-storage
+    - CLI_WORKER_STORAGE=/app/storage
     - CLI_WORKER_MAXMESSAGES=1
     image: master_group_by_overview_average:latest
     networks:
@@ -288,7 +288,7 @@ services:
     - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=master.country_sum
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query2.results
-    - CLI_WORKER_STORAGE=.local-storage
+    - CLI_WORKER_STORAGE=/app/storage
     - CLI_WORKER_MAXMESSAGES=10
     image: top_five_country_budget:latest
     networks:
@@ -308,7 +308,7 @@ services:
     - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=master.actor_count
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query4.results
-    - CLI_WORKER_STORAGE=.local-storage
+    - CLI_WORKER_STORAGE=/app/storage
     - CLI_WORKER_MAXMESSAGES=10
     image: top_ten_cast_movie:latest
     networks:
@@ -360,7 +360,7 @@ services:
     - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=master.movie_average
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query3.results
-    - CLI_WORKER_STORAGE=.local-storage
+    - CLI_WORKER_STORAGE=/app/storage
     - CLI_WORKER_MAXMESSAGES=10
     image: first_and_last:latest
     networks:

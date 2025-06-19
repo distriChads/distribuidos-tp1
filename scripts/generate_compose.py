@@ -104,7 +104,7 @@ def generic_worker_service(name, dockerfile_path, replica, spec, entrypoint):
     ]
 
     if "storage" in spec:
-        env.append(f"CLI_WORKER_STORAGE={spec['storage']}")
+        env.append("CLI_WORKER_STORAGE=/app/storage")
     if "messages_per_commit" in spec:
         env.append(f"CLI_WORKER_MAXMESSAGES={spec['messages_per_commit']}")
 
