@@ -43,9 +43,12 @@ class Client:
         elif type(self.batch_processor) == CreditsProcessor:
             routing_key = self.worker.exchange.output_routing_keys[CREDITS_ROUTING_KEY_INDEX]
             exchange = self.worker.exchange.name
-        else:  # RatingsProcessor
+        elif type(self.batch_processor) == RatingsProcessor:
             routing_key = self.worker.exchange.output_routing_keys[RATINGS_ROUTING_KEY_INDEX]
             exchange = self.worker.exchange.name
+        else:
+            logging.error(f"Invalid batch processor: {type(self.batch_processor)}")
+            return
 
         if not routing_key or not exchange:
             raise ValueError("Routing key or exchange is not set.")
@@ -57,12 +60,19 @@ class Client:
             self.batch_processor = CreditsProcessor()
         elif type(self.batch_processor) == CreditsProcessor:
             self.batch_processor = RatingsProcessor()
+        else:
+            self.batch_processor = None
 
     def send_message_to_workers(self):
         self.send_message(self.batch_processor.get_processed_batch())
 
     def send_eof(self):
         self.send_message(EOF)
+        
+    def send_all_eof(self):
+        while self.batch_processor:
+            self.send_eof()
+            self.set_next_processor()
 
     def receive_first_chunck(self):
         if self.client_socket is None:

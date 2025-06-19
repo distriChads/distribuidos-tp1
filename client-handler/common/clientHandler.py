@@ -82,9 +82,11 @@ class ClientHandler:
                     client.batch_processor.process_batch(
                         bytes_received, chunck_received)
                     client.send_message_to_workers()
-                except socket.error as e:
-                    logging.error(f'action: receive_datasets | error: {e}')
+                except Exception as e:
+                    logging.error(f'Error processing client {client.worker.client_id}: {e}')
+                    client.send_all_eof()
                     return
+
             client.send_eof()
 
             logging.info(
@@ -116,7 +118,12 @@ class ClientHandler:
             result = f"{client_id}/{query_number}/{result}\n"
             with self.clients_lock:
                 client = self.clients.get(client_id)
-            client.send(result)
+            if client:
+                try:
+                    client.send(result)
+                except Exception as e:
+                    logging.error(f'Error sending result to client {client_id}: {e}')
+                    continue
 
     def __accept_new_connection(self):
         logging.info('action: accept_connections | result: in_progress')
