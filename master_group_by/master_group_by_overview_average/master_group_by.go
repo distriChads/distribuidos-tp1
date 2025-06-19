@@ -20,7 +20,7 @@ type MasterGroupByOverviewAndAvg struct {
 	expected_eof           int
 	grouped_elements       map[string]map[string]ScoreAndCount
 	eofs                   map[string]int
-	node_name              string
+	storage_base_dir       string
 	log_replicas           int
 }
 
@@ -31,7 +31,7 @@ type ScoreAndCount struct {
 
 var log = logging.MustGetLogger("master_group_by_overview_average")
 
-func (g *MasterGroupByOverviewAndAvg) NewClient(client_id string) {
+func (g *MasterGroupByOverviewAndAvg) EnsureClient(client_id string) {
 	if _, ok := g.grouped_elements[client_id]; !ok {
 		g.grouped_elements[client_id] = make(map[string]ScoreAndCount)
 	}
@@ -40,9 +40,9 @@ func (g *MasterGroupByOverviewAndAvg) NewClient(client_id string) {
 	}
 }
 
-func (g *MasterGroupByOverviewAndAvg) ShouldCommit(messages_before_commit int, client_id string) bool {
+func (g *MasterGroupByOverviewAndAvg) HandleCommit(messages_before_commit int, client_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.node_name, g.log_replicas)
+		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.storage_base_dir, g.log_replicas)
 		return true
 	}
 	return false
@@ -71,6 +71,7 @@ func (g *MasterGroupByOverviewAndAvg) HandleEOF(client_id string) error {
 		}
 		delete(g.grouped_elements, client_id)
 		delete(g.eofs, client_id)
+		common_statefull_worker.CleanState(g.storage_base_dir, client_id)
 	}
 	return nil
 }
@@ -106,10 +107,10 @@ func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]ScoreA
 	}
 }
 
-func NewGroupByOverviewAndAvg(config MasterGroupByOverviewAndAvgConfig, messages_before_commit int, expected_eof int, node_name string) *MasterGroupByOverviewAndAvg {
+func NewGroupByOverviewAndAvg(config MasterGroupByOverviewAndAvgConfig, messages_before_commit int, expected_eof int, storage_base_dir string) *MasterGroupByOverviewAndAvg {
 	log.Infof("MasterGroupByOverviewAndAvg: %+v", config)
 	replicas := 3
-	grouped_elements, _ := common_statefull_worker.GetElements[ScoreAndCount](node_name, replicas+1)
+	grouped_elements, _ := common_statefull_worker.GetElements[ScoreAndCount](storage_base_dir, replicas+1)
 	return &MasterGroupByOverviewAndAvg{
 		Worker: worker.Worker{
 			InputExchange:  config.InputExchange,
@@ -120,7 +121,7 @@ func NewGroupByOverviewAndAvg(config MasterGroupByOverviewAndAvgConfig, messages
 		expected_eof:           expected_eof,
 		grouped_elements:       grouped_elements,
 		eofs:                   make(map[string]int),
-		node_name:              node_name,
+		storage_base_dir:       storage_base_dir,
 		log_replicas:           replicas,
 	}
 }

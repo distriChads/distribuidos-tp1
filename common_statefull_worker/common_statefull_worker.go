@@ -17,11 +17,16 @@ import (
 )
 
 type StatefullWorker interface {
+	// Updates the internal in-memory state with the given lines for the specified client
 	UpdateState(lines []string, client_id string)
+	// Handles EOF message processing for the specified client
 	HandleEOF(client_id string) error
+	// Converts the current state for the specified client to a string representation
 	MapToLines(client_id string) string
-	ShouldCommit(messages_before_commit int, client_id string) bool
-	NewClient(client_id string)
+	// Commits internal state to file if necessary. Returns true if a commit was performed.
+	HandleCommit(messages_since_last_commit int, client_id string) bool
+	// Ensures a client exists in the internal state
+	EnsureClient(client_id string)
 }
 
 var log = logging.MustGetLogger("common_group_by")
@@ -72,7 +77,7 @@ func RunWorker(s StatefullWorker, msgs <-chan amqp091.Delivery) error {
 		message_str := string(message.Body)
 		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
 		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
-		s.NewClient(client_id)
+		s.EnsureClient(client_id)
 
 		if message_str == worker.MESSAGE_EOF {
 			err := s.HandleEOF(client_id)
@@ -85,7 +90,7 @@ func RunWorker(s StatefullWorker, msgs <-chan amqp091.Delivery) error {
 		messages_before_commit += 1
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		s.UpdateState(lines, client_id)
-		if s.ShouldCommit(messages_before_commit, client_id) {
+		if s.HandleCommit(messages_before_commit, client_id) {
 			messages_before_commit = 0
 		}
 		message.Ack(false)
@@ -115,18 +120,24 @@ func RunWorker(s StatefullWorker, msgs <-chan amqp091.Delivery) error {
 // si el archivo ya existe y esta todo bien, pudo o no haber pasado error de tipo 2), no lo sabemos...
 // la solucion que se me ocurre es quiza mandar los timestamps en los mensajes? quiza podemos rescatar algo de eso
 
-// node_name deberia ser algo como por ej group-by-country-sum-1 (los mismos nombres que usamos para los containers de docker seria lo ideal creo yo)
-func StoreElements[T any](results map[string]T, client_id, node_name string, replicas int) {
-	dir := filepath.Join("logs", node_name)
+// StoreElements stores the state for a given client in the given storage base directory
+// results is the state to store
+// client_id is the id of the client to store the state for
+// storage_base_dir is the base directory where state files are stored
+// replicas is the number of replicas to create
+func StoreElements[T any](results map[string]T, client_id, storage_base_dir string, replicas int) {
+	dir := filepath.Join(storage_base_dir, "state")
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
-		panic("Che, si no puedo crear el directorio medio que cagamos fuego")
+		log.Criticalf("Error creating directory: %s", err.Error())
+		panic(err)
 	}
-	filename := fmt.Sprintf("%s/%s_0.txt", dir, client_id)
+	filename := fmt.Sprintf("%s/%s-0.txt", dir, client_id)
 
 	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
-		panic("Si no pudimos crear el archivo, medio que cagamos fuego tambien")
+		log.Criticalf("Error creating state file for client %s: %s", client_id, err.Error())
+		panic(err)
 	}
 	defer f.Close()
 
@@ -135,6 +146,7 @@ func StoreElements[T any](results map[string]T, client_id, node_name string, rep
 
 	data, err := json.MarshalIndent(results, "", "  ")
 	if err != nil {
+		log.Criticalf("Error parsing state for client %s: %s", client_id, err.Error())
 		panic(err)
 	}
 	f.Write(data)
@@ -144,14 +156,17 @@ func StoreElements[T any](results map[string]T, client_id, node_name string, rep
 	fmt.Fprintf(f, "END %s\n", endTime)
 
 	for i := 1; i <= replicas; i++ {
-		replicaFilename := fmt.Sprintf("%s/%s_%d.txt", dir, client_id, i)
+		replicaFilename := fmt.Sprintf("%s/%s-%d.txt", dir, client_id, i)
 		err := copyFile(filename, replicaFilename)
 		if err != nil {
-			log.Infof("Error creando la replica, no nos molesta realmente %d\n", i)
+			log.Warningf("Error copying state file for client %s to replica %d: %s", client_id, i, err.Error())
 		}
 	}
+
+	log.Infof("State for client %s stored in %s", client_id, dir)
 }
 
+// copyFile copies a file from the source to the destination
 func copyFile(filename_to_copy string, filename_destination string) error {
 	original, err := os.Open(filename_to_copy)
 	if err != nil {
@@ -170,10 +185,14 @@ func copyFile(filename_to_copy string, filename_destination string) error {
 	return err
 }
 
-func GetElements[T any](node_name string, number_of_logs_to_search int) (map[string]map[string]T, []string) {
+// GetElements retrieves the state for all clients from the given storage base directory
+// storage_base_dir is the base directory where state files are stored
+// number_of_logs_to_search is the number of state files replicas to search for each client
+// returns a map of client IDs to their state, and a list of clients with wrong state
+func GetElements[T any](storage_base_dir string, number_of_logs_to_search int) (map[string]map[string]T, []string) {
 	grouped := make(map[string]map[string]T)
 
-	dir := fmt.Sprintf("logs/%s", node_name)
+	dir := fmt.Sprintf("%s/state", storage_base_dir)
 	visited_clients := make(map[string]bool)
 	client_counter := make(map[string]int)
 	files, err := os.ReadDir(dir)
@@ -185,7 +204,7 @@ func GetElements[T any](node_name string, number_of_logs_to_search int) (map[str
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".txt") {
 			continue
 		}
-		clientID := strings.Split(entry.Name(), "_")[0]
+		clientID := strings.Split(entry.Name(), "-")[0]
 		if visited_clients[clientID] { // si ya te marque que tengo un estado OK, empeza a ignorar el resto de archivos de este cliente
 			continue
 		}
@@ -257,4 +276,24 @@ func GetElements[T any](node_name string, number_of_logs_to_search int) (map[str
 	}
 
 	return grouped, nil
+}
+
+// CleanState deletes all state files for a given client
+// storage_base_dir is the base directory where state files are stored
+// client_id is the id of the client to delete state files for
+func CleanState(storage_base_dir string, client_id string) {
+	dir := fmt.Sprintf("%s/state", storage_base_dir)
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		log.Warningf("Error reading state directory for deletion: %s", err.Error())
+	}
+	for _, file := range files {
+		if file.IsDir() || !strings.HasSuffix(file.Name(), ".txt") || !strings.HasPrefix(file.Name(), client_id) {
+			continue
+		}
+		err := os.Remove(fmt.Sprintf("%s/%s", dir, file.Name()))
+		if err != nil {
+			log.Warningf("Error deleting state file %s: %s", file.Name(), err.Error())
+		}
+	}
 }

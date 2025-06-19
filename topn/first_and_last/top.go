@@ -32,13 +32,13 @@ type FirstAndLastMovies struct {
 
 var log = logging.MustGetLogger("first_and_last")
 
-func (g *FirstAndLast) NewClient(client_id string) {
+func (g *FirstAndLast) EnsureClient(client_id string) {
 	if _, ok := g.first_and_last_movies[client_id]; !ok {
 		g.first_and_last_movies[client_id] = FirstAndLastMovies{}
 	}
 }
 
-func (g *FirstAndLast) ShouldCommit(messages_before_commit int, client_id string) bool {
+func (g *FirstAndLast) HandleCommit(messages_before_commit int, client_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
 		storeGroupedElements(g.first_and_last_movies[client_id], client_id)
 		return true

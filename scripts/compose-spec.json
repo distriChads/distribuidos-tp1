@@ -68,7 +68,9 @@
                 "exchange_name": "master_groupby_exchange",
                 "routing_key": "master.country-sum.input",
                 "type": "unique"
-            }
+            },
+            "storage": ".local-storage",
+            "commit_interval": 10
         },
         {
             "name": "master-group-by-country-sum",
@@ -82,7 +84,9 @@
                 "exchange_name": "master_groupby_exchange",
                 "routing_key": "master.country-sum.output",
                 "type": "unique"
-            }
+            },
+            "storage": ".local-storage",
+            "commit_interval": 1
         },
         {
             "name": "top-five-country-budget",
@@ -96,7 +100,9 @@
                 "exchange_name": "results_exchange",
                 "routing_key": "query2.results",
                 "type": "unique"
-            }
+            },
+            "storage": ".local-storage",
+            "commit_interval": 10
         },
         {
             "name": "filter-after-2000",
@@ -143,7 +149,9 @@
                 "exchange_name": "group_by_movie_average_exchange",
                 "routing_key": "groupby.movie-avg.output",
                 "type": "unique"
-            }
+            },
+            "storage": ".local-storage",
+            "commit_interval": 10
         },
         {
             "name": "master-group-by-movie-average",
@@ -157,7 +165,9 @@
                 "exchange_name": "first_and_last_exchange",
                 "routing_key": "topn.first-last.input",
                 "type": "unique"
-            }
+            },
+            "storage": ".local-storage",
+            "commit_interval": 1
         },
         {
             "name": "first-and-last",
@@ -171,7 +181,9 @@
                 "exchange_name": "results_exchange",
                 "routing_key": "query3.results",
                 "type": "unique"
-            }
+            },
+            "storage": ".local-storage",
+            "commit_interval": 10
         },
         {
             "name": "join-movie-credits",
@@ -204,7 +216,9 @@
                 "exchange_name": "group_by_actor_count_exchange",
                 "routing_key": "groupby.actor.output",
                 "type": "unique"
-            }
+            },
+            "storage": ".local-storage",
+            "commit_interval": 10
         },
         {
             "name": "master-group-by-actor-count",
@@ -218,7 +232,9 @@
                 "exchange_name": "top_ten_cast_movie_exchange",
                 "routing_key": "topn.top-10-cast.input",
                 "type": "unique"
-            }
+            },
+            "storage": ".local-storage",
+            "commit_interval": 1
         },
         {
             "name": "top-ten-cast-movie",
@@ -232,7 +248,9 @@
                 "exchange_name": "results_exchange",
                 "routing_key": "query4.results",
                 "type": "unique"
-            }
+            },
+            "storage": ".local-storage",
+            "commit_interval": 10
         },
         {
             "name": "machine-learning",
@@ -261,7 +279,9 @@
                 "exchange_name": "groupby_overview_exchange",
                 "routing_key": "groupby.overview.output",
                 "type": "unique"
-            }
+            },
+            "storage": ".local-storage",
+            "commit_interval": 10
         },
         {
             "name": "master-group-by-overview-average",
@@ -275,7 +295,9 @@
                 "exchange_name": "results_exchange",
                 "routing_key": "query5.results",
                 "type": "unique"
-            }
+            },
+            "storage": ".local-storage",
+            "commit_interval": 1
         }
     ]
 }

@@ -331,6 +331,14 @@ def generate_compose(spec_path, output_path):
       if service['name'] == "machine-learning":
           ith_service["cpus"] = "2"
 
+      # --- Storage ---
+      if "storage" in service:
+        env.append(f"CLI_WORKER_STORAGE=/app/storage")
+        ith_service["volumes"] = [f"{service['storage']}/{service['name']}-{i+1}:/app/storage"]
+
+      # --- Commit Interval ---
+      if "commit_interval" in service:
+        env.append(f"CLI_WORKER_MAXMESSAGES={service['commit_interval']}")
 
       ith_service["environment"] = env
       

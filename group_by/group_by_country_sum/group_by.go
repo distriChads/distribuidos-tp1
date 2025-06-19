@@ -20,13 +20,13 @@ type GroupByCountryAndSum struct {
 	expected_eof           int
 	grouped_elements       map[string]map[string]int
 	eofs                   map[string]int
-	node_name              string
+	storage_base_dir       string
 	log_replicas           int
 }
 
 var log = logging.MustGetLogger("group_by_country_sum")
 
-func (g *GroupByCountryAndSum) NewClient(client_id string) {
+func (g *GroupByCountryAndSum) EnsureClient(client_id string) {
 	if _, ok := g.grouped_elements[client_id]; !ok {
 		g.grouped_elements[client_id] = make(map[string]int)
 	}
@@ -35,9 +35,9 @@ func (g *GroupByCountryAndSum) NewClient(client_id string) {
 	}
 }
 
-func (g *GroupByCountryAndSum) ShouldCommit(messages_before_commit int, client_id string) bool {
+func (g *GroupByCountryAndSum) HandleCommit(messages_before_commit int, client_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.node_name, g.log_replicas)
+		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.storage_base_dir, g.log_replicas)
 		return true
 	}
 	return false
@@ -65,6 +65,7 @@ func (g *GroupByCountryAndSum) HandleEOF(client_id string) error {
 		}
 		delete(g.grouped_elements, client_id)
 		delete(g.eofs, client_id)
+		common_statefull_worker.CleanState(g.storage_base_dir, client_id)
 	}
 	return nil
 }
@@ -90,10 +91,10 @@ func groupByCountryAndSum(lines []string, grouped_elements map[string]int) {
 	}
 }
 
-func NewGroupByCountryAndSum(config GroupByCountryAndSumConfig, messages_before_commit int, eof_counter int, node_name string) *GroupByCountryAndSum {
+func NewGroupByCountryAndSum(config GroupByCountryAndSumConfig, messages_before_commit int, eof_counter int, storage_base_dir string) *GroupByCountryAndSum {
 	log.Infof("GroupByCountryAndSum: %+v", config)
 	replicas := 3
-	grouped_elements, _ := common_statefull_worker.GetElements[int](node_name, replicas+1)
+	grouped_elements, _ := common_statefull_worker.GetElements[int](storage_base_dir, replicas+1)
 	return &GroupByCountryAndSum{
 		Worker: worker.Worker{
 			InputExchange:  config.InputExchange,
@@ -104,7 +105,8 @@ func NewGroupByCountryAndSum(config GroupByCountryAndSumConfig, messages_before_
 		expected_eof:           eof_counter,
 		grouped_elements:       grouped_elements,
 		eofs:                   make(map[string]int),
-		log_replicas:           3,
+		storage_base_dir:       storage_base_dir,
+		log_replicas:           replicas,
 	}
 }
 
