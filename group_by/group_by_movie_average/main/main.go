@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
+	"distribuidos-tp1/common_statefull_worker"
 	"os"
 	"os/signal"
 	"strings"
@@ -24,20 +26,16 @@ func main() {
 	}
 
 	log_level := v.GetString("log.level")
-	queueName := v.GetString("worker.queue.name")
-	inputExchangeSpec := worker.ExchangeSpec{
-		Name:        v.GetString("worker.exchange.input.name"),
-		RoutingKeys: strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
-		QueueName:   queueName,
-	}
-	outputExchangeSpec := worker.ExchangeSpec{
-		Name:        v.GetString("worker.exchange.output.name"),
-		RoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
-		QueueName:   queueName,
+	queue_name := strings.Split(v.GetString("worker.exchange.input.routingkeys"), ",")[0]
+
+	exchangeSpec := worker.ExchangeSpec{
+		InputRoutingKeys:  strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
+		OutputRoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
+		QueueName:         queue_name,
 	}
 	messageBroker := v.GetString("worker.broker")
 
-	if inputExchangeSpec.Name == "" || inputExchangeSpec.RoutingKeys[0] == "" || outputExchangeSpec.Name == "" || outputExchangeSpec.RoutingKeys[0] == "" || messageBroker == "" {
+	if exchangeSpec.InputRoutingKeys[0] == "" || exchangeSpec.OutputRoutingKeys[0] == "" || messageBroker == "" {
 		log.Criticalf("Error: one or more environment variables are empty")
 		return
 	}
@@ -51,44 +49,40 @@ func main() {
 	if maxMessages == 0 {
 		maxMessages = 10
 	}
-	expectedEof := v.GetInt("worker.expectedeof")
-	if expectedEof == 0 {
-		expectedEof = 1
-	}
 
 	storage_base_dir := v.GetString("worker.storage")
-	groupByMovieAverage := group_by.NewGroupByMovieAndAvg(group_by.GroupByMovieAndAvgConfig{
-		WorkerConfig: worker.WorkerConfig{
-			InputExchange:  inputExchangeSpec,
-			OutputExchange: outputExchangeSpec,
-			MessageBroker:  messageBroker,
-		},
-	}, maxMessages, expectedEof, storage_base_dir)
 
-	// Set up signal handling
+	group_by := group_by.NewGroupByMovieAndAvg(group_by.GroupByMovieAndAvgConfig{
+		WorkerConfig: worker.WorkerConfig{
+			Exchange:      exchangeSpec,
+			MessageBroker: messageBroker,
+		},
+	}, maxMessages, storage_base_dir)
+	if group_by == nil {
+		return
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
 
-	// Start client in a goroutine
 	done := make(chan bool)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		groupByMovieAverage.RunWorker("starting group by movie average")
+		common_statefull_worker.RunWorker(group_by, ctx, group_by.Worker, "Starting group by movie average worker")
 		done <- true
 	}()
 
-	// Wait for either completion or signal
 	select {
 	case sig := <-sigChan:
-		if sig == syscall.SIGTERM {
-			groupByMovieAverage.CloseWorker()
-			log.Info("Worker shut down successfully")
-			<-done
-		} else {
-			log.Warning("Signal %v not handled", sig)
-		}
+		log.Infof("Signal received: %s. Shutting down...", sig)
+		cancel() // cancelamos el contexto → avisa al worker que debe salir
+		<-done   // esperamos que termine
+		group_by.CloseWorker()
+		log.Info("Worker shut down successfully")
 	case <-done:
 		log.Info("Worker finished successfully")
 	}

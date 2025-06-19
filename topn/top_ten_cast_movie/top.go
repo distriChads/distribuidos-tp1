@@ -117,21 +117,15 @@ func getGroupedElements() []TopTenCastCount {
 
 func NewTopTenCastMovie(config TopTenCastMovieConfig, messages_before_commit int) *TopTenCastMovie {
 	log.Infof("TopTenCastMovie: %+v", config)
+	worker, err := worker.NewWorker(config.WorkerConfig)
+	if err != nil {
+		log.Errorf("Error creating worker: %s", err)
+		return nil
+	}
+
 	return &TopTenCastMovie{
-		Worker: worker.Worker{
-			InputExchange:  config.InputExchange,
-			OutputExchange: config.OutputExchange,
-			MessageBroker:  config.MessageBroker,
-		},
+		Worker:                 *worker,
 		top_ten:                make(map[string][]TopTenCastCount, 0),
 		messages_before_commit: messages_before_commit,
 	}
-}
-
-func (g *TopTenCastMovie) RunWorker(starting_message string) error {
-	msgs, err := common_statefull_worker.Init(&g.Worker, starting_message)
-	if err != nil {
-		return err
-	}
-	return common_statefull_worker.RunWorker(g, msgs)
 }

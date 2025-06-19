@@ -22,6 +22,7 @@ type MasterGroupByOverviewAndAvg struct {
 	eofs                   map[string]int
 	storage_base_dir       string
 	log_replicas           int
+	movies_id              map[string][]string
 }
 
 type ScoreAndCount struct {
@@ -42,7 +43,7 @@ func (g *MasterGroupByOverviewAndAvg) EnsureClient(client_id string) {
 
 func (g *MasterGroupByOverviewAndAvg) HandleCommit(messages_before_commit int, client_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.storage_base_dir, g.log_replicas)
+		common_statefull_worker.StoreElementsWithMovies(g.grouped_elements[client_id], client_id, g.storage_base_dir, g.log_replicas, g.movies_id[client_id])
 		return true
 	}
 	return false
@@ -63,21 +64,19 @@ func mapToLines(grouped_elements map[string]ScoreAndCount) string {
 }
 
 func (g *MasterGroupByOverviewAndAvg) HandleEOF(client_id string) error {
-	g.eofs[client_id]++
-	if g.eofs[client_id] >= g.expected_eof {
-		err := common_statefull_worker.SendResult(g.Worker, g, client_id)
-		if err != nil {
-			return err
-		}
-		delete(g.grouped_elements, client_id)
-		delete(g.eofs, client_id)
-		common_statefull_worker.CleanState(g.storage_base_dir, client_id)
+	log.Infof("MasterGroupByOverviewAndAvg: Handling EOF for client %s", client_id)
+	err := common_statefull_worker.SendResult(g.Worker, g, client_id)
+	if err != nil {
+		return err
 	}
+	delete(g.grouped_elements, client_id)
+	delete(g.eofs, client_id)
+	common_statefull_worker.CleanState(g.storage_base_dir, client_id)
 	return nil
 }
 
 func (g *MasterGroupByOverviewAndAvg) UpdateState(lines []string, client_id string) {
-	groupByOverviewAndUpdate(lines, g.grouped_elements[client_id])
+	g.movies_id[client_id] = groupByOverviewAndUpdate(lines, g.grouped_elements[client_id], g.movies_id[client_id])
 }
 
 // ---------------------------------
@@ -87,9 +86,10 @@ const OVERVIEW = 0
 const AVERAGE = 1
 const COUNT = 2
 
-func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]ScoreAndCount) {
+func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]ScoreAndCount, movies_id []string) []string {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		movies_id = append(movies_id, parts[common_statefull_worker.MOVIE_ID])
 		average, err := strconv.ParseFloat(parts[AVERAGE], 64)
 		if err != nil {
 			continue
@@ -105,30 +105,28 @@ func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]ScoreA
 		grouped_elements[parts[OVERVIEW]] = current
 
 	}
+	return movies_id
 }
 
 func NewGroupByOverviewAndAvg(config MasterGroupByOverviewAndAvgConfig, messages_before_commit int, expected_eof int, storage_base_dir string) *MasterGroupByOverviewAndAvg {
 	log.Infof("MasterGroupByOverviewAndAvg: %+v", config)
+
+	worker, err := worker.NewWorker(config.WorkerConfig)
+	if err != nil {
+		log.Errorf("Error creating worker: %s", err)
+		return nil
+	}
+
 	replicas := 3
-	grouped_elements, _ := common_statefull_worker.GetElements[ScoreAndCount](storage_base_dir, replicas+1)
+	grouped_elements, _, _ := common_statefull_worker.GetElements[ScoreAndCount](storage_base_dir, replicas+1)
 	return &MasterGroupByOverviewAndAvg{
-		Worker: worker.Worker{
-			InputExchange:  config.InputExchange,
-			OutputExchange: config.OutputExchange,
-			MessageBroker:  config.MessageBroker,
-		},
+		Worker:                 *worker,
 		messages_before_commit: messages_before_commit,
 		expected_eof:           expected_eof,
 		grouped_elements:       grouped_elements,
 		eofs:                   make(map[string]int),
 		storage_base_dir:       storage_base_dir,
 		log_replicas:           replicas,
+		movies_id:              make(map[string][]string),
 	}
-}
-func (g *MasterGroupByOverviewAndAvg) RunWorker(starting_message string) error {
-	msgs, err := common_statefull_worker.Init(&g.Worker, starting_message)
-	if err != nil {
-		return err
-	}
-	return common_statefull_worker.RunWorker(g, msgs)
 }

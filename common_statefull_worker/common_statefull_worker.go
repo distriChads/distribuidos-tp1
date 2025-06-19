@@ -2,6 +2,7 @@ package common_statefull_worker
 
 import (
 	"bufio"
+	"context"
 	worker "distribuidos-tp1/common/worker/worker"
 	"encoding/json"
 	"fmt"
@@ -13,8 +14,9 @@ import (
 	"strings"
 
 	"github.com/op/go-logging"
-	"github.com/rabbitmq/amqp091-go"
 )
+
+const MOVIE_ID = 0
 
 type StatefullWorker interface {
 	// Updates the internal in-memory state with the given lines for the specified client
@@ -32,49 +34,41 @@ type StatefullWorker interface {
 var log = logging.MustGetLogger("common_group_by")
 
 func SendResult(w worker.Worker, s StatefullWorker, client_id string) error {
-	send_queue_key := w.OutputExchange.RoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
+	send_queue_key := w.Exchange.OutputRoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
 	message_to_send := client_id + worker.MESSAGE_SEPARATOR + s.MapToLines(client_id)
-	err := worker.SendMessage(w, message_to_send, send_queue_key)
+	err := w.SendMessage(message_to_send, send_queue_key)
 	if err != nil {
 		log.Errorf("Error sending message: %s", err.Error())
 		return err
 	}
+
 	message_to_send = client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
-	err = worker.SendMessage(w, message_to_send, send_queue_key)
+	err = w.SendMessage(message_to_send, send_queue_key)
 	if err != nil {
 		log.Errorf("Error sending message: %s", err.Error())
 		return err
 	}
+	log.Debugf("Sent message: %s", message_to_send)
 	return nil
 }
 
-func Init(w *worker.Worker, starting_message string) (<-chan amqp091.Delivery, error) {
+func RunWorker(s StatefullWorker, ctx context.Context, w worker.Worker, starting_message string) error {
 	log.Info(starting_message)
 
-	err := worker.InitSender(w)
-	if err != nil {
-		return nil, err
-	}
-
-	err = worker.InitReceiver(w)
-
-	if err != nil {
-		return nil, err
-	}
-
-	msgs, err := worker.ReceivedMessages(*w)
-	if err != nil {
-		return nil, err
-	}
-
-	return msgs, nil
-}
-
-func RunWorker(s StatefullWorker, msgs <-chan amqp091.Delivery) error {
-
-	messages_before_commit := 0
-	for message := range msgs {
+	messages_since_last_commit := 0
+	for {
+		message, _, err := w.ReceivedMessages(ctx)
+		if err != nil {
+			log.Errorf("Fatal error in run worker: %v", err)
+			return err
+		}
 		message_str := string(message.Body)
+		log.Debugf("Received message: %s", message_str)
+		if len(message_str) == 0 {
+			message.Ack(false)
+			continue
+		}
+
 		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
 		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
 		s.EnsureClient(client_id)
@@ -87,16 +81,15 @@ func RunWorker(s StatefullWorker, msgs <-chan amqp091.Delivery) error {
 			message.Ack(false)
 			continue
 		}
-		messages_before_commit += 1
+
+		messages_since_last_commit += 1
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		s.UpdateState(lines, client_id)
-		if s.HandleCommit(messages_before_commit, client_id) {
-			messages_before_commit = 0
+		if s.HandleCommit(messages_since_last_commit, client_id) {
+			messages_since_last_commit = 0
 		}
 		message.Ack(false)
 	}
-
-	return nil
 }
 
 // hay 2 tipos de errores.
@@ -125,7 +118,28 @@ func RunWorker(s StatefullWorker, msgs <-chan amqp091.Delivery) error {
 // client_id is the id of the client to store the state for
 // storage_base_dir is the base directory where state files are stored
 // replicas is the number of replicas to create
+func StoreElementsWithMovies[T any](
+	results map[string]T,
+	client_id, storage_base_dir string,
+	replicas int,
+	movies_id []string,
+) {
+	before_write_function := func(f *os.File) {
+		for _, id := range movies_id {
+			fmt.Fprintf(f, "movie: %s\n", id)
+		}
+	}
+
+	// Llamamos a la genérica con el hook
+	genericStoreElements(results, client_id, storage_base_dir, replicas, before_write_function)
+}
+
 func StoreElements[T any](results map[string]T, client_id, storage_base_dir string, replicas int) {
+	genericStoreElements(results, client_id, storage_base_dir, replicas, nil)
+}
+
+// node_name deberia ser algo como por ej group-by-country-sum-1 (los mismos nombres que usamos para los containers de docker seria lo ideal creo yo)
+func genericStoreElements[T any](results map[string]T, client_id, storage_base_dir string, replicas int, before_write_function func(f *os.File)) {
 	dir := filepath.Join(storage_base_dir, "state")
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
@@ -143,6 +157,10 @@ func StoreElements[T any](results map[string]T, client_id, storage_base_dir stri
 
 	initTime := time.Now().UTC().Format(time.RFC3339)
 	fmt.Fprintf(f, "INIT %s\n", initTime) // los Fprintf tienen short writes?
+
+	if before_write_function != nil {
+		before_write_function(f)
+	}
 
 	data, err := json.MarshalIndent(results, "", "  ")
 	if err != nil {
@@ -189,15 +207,17 @@ func copyFile(filename_to_copy string, filename_destination string) error {
 // storage_base_dir is the base directory where state files are stored
 // number_of_logs_to_search is the number of state files replicas to search for each client
 // returns a map of client IDs to their state, and a list of clients with wrong state
-func GetElements[T any](storage_base_dir string, number_of_logs_to_search int) (map[string]map[string]T, []string) {
+func GetElements[T any](storage_base_dir string, number_of_logs_to_search int) (map[string]map[string]T, []string, map[string][]string) {
 	grouped := make(map[string]map[string]T)
+	movies_map := make(map[string][]string)
 
 	dir := fmt.Sprintf("%s/state", storage_base_dir)
 	visited_clients := make(map[string]bool)
 	client_counter := make(map[string]int)
 	files, err := os.ReadDir(dir)
 	if err != nil {
-		return grouped, nil // si no existia el directorio, te devuelvo las cosas como vacios
+		log.Infof("No state directory found for client %s", storage_base_dir)
+		return grouped, nil, nil // si no existia el directorio, te devuelvo las cosas como vacios
 	}
 
 	for _, entry := range files {
@@ -220,9 +240,11 @@ func GetElements[T any](storage_base_dir string, number_of_logs_to_search int) (
 		if err != nil {
 			continue
 		}
+		defer f.Close()
 
 		scanner := bufio.NewScanner(f)
 		var jsonLines []string
+		var movies []string
 		var initTimeStr, endTimeStr string
 
 		for scanner.Scan() {
@@ -235,22 +257,20 @@ func GetElements[T any](storage_base_dir string, number_of_logs_to_search int) (
 			case strings.HasPrefix(line, "END"):
 				endTimeStr = strings.Fields(line)[1]
 
+			case strings.HasPrefix(line, "movie:"):
+				movies = append(movies, strings.TrimPrefix(line, "movie: "))
+
 			default:
 				jsonLines = append(jsonLines, line)
 			}
 		}
-
-		f.Close()
 
 		initTime, err := time.Parse(time.RFC3339, initTimeStr)
 		if err != nil {
 			continue
 		}
 		endTime, err := time.Parse(time.RFC3339, endTimeStr)
-		if err != nil {
-			continue
-		}
-		if endTime.Before(initTime) {
+		if err != nil || endTime.Before(initTime) {
 			continue
 		}
 
@@ -260,22 +280,22 @@ func GetElements[T any](storage_base_dir string, number_of_logs_to_search int) (
 			continue
 		}
 		grouped[clientID] = inner
+		movies_map[clientID] = movies
 		visited_clients[clientID] = true
 	}
 	var clients_with_wrong_state []string
 	for key, value := range client_counter {
-
 		if !visited_clients[key] && value == number_of_logs_to_search+1 {
 			clients_with_wrong_state = append(clients_with_wrong_state, key)
 		}
 	}
 
 	if len(clients_with_wrong_state) != 0 {
-		return grouped, clients_with_wrong_state // aca te paso esto, seguramente lo tengamos que guardar en algun lado en el nodo
+		return grouped, clients_with_wrong_state, movies_map // aca te paso esto, seguramente lo tengamos que guardar en algun lado en el nodo
 		// asi sabe a que clientes le termina de mandar el EOF-FAIL :)
 	}
 
-	return grouped, nil
+	return grouped, nil, movies_map
 }
 
 // CleanState deletes all state files for a given client

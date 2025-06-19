@@ -2,7 +2,6 @@ package filterafter2000
 
 import (
 	worker "distribuidos-tp1/common/worker/worker"
-	"distribuidos-tp1/filters/common_filter"
 	"strconv"
 	"strings"
 
@@ -16,21 +15,19 @@ type FilterByAfterYear2000Config struct {
 }
 
 type FilterByAfterYear2000 struct {
-	worker.Worker
-	expected_eof int
-	eofs         map[string]int
+	Worker *worker.Worker
 }
 
-func NewFilterByAfterYear2000(config FilterByAfterYear2000Config, eof_counter int) *FilterByAfterYear2000 {
+func NewFilterByAfterYear2000(config FilterByAfterYear2000Config) *FilterByAfterYear2000 {
 	log.Infof("FilterByAfterYear2000: %+v", config)
+	worker, err := worker.NewWorker(config.WorkerConfig)
+	if err != nil {
+		log.Errorf("Error creating worker: %s", err)
+		return nil
+	}
+
 	return &FilterByAfterYear2000{
-		Worker: worker.Worker{
-			InputExchange:  config.InputExchange,
-			OutputExchange: config.OutputExchange,
-			MessageBroker:  config.MessageBroker,
-		},
-		expected_eof: eof_counter,
-		eofs:         make(map[string]int),
+		Worker: worker,
 	}
 }
 
@@ -58,36 +55,22 @@ func (f *FilterByAfterYear2000) Filter(lines []string) []string {
 }
 
 func (f *FilterByAfterYear2000) HandleEOF(client_id string) error {
-	if _, ok := f.eofs[client_id]; !ok {
-		f.eofs[client_id] = 0
-	}
-	f.eofs[client_id]++
-	if f.eofs[client_id] >= f.expected_eof {
-		log.Infof("Sending EOF for client %s", client_id)
-		for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
-			routing_key := queue_name
-			message := client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
-			err := worker.SendMessage(f.Worker, message, routing_key)
-			if err != nil {
-				return err
-			}
-		}
-		log.Infof("Client %s finished", client_id)
-	}
+	f.SendMessage([]string{worker.MESSAGE_EOF}, client_id)
 	return nil
 }
 
 func (f *FilterByAfterYear2000) SendMessage(message_to_send []string, client_id string) error {
 	for _, line := range message_to_send {
-		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		// TODO: clean up commented code, the hasher node is used to send messages
+		// parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
 		if len(message_to_send) != 0 {
-			id, err := strconv.Atoi(parts[ID])
-			if err != nil {
-				return err
-			}
-			send_queue_key := f.Worker.OutputExchange.RoutingKeys[id%len(f.Worker.OutputExchange.RoutingKeys)]
+			// id, err := strconv.Atoi(parts[ID])
+			// if err != nil {
+			// 	return err
+			// }
+			send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
 			message := client_id + worker.MESSAGE_SEPARATOR + line
-			err = worker.SendMessage(f.Worker, message, send_queue_key)
+			err := f.Worker.SendMessage(message, send_queue_key)
 			if err != nil {
 				return err
 			}
@@ -96,10 +79,9 @@ func (f *FilterByAfterYear2000) SendMessage(message_to_send []string, client_id 
 	return nil
 }
 
-func (f *FilterByAfterYear2000) RunWorker(starting_message string) error {
-	msgs, err := common_filter.Init(&f.Worker, starting_message)
-	if err != nil {
-		return err
+func (f *FilterByAfterYear2000) CloseWorker() {
+	if f.Worker != nil {
+		f.Worker.CloseWorker()
 	}
-	return common_filter.RunWorker(f, msgs)
+	log.Info("FilterByAfterYear2000 worker closed")
 }

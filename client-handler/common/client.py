@@ -5,14 +5,16 @@ from .worker import Worker, WorkerConfig
 
 EOF = "EOF"
 
+MOVIES_ROUTING_KEY_INDEX = 0
+RATINGS_ROUTING_KEY_INDEX = 1
+CREDITS_ROUTING_KEY_INDEX = 2
+
 
 class Client:
     def __init__(self, socket: Socket, config: WorkerConfig):
         self.client_socket = socket
         self.worker = Worker(config)
-        self.queue_number = 0
-        self.batch_processor = MoviesProcessor(
-            len(self.worker.output_exchange1.routing_keys))
+        self.batch_processor = MoviesProcessor()
         try:
             self.worker.init_senders()
             self.worker.init_receiver()
@@ -27,73 +29,40 @@ class Client:
     def read(self):
         return self.client_socket.read()
 
-    def send(self, data):
+    def send(self, data: str):
         return self.client_socket.send(data)
 
-    def queue_to_send(self, routing_keys_len):
-        self.queue_number = (
-            self.queue_number + 1) % routing_keys_len
-        return self.queue_number
+    def send_message(self, data: str):
+        exchange = None
+        routing_key = None
 
-    def send_to_joiner_worker(self, data_list, exchange):
-        if data_list[0] == EOF:
-            self.send_eof_to_exchange(data_list[0], exchange)
-            return
-        for hash in range(len(data_list)):
-            data = data_list[hash]
-            if len(data) != 0:
-                routing_key = exchange.routing_keys[hash]
-                self.worker.send_message(data, routing_key, exchange)
-
-    def send_message(self, data_list):
-        send_eof = False
-
-        if data_list[0] == EOF:
-            send_eof = True
-
+        # TODO: we have only one routing key now for working queue, change worker with it
         if type(self.batch_processor) == MoviesProcessor:
-            if send_eof:
-                self.send_eof_to_exchange(
-                    data_list[0], self.worker.output_exchange1)
-                return
-
-            data_send = "".join(data_list)
-            if len(data_send) == 0:
-                return
-            queue_to_send = self.queue_to_send(
-                len(self.worker.output_exchange1.routing_keys))
-            routing_key = self.worker.output_exchange1.routing_keys[queue_to_send]
-            self.worker.send_message(
-                data_send, routing_key, self.worker.output_exchange1)
-
+            routing_key = self.worker.exchange.output_routing_keys[MOVIES_ROUTING_KEY_INDEX]
+            exchange = self.worker.exchange.name
         elif type(self.batch_processor) == CreditsProcessor:
-            self.send_to_joiner_worker(data_list, self.worker.output_exchange2)
-
+            routing_key = self.worker.exchange.output_routing_keys[CREDITS_ROUTING_KEY_INDEX]
+            exchange = self.worker.exchange.name
         else:  # RatingsProcessor
-            self.send_to_joiner_worker(data_list, self.worker.output_exchange3)
+            routing_key = self.worker.exchange.output_routing_keys[RATINGS_ROUTING_KEY_INDEX]
+            exchange = self.worker.exchange.name
 
-    def send_eof_to_exchange(self, data, exchange):
-        for routing_key in exchange.routing_keys:
-            self.worker.send_message(data, routing_key, exchange)
+        if not routing_key or not exchange:
+            raise ValueError("Routing key or exchange is not set.")
+
+        self.worker.send_message(data, routing_key)
 
     def set_next_processor(self):
         if type(self.batch_processor) == MoviesProcessor:
-            self.batch_processor = CreditsProcessor(
-                len(self.worker.output_exchange2.routing_keys))
+            self.batch_processor = CreditsProcessor()
         elif type(self.batch_processor) == CreditsProcessor:
-            self.batch_processor = RatingsProcessor(
-                len(self.worker.output_exchange3.routing_keys))
-
-    def send_all_batch_data(self):
-        self.send_message(self.batch_processor.get_all_data_from_hash())
+            self.batch_processor = RatingsProcessor()
 
     def send_message_to_workers(self):
-        data_list = self.batch_processor.get_processed_batch()
-        self.send_message(data_list)
+        self.send_message(self.batch_processor.get_processed_batch())
 
     def send_eof(self):
-        data_list = [EOF]
-        self.send_message(data_list)
+        self.send_message(EOF)
 
     def receive_first_chunck(self):
         if self.client_socket is None:

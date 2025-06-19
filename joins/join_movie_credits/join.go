@@ -1,9 +1,11 @@
 package join_movie_credits
 
 import (
+	"context"
 	worker "distribuidos-tp1/common/worker/worker"
+	"distribuidos-tp1/common_statefull_worker"
+	"errors"
 	"strings"
-	"sync"
 
 	"github.com/op/go-logging"
 )
@@ -16,11 +18,11 @@ type JoinMovieCreditsByIdConfig struct {
 
 type JoinMovieCreditsById struct {
 	worker.Worker
-	messages_before_commit int
-	queue_to_send          int
-	eofs                   map[string]int
-	client_movies_by_id    map[string]map[string]bool
-	expected_eof           int
+	client_movies_by_id map[string]map[string]string
+	received_movies     bool
+	pending_credits     map[string][]string
+	node_name           string
+	log_replicas        int
 }
 
 // ---------------------------------
@@ -29,180 +31,138 @@ type JoinMovieCreditsById struct {
 const ID = 0
 const ACTORS = 1
 
-func storeMovieWithId(line string, movies_by_id map[string]bool) {
+func storeMovieWithId(line string, movies_by_id map[string]string) {
 	parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
-	movies_by_id[parts[ID]] = true
+	movies_by_id[parts[ID]] = parts[ID]
 }
 
 // ---------------------------------
 // MESSAGE FORMAT: MOVIE_ID|ACTORS
 // ---------------------------------
 
-func joinMovieWithCredits(lines []string, movies_by_id map[string]bool) []string {
+func joinMovieWithCredits(lines []string, movies_by_id map[string]string) []string {
 	var result []string
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
-		movie_data := movies_by_id[parts[ID]]
-		if !movie_data {
+		movie_id := movies_by_id[parts[ID]]
+
+		if len(movie_id) == 0 {
 			continue
 		}
-		result = append(result, parts[ACTORS])
+
+		data := movie_id + worker.MESSAGE_SEPARATOR + parts[ACTORS]
+
+		result = append(result, data)
 	}
 	return result
 }
 
-func storeGroupedElements(results map[string]bool, client_id string) {
-	// TODO: Dumpear el hashmap a un archivo
-}
-
-func getGroupedElements() map[string]bool {
-	// TODO: Cuando se caiga un worker, deberia leer de este archivo lo que estuvo obteniendo
-	return nil
-}
-
-func NewJoinMovieCreditsById(config JoinMovieCreditsByIdConfig, messages_before_commit int, eof_counter int) *JoinMovieCreditsById {
+func NewJoinMovieCreditsById(config JoinMovieCreditsByIdConfig, node_name string) *JoinMovieCreditsById {
 	log.Infof("JoinMovieCreditsById: %+v", config)
+	replicas := 3
+	grouped_elements, _, _ := common_statefull_worker.GetElements[string](node_name, replicas+1)
+	worker, err := worker.NewWorker(config.WorkerConfig)
+	if err != nil {
+		log.Errorf("Error creating worker: %s", err)
+		return nil
+	}
+
 	return &JoinMovieCreditsById{
-		Worker: worker.Worker{
-			InputExchange:       config.InputExchange,
-			SecondInputExchange: config.SecondInputExchange,
-			OutputExchange:      config.OutputExchange,
-			MessageBroker:       config.MessageBroker,
-		},
-		expected_eof:           eof_counter,
-		messages_before_commit: messages_before_commit,
-		eofs:                   make(map[string]int), // CUIDADO QUE QUIZA NECESITO UN MUTEX PARA EL ACCESO A EOFS Y CLIENT_MOVIES
-		client_movies_by_id:    make(map[string]map[string]bool),
+		Worker:              *worker,
+		client_movies_by_id: grouped_elements,
+		received_movies:     false,
+		pending_credits:     make(map[string][]string),
+		node_name:           node_name,
+		log_replicas:        replicas,
 	}
 }
 
-func (f *JoinMovieCreditsById) RunWorker() error {
-	log.Info("Starting JoinMovieCreditsById worker")
-	worker.InitSender(&f.Worker)
-	err := worker.InitReceiver(&f.Worker)
-	if err != nil {
-		log.Errorf("Error initializing receiver: %s", err.Error())
-		return err
-	}
-	err = worker.InitSecondReceiver(&f.Worker)
-	if err != nil {
-		log.Errorf("Error initializing second receiver: %s", err.Error())
-		return err
-	}
-	log.Infof("JoinMovieCreditsById worker initialized")
-	pending_credits := make(map[string][]string)
-	pending_mutex := &sync.Mutex{}
-	go func() {
-		msgs, err := worker.SecondReceivedMessages(f.Worker)
+func (f *JoinMovieCreditsById) RunWorker(ctx context.Context, starting_message string) error {
+
+	for {
+		msg, inputIndex, err := f.Worker.ReceivedMessages(ctx)
 		if err != nil {
-			log.Errorf("Error initializing receiver: %s", err.Error())
-			return
+			if errors.Is(err, context.Canceled) {
+				log.Info("Shutting down message dispatcher gracefully")
+				return nil
+			}
+			log.Errorf("Error receiving messages: %s", err)
+			return err
 		}
+		message_str := string(msg.Body)
 
-		for message := range msgs {
-			message_str := string(message.Body)
-			client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
-			message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
-			if f.eofs[client_id] < f.expected_eof {
-				pending_mutex.Lock()
-				pending_credits[client_id] = append(pending_credits[client_id], message_str)
-				pending_mutex.Unlock()
-				message.Ack(false)
-				continue
-			}
-
-			// de esta queue solamente recibo un EOF :)
-			if message_str == worker.MESSAGE_EOF {
-				delete(f.client_movies_by_id, client_id)
-				delete(f.eofs, client_id)
-				for _, routing_key := range f.Worker.OutputExchange.RoutingKeys {
-					key := routing_key
-					message_to_send := client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
-					err := worker.SendMessage(f.Worker, message_to_send, key)
-					if err != nil {
-						log.Infof("Error sending message: %s", err.Error())
-					}
-				}
-				message.Ack(false)
-				continue
-			}
-			lines := strings.Split(strings.TrimSpace(message_str), "\n")
-			result := joinMovieWithCredits(lines, f.client_movies_by_id[client_id])
-			message_to_send := strings.Join(result, "\n")
-			if len(message_to_send) != 0 {
-				send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
-				message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_to_send
-				err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
-				f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
-				if err != nil {
-					log.Infof("Error sending message: %s", err.Error())
-				}
-			}
-			message.Ack(false)
-		}
-		log.Info("Finished second receiver")
-	}()
-
-	msgs, err := worker.ReceivedMessages(f.Worker)
-	if err != nil {
-		log.Errorf("Error initializing receiver: %s", err.Error())
-		return err
-	}
-	messages_before_commit := 0
-	for message := range msgs {
-		message_str := string(message.Body)
 		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
 		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
-		if _, ok := f.client_movies_by_id[client_id]; !ok {
-			f.client_movies_by_id[client_id] = make(map[string]bool)
-		}
-		if _, ok := f.eofs[client_id]; !ok {
-			f.eofs[client_id] = 0
-		}
 
-		if message_str == worker.MESSAGE_EOF {
-			f.eofs[client_id]++
-			if f.eofs[client_id] >= f.expected_eof {
-				pending_mutex.Lock()
-				pending_messages := pending_credits[client_id]
+		if inputIndex == 0 { // recibiendo movies
+			if _, ok := f.client_movies_by_id[client_id]; !ok {
+				f.client_movies_by_id[client_id] = make(map[string]string)
+			}
+
+			if message_str == worker.MESSAGE_EOF {
+				log.Warning("RECIBO EOF DE LAS MOVIES")
+				pending_messages := f.pending_credits[client_id]
 				for _, pending_message := range pending_messages {
 					lines := strings.Split(strings.TrimSpace(pending_message), "\n")
 					result := joinMovieWithCredits(lines, f.client_movies_by_id[client_id])
 					message_to_send := strings.Join(result, "\n")
 					if len(message_to_send) != 0 {
-						send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
+						send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
 						message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_to_send
-						err := worker.SendMessage(f.Worker, message_to_send, send_queue_key)
-						f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
+						err := f.Worker.SendMessage(message_to_send, send_queue_key)
 						if err != nil {
 							log.Infof("Error sending message: %s", err.Error())
 						}
 					}
 				}
-				pending_mutex.Unlock()
+				f.received_movies = true
+
+				// guardar estado
+				msg.Ack(false)
+				continue
 			}
-			message.Ack(false)
-			continue
-		}
-		messages_before_commit += 1
-		line := strings.TrimSpace(message_str)
-		storeMovieWithId(line, f.client_movies_by_id[client_id]) // ahora el filtro after 2000 envia de a una sola linea, por lo tanto puedo hacer esto
-		if messages_before_commit >= f.messages_before_commit {
-			storeGroupedElements(f.client_movies_by_id[client_id], client_id)
-			messages_before_commit = 0
-		}
-		message.Ack(false)
-	}
-	log.Info("Finished first receiver")
 
-	return nil
-}
+			line := strings.TrimSpace(message_str)
+			storeMovieWithId(line, f.client_movies_by_id[client_id])
+			common_statefull_worker.StoreElements(f.client_movies_by_id[client_id], client_id, f.node_name, f.log_replicas)
+			msg.Ack(false)
 
-func (f *JoinMovieCreditsById) CloseWorker() error {
-	err := worker.CloseSender(&f.Worker)
-	if err != nil {
-		return err
+		} else { // recibiendo credits
+			if !f.received_movies {
+				f.pending_credits[client_id] = append(f.pending_credits[client_id], message_str)
+				// guardar estado
+				msg.Ack(false)
+				continue
+			}
+
+			if message_str == worker.MESSAGE_EOF {
+				log.Warning("RECIBO EOF DE LOS CREDITS")
+				send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
+				message_to_send := client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
+				err := f.Worker.SendMessage(message_to_send, send_queue_key)
+				if err != nil {
+					log.Infof("Error sending message: %s", err.Error())
+				}
+
+				delete(f.client_movies_by_id, client_id)
+				msg.Ack(false)
+				continue
+			}
+
+			lines := strings.Split(strings.TrimSpace(message_str), "\n")
+			result := joinMovieWithCredits(lines, f.client_movies_by_id[client_id])
+			message_to_send := strings.Join(result, "\n")
+			if len(message_to_send) != 0 {
+				send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
+				message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_to_send
+				err := f.Worker.SendMessage(message_to_send, send_queue_key)
+				if err != nil {
+					log.Infof("Error sending message: %s", err.Error())
+				}
+			}
+
+			msg.Ack(false)
+		}
+
 	}
-	worker.CloseSecondReceiver(&f.Worker)
-	return worker.CloseReceiver(&f.Worker)
 }

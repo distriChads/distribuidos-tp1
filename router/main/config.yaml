@@ -1,0 +1,11 @@
+log:
+  level: info
+worker:
+  exchange:
+    input: 
+      name: input_exchange
+      routingKey: input_routing_key
+    output:
+      name: output_exchange
+      routingKey: output_routing_key
+  broker: amqp://guest:guest@172.25.125.10:5672/

@@ -22,26 +22,27 @@ class ClientHandler:
     def __init__(self,
                  port: int,
                  client_handler_config: ClientHandlerConfig,
-                 eof_for_query_1: int,
                  listen_backlog: int,
                  ):
         self._cli_hand_socket = socket.socket(
             socket.AF_INET, socket.SOCK_STREAM)
         self._cli_hand_socket.bind(('', port))
-        self._cli_hand_socket.listen(listen_backlog) 
+        self._cli_hand_socket.listen(listen_backlog)
         self._running = True
+
         # Handle SIGINT (Ctrl+C) and SIGTERM (docker stop)
         signal.signal(signal.SIGINT, self.__graceful_shutdown_handler)
         signal.signal(signal.SIGTERM, self.__graceful_shutdown_handler)
 
         self.client_handler_config = client_handler_config
-        self.eof_for_query_1 = eof_for_query_1
         self.worker = Worker(client_handler_config)
+
         try:
             self.worker.init_receiver()
         except Exception as e:
             logging.error(f"Error initializing worker: {e}")
             return e
+
         self.eof_per_client: dict[str, int] = {}  # TODO: REMOVE
         self.clients_lock = threading.Lock()
         self.clients: dict[str, Client] = {}
@@ -65,7 +66,7 @@ class ClientHandler:
             self.clients[client.worker.client_id] = client
         self.__receive_datasets(client)
 
-    def __receive_datasets(self, client):
+    def __receive_datasets(self, client: Client):
         for i in range(FILES_TO_RECEIVE):
             client.receive_first_chunck()
             logging.debug("Receiving file %d of size %d", i,
@@ -103,7 +104,7 @@ class ClientHandler:
             if result == EOF or len(result) == 0:
                 self.eof_per_client[client_id] = self.eof_per_client.get(
                     client_id, 0) + 1
-                if self.eof_per_client[client_id] >= QUERIES_NUMBER + self.eof_for_query_1:
+                if self.eof_per_client[client_id] >= QUERIES_NUMBER:
                     with self.clients_lock:
                         client = self.clients.pop(client_id)
                     client.send(EOF)

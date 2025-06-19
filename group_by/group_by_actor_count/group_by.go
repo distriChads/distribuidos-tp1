@@ -21,6 +21,7 @@ type GroupByActorAndCount struct {
 	eofs                   map[string]int
 	storage_base_dir       string
 	log_replicas           int
+	movies_id              map[string][]string // id cliente a muchos ids de mensajes recibidos
 }
 
 var log = logging.MustGetLogger("group_by_actor_count")
@@ -36,7 +37,7 @@ func (g *GroupByActorAndCount) EnsureClient(client_id string) {
 
 func (g *GroupByActorAndCount) HandleCommit(messages_before_commit int, client_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.storage_base_dir, g.log_replicas)
+		common_statefull_worker.StoreElementsWithMovies(g.grouped_elements[client_id], client_id, g.storage_base_dir, g.log_replicas, g.movies_id[client_id])
 		return true
 	}
 	return false
@@ -56,55 +57,60 @@ func mapToLines(grouped_elements map[string]int) string {
 }
 
 func (g *GroupByActorAndCount) HandleEOF(client_id string) error {
-	g.eofs[client_id]++
-	if g.eofs[client_id] >= g.expected_eof {
-		err := common_statefull_worker.SendResult(g.Worker, g, client_id)
-		if err != nil {
-			return err
-		}
-		delete(g.grouped_elements, client_id)
-		delete(g.eofs, client_id)
-		common_statefull_worker.CleanState(g.storage_base_dir, client_id)
+	// g.eofs[client_id]++
+	// if g.eofs[client_id] >= g.expected_eof {
+	// 	err := common_statefull_worker.SendResult(g.Worker, g, client_id)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	delete(g.grouped_elements, client_id)
+	// 	delete(g.eofs, client_id)
+	// }
+	err := common_statefull_worker.SendResult(g.Worker, g, client_id)
+	if err != nil {
+		return err
 	}
+	delete(g.grouped_elements, client_id)
+	delete(g.eofs, client_id)
+	common_statefull_worker.CleanState(g.storage_base_dir, client_id)
 	return nil
 }
 
 func (g *GroupByActorAndCount) UpdateState(lines []string, client_id string) {
-	groupByActorAndUpdate(lines, g.grouped_elements[client_id])
+	g.movies_id[client_id] = groupByActorAndUpdate(lines, g.grouped_elements[client_id], g.movies_id[client_id])
 }
 
-func groupByActorAndUpdate(lines []string, grouped_elements map[string]int) {
+const ACTORS = 1
+
+func groupByActorAndUpdate(lines []string, grouped_elements map[string]int, movies_id []string) []string {
 	for _, line := range lines {
-		actors := strings.Split(line, worker.MESSAGE_ARRAY_SEPARATOR)
+		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		movies_id = append(movies_id, parts[common_statefull_worker.MOVIE_ID])
+
+		actors := strings.Split(parts[ACTORS], worker.MESSAGE_ARRAY_SEPARATOR)
 		for _, actor := range actors {
 			grouped_elements[actor] += 1
 		}
 	}
+	return movies_id
 }
 
-func NewGroupByActorAndCount(config GroupByActorAndCountConfig, messages_before_commit int, eof_counter int, storage_base_dir string) *GroupByActorAndCount {
+func NewGroupByActorAndCount(config GroupByActorAndCountConfig, messages_before_commit int, storage_base_dir string) *GroupByActorAndCount {
 	log.Infof("GroupByActorAndCount: %+v", config)
 	replicas := 3
-	grouped_elements, _ := common_statefull_worker.GetElements[int](storage_base_dir, replicas+1)
+	grouped_elements, _, _ := common_statefull_worker.GetElements[int](storage_base_dir, replicas+1)
+	worker, err := worker.NewWorker(config.WorkerConfig)
+	if err != nil {
+		log.Errorf("Error creating worker: %s", err)
+		return nil
+	}
 	return &GroupByActorAndCount{
-		Worker: worker.Worker{
-			InputExchange:  config.InputExchange,
-			OutputExchange: config.OutputExchange,
-			MessageBroker:  config.MessageBroker,
-		},
+		Worker:                 *worker,
 		messages_before_commit: messages_before_commit,
-		expected_eof:           eof_counter,
 		grouped_elements:       grouped_elements,
 		eofs:                   make(map[string]int),
 		storage_base_dir:       storage_base_dir,
-		log_replicas:           3,
+		log_replicas:           replicas,
+		movies_id:              make(map[string][]string),
 	}
-}
-
-func (g *GroupByActorAndCount) RunWorker(starting_message string) error {
-	msgs, err := common_statefull_worker.Init(&g.Worker, starting_message)
-	if err != nil {
-		return err
-	}
-	return common_statefull_worker.RunWorker(g, msgs)
 }

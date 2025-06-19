@@ -5,299 +5,163 @@
             "name": "client-handler",
             "log_level": "info",
             "replicas": 1,
-            "movies_exchange_name": "movies_exchange",
-            "credits_exchange_name": "credits_exchange",
-            "ratings_exchange_name": "ratings_exchange",
-            "results_exchange_name": "results_exchange",
-            "results_exchange_routing_keys": ["*.results"],
+            "input_routing_keys": ["*.results"],
+            "output_routing_keys": ["movies.client_handler", "ratings.client-handler.router", "credits.client-handler.router"],
             "listen_backlog": 5
         },
         {
             "name": "filter-argentina",
-            "replicas": 3,
+            "replicas": 1,
             "log_level": "info",
-            "input": {
-                "from": "movies",
-                "type": "seq"
-            },
-            "output": {
-                "exchange_name": "movies_filtered_by_argentina_exchange",
-                "routing_key": "movies.argentina.output%d",
-                "type": "all",
-                "replicas": "filter-argentina"
-            }
+            "input_routing_keys": ["movies.client_handler"],
+            "output_routing_keys": ["movies.argentina"]
         },
         {
             "name": "filter-spain-2000",
-            "replicas": 3,
+            "replicas": 1,
             "log_level": "info",
-            "input": {
-                "from": "filter-argentina",
-                "type": "seq"
-            },
-            "output": {
-                "exchange_name": "results_exchange",
-                "routing_key": "query1.results",
-                "type": "unique"
-            }
+            "input_routing_keys": ["movies.argentina"],
+            "output_routing_keys": ["query1.results"]
         },
         {
             "name": "filter-only-one-country",
-            "replicas": 3,
+            "replicas": 1,
             "log_level": "info",
-            "input": {
-                "from": "movies",
-                "type": "seq"
-            },
-            "output": {
-                "exchange_name": "one_country_groupby_sum_exchange",
-                "routing_key": "movies.groupby.country-sum.input%d",
-                "type": "all",
-                "replicas": "group-by-country-sum"
-            }
+            "input_routing_keys": ["movies.client_handler"],
+            "output_routing_keys": ["movies.filter_only_one_country.router"]
+        },
+        {
+            "name": "filter-after-2000",
+            "replicas": 1,
+            "log_level": "info",
+            "input_routing_keys": ["movies.argentina"],
+            "output_routing_keys": ["movies.after_2000"]
         },
         {
             "name": "group-by-country-sum",
-            "replicas": 3,
+            "replicas": 1,
             "log_level": "info",
-            "input": {
-                "from": "filter-only-one-country",
-                "type": "seq"
-            },
-            "output": {
-                "exchange_name": "master_groupby_exchange",
-                "routing_key": "master.country-sum.input",
-                "type": "unique"
-            },
+            "input_routing_keys": ["group-by-country-sum"],
+            "output_routing_keys": ["movies.group_by_country_sum"],
             "storage": ".local-storage",
-            "commit_interval": 10
+            "messages_per_commit": 10
+        },
+        {
+            "name": "group-by-movie-average",
+            "replicas": 1,
+            "log_level": "info",
+            "input_routing_keys": ["group-by-movie-average"],
+            "output_routing_keys": ["movies.group_by_movie_average"],
+            "storage": ".local-storage",
+            "messages_per_commit": 10
+        },
+        {
+            "name": "group-by-actor-count",
+            "replicas": 1,
+            "log_level": "info",
+            "input_routing_keys": ["group-by-actor-count"],
+            "output_routing_keys": ["movies.group_by_actor_count"],
+            "storage": ".local-storage",
+            "messages_per_commit": 10
+        },
+        {
+            "name": "group-by-overview-average",
+            "replicas": 1,
+            "log_level": "info",
+            "input_routing_keys": ["group-by-overview-average"],
+            "output_routing_keys": ["movies.group_by_overview_average"],
+            "storage": ".local-storage",
+            "messages_per_commit": 10
         },
         {
             "name": "master-group-by-country-sum",
             "replicas": 1,
             "log_level": "info",
-            "input": {
-                "from": "group-by-country-sum",
-                "type": "all"
-            },
-            "output": {
-                "exchange_name": "master_groupby_exchange",
-                "routing_key": "master.country-sum.output",
-                "type": "unique"
-            },
+            "input_routing_keys": ["movies.group_by_country_sum"],
+            "output_routing_keys": ["master.country_sum"],
             "storage": ".local-storage",
-            "commit_interval": 1
-        },
-        {
-            "name": "top-five-country-budget",
-            "replicas": 1,
-            "log_level": "info",
-            "input": {
-                "from": "master-group-by-country-sum",
-                "type": "all"
-            },
-            "output": {
-                "exchange_name": "results_exchange",
-                "routing_key": "query2.results",
-                "type": "unique"
-            },
-            "storage": ".local-storage",
-            "commit_interval": 10
-        },
-        {
-            "name": "filter-after-2000",
-            "replicas": 3,
-            "log_level": "info",
-            "input": {
-                "from": "filter-argentina",
-                "type": "seq"
-            },
-            "output": {
-                "exchange_name": "join_exchange",
-                "routing_key": "join.movies.input",
-                "type": "unique"
-            }
-        },
-        {
-            "name": "join-movie-ratings",
-            "replicas": 3,
-            "log_level": "info",
-            "input": {
-                "from": "filter-after-2000",
-                "type": "all"
-            },
-            "second_input": {
-                "from": "ratings",
-                "type": "all"
-            },
-            "output": {
-                "exchange_name": "group_by_movie_average_exchange",
-                "routing_key": "groupby.movie-avg.input%d",
-                "type": "all",
-                "replicas": "group-by-movie-average"
-            }
-        },
-        {
-            "name": "group-by-movie-average",
-            "replicas": 3,
-            "log_level": "info",
-            "input": {
-                "from": "join-movie-ratings",
-                "type": "seq"
-            },
-            "output": {
-                "exchange_name": "group_by_movie_average_exchange",
-                "routing_key": "groupby.movie-avg.output",
-                "type": "unique"
-            },
-            "storage": ".local-storage",
-            "commit_interval": 10
+            "messages_per_commit": 1
         },
         {
             "name": "master-group-by-movie-average",
             "replicas": 1,
             "log_level": "info",
-            "input": {
-                "from": "group-by-movie-average",
-                "type": "all"
-            },
-            "output": {
-                "exchange_name": "first_and_last_exchange",
-                "routing_key": "topn.first-last.input",
-                "type": "unique"
-            },
+            "input_routing_keys": ["movies.group_by_movie_average"],
+            "output_routing_keys": ["master.movie_average"],
             "storage": ".local-storage",
-            "commit_interval": 1
-        },
-        {
-            "name": "first-and-last",
-            "replicas": 1,
-            "log_level": "info",
-            "input": {
-                "from": "master-group-by-movie-average",
-                "type": "all"
-            },
-            "output": {
-                "exchange_name": "results_exchange",
-                "routing_key": "query3.results",
-                "type": "unique"
-            },
-            "storage": ".local-storage",
-            "commit_interval": 10
-        },
-        {
-            "name": "join-movie-credits",
-            "replicas": 3,
-            "log_level": "info",
-            "input": {
-                "from": "filter-after-2000",
-                "type": "all"
-            },
-            "second_input": {
-                "from": "credits",
-                "type": "all"
-            },
-            "output": {
-                "exchange_name": "group_by_actor_count_exchange",
-                "routing_key": "groupby.actor.input%d",
-                "type": "all",
-                "replicas": "group-by-actor-count"
-            }
-        },
-        {
-            "name": "group-by-actor-count",
-            "replicas": 3,
-            "log_level": "info",
-            "input": {
-                "from": "join-movie-credits",
-                "type": "seq"
-            },
-            "output": {
-                "exchange_name": "group_by_actor_count_exchange",
-                "routing_key": "groupby.actor.output",
-                "type": "unique"
-            },
-            "storage": ".local-storage",
-            "commit_interval": 10
+            "messages_per_commit": 1
         },
         {
             "name": "master-group-by-actor-count",
             "replicas": 1,
             "log_level": "info",
-            "input": {
-                "from": "group-by-actor-count",
-                "type": "all"
-            },
-            "output": {
-                "exchange_name": "top_ten_cast_movie_exchange",
-                "routing_key": "topn.top-10-cast.input",
-                "type": "unique"
-            },
+            "input_routing_keys": ["movies.group_by_actor_count"],
+            "output_routing_keys": ["master.actor_count"],
             "storage": ".local-storage",
-            "commit_interval": 1
-        },
-        {
-            "name": "top-ten-cast-movie",
-            "replicas": 1,
-            "log_level": "info",
-            "input": {
-                "from": "master-group-by-actor-count",
-                "type": "all"
-            },
-            "output": {
-                "exchange_name": "results_exchange",
-                "routing_key": "query4.results",
-                "type": "unique"
-            },
-            "storage": ".local-storage",
-            "commit_interval": 10
-        },
-        {
-            "name": "machine-learning",
-            "replicas": 3,
-            "log_level": "info",
-            "input": {
-                "from": "movies",
-                "type": "seq"
-            },
-            "output": {
-                "exchange_name": "groupby_overview_exchange",
-                "routing_key": "groupby.overview.input%d",
-                "type": "all",
-                "replicas": "group-by-overview-average"
-            }
-        },
-        {
-            "name": "group-by-overview-average",
-            "replicas": 3,
-            "log_level": "info",
-            "input": {
-                "from": "machine-learning",
-                "type": "seq"
-            },
-            "output": {
-                "exchange_name": "groupby_overview_exchange",
-                "routing_key": "groupby.overview.output",
-                "type": "unique"
-            },
-            "storage": ".local-storage",
-            "commit_interval": 10
+            "messages_per_commit": 1
         },
         {
             "name": "master-group-by-overview-average",
             "replicas": 1,
             "log_level": "info",
-            "input": {
-                "from": "group-by-overview-average",
-                "type": "all"
-            },
-            "output": {
-                "exchange_name": "results_exchange",
-                "routing_key": "query5.results",
-                "type": "unique"
-            },
+            "input_routing_keys": ["movies.group_by_overview_average"],
+            "output_routing_keys": ["query5.results"],
             "storage": ".local-storage",
-            "commit_interval": 1
+            "messages_per_commit": 1
+        },
+        {
+            "name": "machine-learning",
+            "replicas": 1,
+            "log_level": "info",
+            "input_routing_keys": ["movies.client_handler"],
+            "output_routing_keys": ["movies.ml.router"]
+        },
+        {
+            "name": "top-five-country-budget",
+            "replicas": 1,
+            "log_level": "info",
+            "input_routing_keys": ["master.country_sum"],
+            "output_routing_keys": ["query2.results"],
+            "storage": ".local-storage",
+            "messages_per_commit": 10
+        },
+        {
+            "name": "top-ten-cast-movie",
+            "replicas": 1,
+            "log_level": "info",
+            "input_routing_keys": ["master.actor_count"],
+            "output_routing_keys": ["query4.results"],
+            "storage": ".local-storage",
+            "messages_per_commit": 10
+        },
+        {
+            "name": "join-movie-ratings",
+            "replicas": 1,
+            "log_level": "info",
+            "input_routing_keys": ["join-movie-ratings.movies.router", "join-movie-ratings.ratings.router"],
+            "output_routing_keys": ["join_movie_ratings.router"]
+        },
+        {
+            "name": "join-movie-credits",
+            "replicas": 1,
+            "log_level": "info",
+            "input_routing_keys": ["join-movie-credits.movies.router", "join-movie-credits.credits.router"],
+            "output_routing_keys": ["join_movie_credits.router"]
+        },
+        {
+            "name": "first-and-last",
+            "replicas": 1,
+            "log_level": "info",
+            "input_routing_keys": ["master.movie_average"],
+            "output_routing_keys": ["query3.results"],
+            "storage": ".local-storage",
+            "messages_per_commit": 10
+        },
+        {
+            "name": "router",
+            "replicas": 1,
+            "log_level": "info",
+            "input_routing_keys": ["movies.after_2000", "ratings.client-handler.router", "credits.client-handler.router", "movies.filter_only_one_country.router", "movies.ml.router", "join_movie_ratings.router", "join_movie_credits.router"]
         }
     ]
 }

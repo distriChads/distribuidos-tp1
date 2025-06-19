@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"sync"
 	"syscall"
 
+	"distribuidos-tp1/filters/common_filter"
 	filter "distribuidos-tp1/filters/filter_after_2000"
 
 	"github.com/op/go-logging"
@@ -24,20 +26,15 @@ func main() {
 	}
 
 	log_level := v.GetString("log.level")
-	queueName := v.GetString("worker.queue.name")
-	inputExchangeSpec := worker.ExchangeSpec{
-		Name:        v.GetString("worker.exchange.input.name"),
-		RoutingKeys: strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
-		QueueName:   queueName,
-	}
-	outputExchangeSpec := worker.ExchangeSpec{
-		Name:        v.GetString("worker.exchange.output.name"),
-		RoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
-		QueueName:   queueName,
+
+	exchangeSpec := worker.ExchangeSpec{
+		InputRoutingKeys:  strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
+		OutputRoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
+		QueueName:         "filter_after_2000",
 	}
 	messageBroker := v.GetString("worker.broker")
 
-	if inputExchangeSpec.Name == "" || inputExchangeSpec.RoutingKeys[0] == "" || outputExchangeSpec.Name == "" || outputExchangeSpec.RoutingKeys[0] == "" || messageBroker == "" {
+	if exchangeSpec.InputRoutingKeys[0] == "" || exchangeSpec.OutputRoutingKeys[0] == "" || messageBroker == "" {
 		log.Criticalf("Error: one or more environment variables are empty")
 		return
 	}
@@ -46,43 +43,38 @@ func main() {
 		log.Criticalf("%s", err)
 		return
 	}
-	expectedEof := v.GetInt("worker.expectedeof")
-	if expectedEof == 0 {
-		expectedEof = 1
-	}
 
 	filter := filter.NewFilterByAfterYear2000(filter.FilterByAfterYear2000Config{
 		WorkerConfig: worker.WorkerConfig{
-			InputExchange:  inputExchangeSpec,
-			OutputExchange: outputExchangeSpec,
-			MessageBroker:  messageBroker,
+			Exchange:      exchangeSpec,
+			MessageBroker: messageBroker,
 		},
-	}, expectedEof)
+	})
+	if filter == nil {
+		return
+	}
 
-	// Set up signal handling
+	ctx, cancel := context.WithCancel(context.Background())
+
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
 
-	// Start client in a goroutine
 	done := make(chan bool)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		filter.RunWorker("Starting filter by after 2000")
+		common_filter.RunWorker(filter, *filter.Worker, ctx, "Starting filter by after 2000")
 		done <- true
 	}()
 
-	// Wait for either completion or signal
 	select {
 	case sig := <-sigChan:
-		if sig == syscall.SIGTERM {
-			filter.CloseWorker()
-			log.Info("Worker shut down successfully")
-			<-done
-		} else {
-			log.Warning("Signal %v not handled", sig)
-		}
+		log.Infof("Signal received: %s. Initiating shutdown...", sig)
+		cancel()
+		<-done
+		filter.CloseWorker()
+		log.Info("Worker shut down successfully")
 	case <-done:
 		log.Info("Worker finished successfully")
 	}

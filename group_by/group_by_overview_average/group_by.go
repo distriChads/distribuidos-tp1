@@ -10,6 +10,13 @@ import (
 	"github.com/op/go-logging"
 )
 
+// ---------------------------------
+// MESSAGE FORMAT: id_client|MOVIE_ID|OVERVIEW|BUDGET|REVENUE
+// ---------------------------------
+const OVERVIEW = 1
+const BUDGET = 2
+const REVENUE = 3
+
 type GroupByOverviewAndAvgConfig struct {
 	worker.WorkerConfig
 }
@@ -22,6 +29,7 @@ type GroupByOverviewAndAvg struct {
 	eofs                   map[string]int
 	storage_base_dir       string
 	log_replicas           int
+	movies_id              map[string][]string
 }
 
 type RevenueBudgetCount struct {
@@ -42,7 +50,7 @@ func (g *GroupByOverviewAndAvg) EnsureClient(client_id string) {
 
 func (g *GroupByOverviewAndAvg) HandleCommit(messages_before_commit int, client_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.storage_base_dir, g.log_replicas)
+		common_statefull_worker.StoreElementsWithMovies(g.grouped_elements[client_id], client_id, g.storage_base_dir, g.log_replicas, g.movies_id[client_id])
 		return true
 	}
 	return false
@@ -63,33 +71,33 @@ func mapToLines(grouped_elements map[string]RevenueBudgetCount) string {
 }
 
 func (g *GroupByOverviewAndAvg) HandleEOF(client_id string) error {
-	g.eofs[client_id]++
-	if g.eofs[client_id] >= g.expected_eof {
-		err := common_statefull_worker.SendResult(g.Worker, g, client_id)
-		if err != nil {
-			return err
-		}
-		delete(g.grouped_elements, client_id)
-		delete(g.eofs, client_id)
-		common_statefull_worker.CleanState(g.storage_base_dir, client_id)
+	// g.eofs[client_id]++
+	// if g.eofs[client_id] >= g.expected_eof {
+	// 	err := common_statefull_worker.SendResult(g.Worker, g, client_id)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	delete(g.grouped_elements, client_id)
+	// 	delete(g.eofs, client_id)
+	// }
+	err := common_statefull_worker.SendResult(g.Worker, g, client_id)
+	if err != nil {
+		return err
 	}
+	delete(g.grouped_elements, client_id)
+	delete(g.eofs, client_id)
+	common_statefull_worker.CleanState(g.storage_base_dir, client_id)
 	return nil
 }
 
 func (g *GroupByOverviewAndAvg) UpdateState(lines []string, client_id string) {
-	groupByOverviewAndUpdate(lines, g.grouped_elements[client_id])
+	g.movies_id[client_id] = groupByOverviewAndUpdate(lines, g.grouped_elements[client_id], g.movies_id[client_id])
 }
 
-// ---------------------------------
-// MESSAGE FORMAT: OVERVIEW|BUDGET|REVENUE
-// ---------------------------------
-const OVERVIEW = 0
-const BUDGET = 1
-const REVENUE = 2
-
-func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]RevenueBudgetCount) {
+func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]RevenueBudgetCount, movies_id []string) []string {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		movies_id = append(movies_id, parts[common_statefull_worker.MOVIE_ID])
 		budget, err := strconv.ParseFloat(parts[BUDGET], 64)
 		if err != nil {
 			continue
@@ -105,30 +113,25 @@ func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]Revenu
 		grouped_elements[parts[OVERVIEW]] = current
 
 	}
+	return movies_id
 }
 
-func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_before_commit int, eof_counter int, storage_base_dir string) *GroupByOverviewAndAvg {
+func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_before_commit int, storage_base_dir string) *GroupByOverviewAndAvg {
 	log.Infof("GroupByOverviewAndAvg: %+v", config)
+	worker, err := worker.NewWorker(config.WorkerConfig)
+	if err != nil {
+		log.Errorf("Error creating worker: %s", err)
+		return nil
+	}
 	replicas := 3
-	grouped_elements, _ := common_statefull_worker.GetElements[RevenueBudgetCount](storage_base_dir, replicas+1)
+	grouped_elements, _, _ := common_statefull_worker.GetElements[RevenueBudgetCount](storage_base_dir, replicas+1)
 	return &GroupByOverviewAndAvg{
-		Worker: worker.Worker{
-			InputExchange:  config.InputExchange,
-			OutputExchange: config.OutputExchange,
-			MessageBroker:  config.MessageBroker,
-		},
+		Worker:                 *worker,
 		messages_before_commit: messages_before_commit,
-		expected_eof:           eof_counter,
 		eofs:                   make(map[string]int),
 		grouped_elements:       grouped_elements,
 		storage_base_dir:       storage_base_dir,
 		log_replicas:           replicas,
+		movies_id:              make(map[string][]string),
 	}
-}
-func (g *GroupByOverviewAndAvg) RunWorker(starting_message string) error {
-	msgs, err := common_statefull_worker.Init(&g.Worker, starting_message)
-	if err != nil {
-		return err
-	}
-	return common_statefull_worker.RunWorker(g, msgs)
 }

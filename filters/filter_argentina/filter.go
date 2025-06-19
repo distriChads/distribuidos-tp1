@@ -2,7 +2,6 @@ package filter_argentina
 
 import (
 	"distribuidos-tp1/common/worker/worker"
-	"distribuidos-tp1/filters/common_filter"
 	"strings"
 
 	"github.com/op/go-logging"
@@ -15,22 +14,19 @@ type FilterByArgentinaConfig struct {
 }
 
 type FilterByArgentina struct {
-	worker.Worker
-	queue_to_send int
-	expected_eof  int
-	eofs          map[string]int
+	Worker *worker.Worker
 }
 
-func NewFilterByArgentina(config FilterByArgentinaConfig, eof_counter int) *FilterByArgentina {
-	log.Infof("NewFilterByArgentina: %+v", config)
+func NewFilterByArgentina(config FilterByArgentinaConfig) *FilterByArgentina {
+	log.Infof("FilterByArgentina: %+v", config)
+	worker, err := worker.NewWorker(config.WorkerConfig)
+	if err != nil {
+		log.Errorf("Error creating worker: %s", err)
+		return nil
+	}
+
 	return &FilterByArgentina{
-		Worker: worker.Worker{
-			InputExchange:  config.InputExchange,
-			OutputExchange: config.OutputExchange,
-			MessageBroker:  config.MessageBroker,
-		},
-		expected_eof: eof_counter,
-		eofs:         make(map[string]int),
+		Worker: worker,
 	}
 }
 
@@ -55,32 +51,16 @@ func (f *FilterByArgentina) Filter(lines []string) []string {
 }
 
 func (f *FilterByArgentina) HandleEOF(client_id string) error {
-	if _, ok := f.eofs[client_id]; !ok {
-		f.eofs[client_id] = 0
-	}
-	f.eofs[client_id]++
-	if f.eofs[client_id] >= f.expected_eof {
-		log.Infof("Sending EOF for client %s", client_id)
-		for _, queue_name := range f.Worker.OutputExchange.RoutingKeys {
-			routing_key := queue_name
-			message := client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
-			err := worker.SendMessage(f.Worker, message, routing_key)
-			if err != nil {
-				return err
-			}
-		}
-		log.Infof("Client %s finished", client_id)
-	}
+	f.SendMessage([]string{worker.MESSAGE_EOF}, client_id)
 	return nil
 }
 
 func (f *FilterByArgentina) SendMessage(message_to_send []string, client_id string) error {
 	message := strings.Join(message_to_send, "\n")
 	if len(message) != 0 {
-		send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
+		send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
 		message = client_id + worker.MESSAGE_SEPARATOR + message
-		err := worker.SendMessage(f.Worker, message, send_queue_key)
-		f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
+		err := f.Worker.SendMessage(message, send_queue_key)
 		if err != nil {
 			return err
 		}
@@ -89,10 +69,9 @@ func (f *FilterByArgentina) SendMessage(message_to_send []string, client_id stri
 	return nil
 }
 
-func (f *FilterByArgentina) RunWorker(starting_message string) error {
-	msgs, err := common_filter.Init(&f.Worker, starting_message)
-	if err != nil {
-		return err
+func (f *FilterByArgentina) CloseWorker() {
+	if f.Worker != nil {
+		f.Worker.CloseWorker()
 	}
-	return common_filter.RunWorker(f, msgs)
+	log.Info("FilterByArgentina worker closed")
 }

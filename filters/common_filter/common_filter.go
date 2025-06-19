@@ -1,12 +1,13 @@
 package common_filter
 
 import (
-	worker "distribuidos-tp1/common/worker/worker"
+	"context"
+	"distribuidos-tp1/common/worker/worker"
+	worker_package "distribuidos-tp1/common/worker/worker"
 
 	"strings"
 
 	"github.com/op/go-logging"
-	"github.com/rabbitmq/amqp091-go"
 )
 
 type Filter interface {
@@ -17,53 +18,56 @@ type Filter interface {
 
 var log = logging.MustGetLogger("common_filter")
 
-func Init(w *worker.Worker, starting_message string) (<-chan amqp091.Delivery, error) {
+func RunWorker(f Filter, worker worker.Worker, ctx context.Context, starting_message string) error {
 	log.Info(starting_message)
-	err := worker.InitSender(w)
-	if err != nil {
-		return nil, err
-	}
 
-	err = worker.InitReceiver(w)
+	for {
+		msg, _, err := worker.ReceivedMessages(ctx)
+		if err != nil {
+			log.Errorf("Fatal error in run worker: %v", err)
+			return err
+		}
 
-	if err != nil {
-		return nil, err
-	}
-
-	msgs, err := worker.ReceivedMessages(*w)
-	if err != nil {
-		return nil, err
-	}
-
-	return msgs, nil
-}
-
-func RunWorker(f Filter, msgs <-chan amqp091.Delivery) error {
-
-	for message := range msgs {
-		message_str := string(message.Body)
-		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
-		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
+		message_str := string(msg.Body)
 		log.Debugf("Received message: %s", message_str)
-		if strings.TrimSpace(message_str) == worker.MESSAGE_EOF {
+		if len(message_str) == 0 {
+			log.Warning("Received empty message")
+			msg.Ack(false)
+			continue
+		}
+
+		client_id := strings.SplitN(message_str, worker_package.MESSAGE_SEPARATOR, 2)[0]
+		message_str = strings.SplitN(message_str, worker_package.MESSAGE_SEPARATOR, 2)[1]
+
+		if len(message_str) == 0 {
+			log.Warning("Received empty message")
+			msg.Ack(false)
+			continue
+		}
+
+		if strings.TrimSpace(message_str) == worker_package.MESSAGE_EOF {
 			err := f.HandleEOF(client_id)
 			if err != nil {
 				log.Infof("Error sending message: %s", err.Error())
 				return err
 			}
-			message.Ack(false)
+			msg.Ack(false)
 			continue
 		}
 
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		filtered_lines := f.Filter(lines)
-		err := f.SendMessage(filtered_lines, client_id)
-		if err != nil {
-			log.Infof("Error sending message: %s", err.Error())
-			return err
-		}
-		message.Ack(false)
-	}
 
-	return nil
+		if len(filtered_lines) != 0 {
+			err = f.SendMessage(filtered_lines, client_id)
+			if err != nil {
+				log.Infof("Error sending message: %s", err.Error())
+				return err
+			}
+			log.Debugf("Sent message: %s", strings.Join(filtered_lines, "\n"))
+		} else {
+			log.Debugf("No lines to send for client %s", client_id)
+		}
+		msg.Ack(false)
+	}
 }

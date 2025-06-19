@@ -22,6 +22,7 @@ type GroupByMovieAndAvg struct {
 	eofs                   map[string]int
 	storage_base_dir       string
 	log_replicas           int
+	movies_id              map[string][]string
 }
 
 type ScoreAndCount struct {
@@ -42,7 +43,7 @@ func (g *GroupByMovieAndAvg) EnsureClient(client_id string) {
 
 func (g *GroupByMovieAndAvg) HandleCommit(messages_before_commit int, client_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		common_statefull_worker.StoreElements(g.grouped_elements[client_id], client_id, g.storage_base_dir, g.log_replicas)
+		common_statefull_worker.StoreElementsWithMovies(g.grouped_elements[client_id], client_id, g.storage_base_dir, g.log_replicas, g.movies_id[client_id])
 		return true
 	}
 	return false
@@ -63,21 +64,18 @@ func mapToLines(grouped_elements map[string]ScoreAndCount) string {
 }
 
 func (g *GroupByMovieAndAvg) HandleEOF(client_id string) error {
-	g.eofs[client_id]++
-	if g.eofs[client_id] >= g.expected_eof {
-		err := common_statefull_worker.SendResult(g.Worker, g, client_id)
-		if err != nil {
-			return err
-		}
-		delete(g.grouped_elements, client_id)
-		delete(g.eofs, client_id)
-		common_statefull_worker.CleanState(g.storage_base_dir, client_id)
+	err := common_statefull_worker.SendResult(g.Worker, g, client_id)
+	if err != nil {
+		return err
 	}
+	delete(g.grouped_elements, client_id)
+	delete(g.eofs, client_id)
+	common_statefull_worker.CleanState(g.storage_base_dir, client_id)
 	return nil
 }
 
 func (g *GroupByMovieAndAvg) UpdateState(lines []string, client_id string) {
-	groupByMovieAndUpdate(lines, g.grouped_elements[client_id])
+	g.movies_id[client_id] = groupByMovieAndUpdate(lines, g.grouped_elements[client_id], g.movies_id[client_id])
 }
 
 // ---------------------------------
@@ -86,9 +84,10 @@ func (g *GroupByMovieAndAvg) UpdateState(lines []string, client_id string) {
 const TITLE = 1
 const SCORE = 2
 
-func groupByMovieAndUpdate(lines []string, grouped_elements map[string]ScoreAndCount) {
+func groupByMovieAndUpdate(lines []string, grouped_elements map[string]ScoreAndCount, movies_id []string) []string {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		movies_id = append(movies_id, parts[common_statefull_worker.MOVIE_ID])
 		score, err := strconv.ParseFloat(parts[SCORE], 64)
 		if err != nil {
 			continue
@@ -100,31 +99,25 @@ func groupByMovieAndUpdate(lines []string, grouped_elements map[string]ScoreAndC
 		grouped_elements[parts[TITLE]] = current
 
 	}
-	log.Debugf("Grouped elements: %+v", grouped_elements)
+	return movies_id
 }
 
-func NewGroupByMovieAndAvg(config GroupByMovieAndAvgConfig, messages_before_commit int, eof_counter int, storage_base_dir string) *GroupByMovieAndAvg {
+func NewGroupByMovieAndAvg(config GroupByMovieAndAvgConfig, messages_before_commit int, storage_base_dir string) *GroupByMovieAndAvg {
 	log.Infof("GroupByMovieAndAvg: %+v", config)
+	worker, err := worker.NewWorker(config.WorkerConfig)
+	if err != nil {
+		log.Errorf("Error creating worker: %s", err)
+		return nil
+	}
 	replicas := 3
-	grouped_elements, _ := common_statefull_worker.GetElements[ScoreAndCount](storage_base_dir, replicas+1)
+	grouped_elements, _, _ := common_statefull_worker.GetElements[ScoreAndCount](storage_base_dir, replicas+1)
 	return &GroupByMovieAndAvg{
-		Worker: worker.Worker{
-			InputExchange:  config.InputExchange,
-			OutputExchange: config.OutputExchange,
-			MessageBroker:  config.MessageBroker,
-		},
+		Worker:                 *worker,
 		messages_before_commit: messages_before_commit,
-		expected_eof:           eof_counter,
 		eofs:                   make(map[string]int),
 		grouped_elements:       grouped_elements,
 		storage_base_dir:       storage_base_dir,
 		log_replicas:           replicas,
+		movies_id:              make(map[string][]string),
 	}
-}
-func (g *GroupByMovieAndAvg) RunWorker(starting_message string) error {
-	msgs, err := common_statefull_worker.Init(&g.Worker, starting_message)
-	if err != nil {
-		return err
-	}
-	return common_statefull_worker.RunWorker(g, msgs)
 }

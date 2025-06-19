@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
+	"distribuidos-tp1/common_statefull_worker"
 	"os"
 	"os/signal"
 	"strings"
@@ -14,7 +16,7 @@ import (
 	"github.com/op/go-logging"
 )
 
-var log = logging.MustGetLogger("top_five_country_budget")
+var log = logging.MustGetLogger("first_and_last")
 
 func main() {
 	v, err := utils.InitConfig()
@@ -24,19 +26,15 @@ func main() {
 	}
 
 	log_level := v.GetString("log.level")
-	inputExchangeSpec := worker.ExchangeSpec{
-		Name:        v.GetString("worker.exchange.input.name"),
-		RoutingKeys: strings.Split(v.GetString("worker.exchange.input.routingKeys"), ","),
-		QueueName:   "top_five_country_budget_queue",
-	}
-	outputExchangeSpec := worker.ExchangeSpec{
-		Name:        v.GetString("worker.exchange.output.name"),
-		RoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingKeys"), ","),
-		QueueName:   "top_five_country_budget_queue",
+
+	exchangeSpec := worker.ExchangeSpec{
+		InputRoutingKeys:  strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
+		OutputRoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
+		QueueName:         "top_five_country_budget",
 	}
 	messageBroker := v.GetString("worker.broker")
 
-	if inputExchangeSpec.Name == "" || inputExchangeSpec.RoutingKeys[0] == "" || outputExchangeSpec.Name == "" || outputExchangeSpec.RoutingKeys[0] == "" || messageBroker == "" {
+	if exchangeSpec.InputRoutingKeys[0] == "" || exchangeSpec.OutputRoutingKeys[0] == "" || messageBroker == "" {
 		log.Criticalf("Error: one or more environment variables are empty")
 		return
 	}
@@ -45,6 +43,7 @@ func main() {
 		log.Criticalf("%s", err)
 		return
 	}
+
 	maxMessages := v.GetInt("worker.maxmessages")
 	if maxMessages == 0 {
 		maxMessages = 10
@@ -52,36 +51,35 @@ func main() {
 
 	topn := topn.NewTopFiveCountryBudget(topn.TopFiveCountryBudgetConfig{
 		WorkerConfig: worker.WorkerConfig{
-			InputExchange:  inputExchangeSpec,
-			OutputExchange: outputExchangeSpec,
-			MessageBroker:  messageBroker,
+			Exchange:      exchangeSpec,
+			MessageBroker: messageBroker,
 		},
 	}, maxMessages)
+	if topn == nil {
+		return
+	}
 
-	// Set up signal handling
+	ctx, cancel := context.WithCancel(context.Background())
+
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// Start client in a goroutine
 	done := make(chan bool)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		topn.RunWorker("starting top five country budget")
+		common_statefull_worker.RunWorker(topn, ctx, topn.Worker, "starting first and last")
 		done <- true
 	}()
 
-	// Wait for either completion or signal
 	select {
 	case sig := <-sigChan:
-		if sig == syscall.SIGTERM {
-			topn.CloseWorker()
-			log.Info("Worker shut down successfully")
-			<-done
-		} else {
-			log.Warning("Signal %v not handled", sig)
-		}
+		log.Infof("Signal received: %s. Shutting down...", sig)
+		cancel()
+		<-done
+		topn.CloseWorker()
+		log.Info("Worker shut down successfully")
 	case <-done:
 		log.Info("Worker finished successfully")
 	}

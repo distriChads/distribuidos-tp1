@@ -1,15 +1,15 @@
 package main
 
 import (
+	"context"
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
+	"distribuidos-tp1/joins/join_movie_credits"
 	"os"
 	"os/signal"
 	"strings"
 	"sync"
 	"syscall"
-
-	join "distribuidos-tp1/joins/join_movie_credits"
 
 	"github.com/op/go-logging"
 )
@@ -24,29 +24,16 @@ func main() {
 	}
 
 	log_level := v.GetString("log.level")
+	queue_name := strings.Split(v.GetString("worker.exchange.input.routingkeys"), ",")[0]
 
-	println(("first exchange name: " + v.GetString("worker.exchange.input.name")))
-	println(("second exchange name: " + v.GetString("worker.exchange.secondinput.name")))
-
-	queueName := v.GetString("worker.queue.name")
-	inputExchangeSpec := worker.ExchangeSpec{
-		Name:        v.GetString("worker.exchange.input.name"),
-		RoutingKeys: strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
-		QueueName:   queueName,
-	}
-	secondInputExchangeSpec := worker.ExchangeSpec{
-		Name:        v.GetString("worker.exchange.secondinput.name"),
-		RoutingKeys: strings.Split(v.GetString("worker.exchange.secondinput.routingkeys"), ","),
-		QueueName:   queueName + "2",
-	}
-	outputExchangeSpec := worker.ExchangeSpec{
-		Name:        v.GetString("worker.exchange.output.name"),
-		RoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
-		QueueName:   queueName,
+	exchangeSpec := worker.ExchangeSpec{
+		InputRoutingKeys:  strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
+		OutputRoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
+		QueueName:         queue_name,
 	}
 	messageBroker := v.GetString("worker.broker")
 
-	if inputExchangeSpec.Name == "" || inputExchangeSpec.RoutingKeys[0] == "" || outputExchangeSpec.Name == "" || outputExchangeSpec.RoutingKeys[0] == "" || messageBroker == "" {
+	if exchangeSpec.InputRoutingKeys[0] == "" || exchangeSpec.OutputRoutingKeys[0] == "" || messageBroker == "" {
 		log.Criticalf("Error: one or more environment variables are empty")
 		return
 	}
@@ -60,44 +47,35 @@ func main() {
 	if maxMessages == 0 {
 		maxMessages = 10
 	}
-	expectedEof := v.GetInt("worker.expectedeof")
-	if expectedEof == 0 {
-		expectedEof = 1
-	}
-
-	join := join.NewJoinMovieCreditsById(join.JoinMovieCreditsByIdConfig{
+	node_name := v.GetString("worker.nodename")
+	join := join_movie_credits.NewJoinMovieCreditsById(join_movie_credits.JoinMovieCreditsByIdConfig{
 		WorkerConfig: worker.WorkerConfig{
-			InputExchange:       inputExchangeSpec,
-			SecondInputExchange: secondInputExchangeSpec,
-			OutputExchange:      outputExchangeSpec,
-			MessageBroker:       messageBroker,
+			Exchange:      exchangeSpec,
+			MessageBroker: messageBroker,
 		},
-	}, maxMessages, expectedEof)
+	}, node_name)
 
-	// Set up signal handling
+	ctx, cancel := context.WithCancel(context.Background())
+
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
 
-	// Start client in a goroutine
 	done := make(chan bool)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		join.RunWorker()
+		join.RunWorker(ctx, "Starting join by movie credits")
 		done <- true
 	}()
 
-	// Wait for either completion or signal
 	select {
 	case sig := <-sigChan:
-		if sig == syscall.SIGTERM {
-			join.CloseWorker()
-			log.Info("Worker shut down successfully")
-			<-done
-		} else {
-			log.Warning("Signal %v not handled", sig)
-		}
+		log.Infof("Signal received: %s. Shutting down...", sig)
+		cancel() // cancelamos el contexto → avisa al worker que debe salir
+		<-done   // esperamos que termine
+		join.CloseWorker()
+		log.Info("Worker shut down successfully")
 	case <-done:
 		log.Info("Worker finished successfully")
 	}

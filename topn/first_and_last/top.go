@@ -114,21 +114,15 @@ func getGroupedElements() FirstAndLastMovies {
 
 func NewFirstAndLast(config FirstAndLastConfig, messages_before_commit int) *FirstAndLast {
 	log.Infof("FirstAndLast: %+v", config)
+	worker, err := worker.NewWorker(config.WorkerConfig)
+	if err != nil {
+		log.Errorf("Error creating worker: %s", err)
+		return nil
+	}
+
 	return &FirstAndLast{
-		Worker: worker.Worker{
-			InputExchange:  config.InputExchange,
-			OutputExchange: config.OutputExchange,
-			MessageBroker:  config.MessageBroker,
-		},
+		Worker:                 *worker,
 		first_and_last_movies:  make(map[string]FirstAndLastMovies, 0),
 		messages_before_commit: messages_before_commit,
 	}
-}
-
-func (g *FirstAndLast) RunWorker(starting_message string) error {
-	msgs, err := common_statefull_worker.Init(&g.Worker, starting_message)
-	if err != nil {
-		return err
-	}
-	return common_statefull_worker.RunWorker(g, msgs)
 }

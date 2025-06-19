@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
+	"distribuidos-tp1/common_statefull_worker"
 	"os"
 	"os/signal"
 	"strings"
@@ -14,7 +16,7 @@ import (
 	"github.com/op/go-logging"
 )
 
-var log = logging.MustGetLogger("master_group_by_movie_average")
+var log = logging.MustGetLogger("master_group_by_actor_count")
 
 func main() {
 	v, err := utils.InitConfig()
@@ -24,19 +26,14 @@ func main() {
 	}
 
 	log_level := v.GetString("log.level")
-	inputExchangeSpec := worker.ExchangeSpec{
-		Name:        v.GetString("worker.exchange.input.name"),
-		RoutingKeys: strings.Split(v.GetString("worker.exchange.input.routingKeys"), ","),
-		QueueName:   "master_group_by_movie_average_queue",
-	}
-	outputExchangeSpec := worker.ExchangeSpec{
-		Name:        v.GetString("worker.exchange.output.name"),
-		RoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingKeys"), ","),
-		QueueName:   "master_group_by_movie_average_queue",
+	exchangeSpec := worker.ExchangeSpec{
+		InputRoutingKeys:  strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
+		OutputRoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
+		QueueName:         v.GetString("worker.queue.name"),
 	}
 	messageBroker := v.GetString("worker.broker")
 
-	if inputExchangeSpec.Name == "" || inputExchangeSpec.RoutingKeys[0] == "" || outputExchangeSpec.Name == "" || outputExchangeSpec.RoutingKeys[0] == "" || messageBroker == "" {
+	if exchangeSpec.InputRoutingKeys[0] == "" || exchangeSpec.OutputRoutingKeys[0] == "" || messageBroker == "" {
 		log.Criticalf("Error: one or more environment variables are empty")
 		return
 	}
@@ -56,38 +53,41 @@ func main() {
 	}
 
 	storage_base_dir := v.GetString("worker.storage")
-	masterGroupByMovieAverage := master_group_by.NewGroupByMovieAndAvg(master_group_by.MasterGroupByMovieAndAvgConfig{
+	master_group_by := master_group_by.NewGroupByMovieAndAvg(master_group_by.MasterGroupByMovieAndAvgConfig{
 		WorkerConfig: worker.WorkerConfig{
-			InputExchange:  inputExchangeSpec,
-			OutputExchange: outputExchangeSpec,
-			MessageBroker:  messageBroker,
+			Exchange:      exchangeSpec,
+			MessageBroker: messageBroker,
 		},
 	}, maxMessages, expectedEof, storage_base_dir)
+	if master_group_by == nil {
+		return
+	}
 
-	// Set up signal handling
+	// Crear contexto cancelable
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Capturar señales del sistema
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
 
-	// Start client in a goroutine
+	// Lanzar worker en goroutine
 	done := make(chan bool)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		masterGroupByMovieAverage.RunWorker("starting master group by movie average")
+		common_statefull_worker.RunWorker(master_group_by, ctx, master_group_by.Worker, "starting master group by actor count")
 		done <- true
 	}()
 
-	// Wait for either completion or signal
+	// Esperar señal o finalización
 	select {
 	case sig := <-sigChan:
-		if sig == syscall.SIGTERM {
-			masterGroupByMovieAverage.CloseWorker()
-			log.Info("Worker shut down successfully")
-			<-done
-		} else {
-			log.Warning("Signal %v not handled", sig)
-		}
+		log.Infof("Signal received: %s. Shutting down...", sig)
+		cancel()                      // Graceful shutdown
+		<-done                        // Esperamos que termine el worker
+		master_group_by.CloseWorker() // Limpiamos recursos
+		log.Info("Worker shut down successfully")
 	case <-done:
 		log.Info("Worker finished successfully")
 	}
