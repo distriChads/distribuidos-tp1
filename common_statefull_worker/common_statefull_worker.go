@@ -142,8 +142,8 @@ func appendIds(storage_base_dir string, last_movie_id string, client_id string) 
 		panic("Si no pudimos crear el archivo, medio que cagamos fuego tambien")
 	}
 	defer f.Close()
-	message_to_write := fmt.Sprintf("%s\n", last_movie_id)
-	if _, err := f.WriteString(message_to_write); err != nil {
+	line := fmt.Sprintf("%s\n", last_movie_id)
+	if err := doWrite([]byte(line), f); err != nil {
 		panic("Por ahora paniqueamos ni idea")
 	}
 }
@@ -159,7 +159,8 @@ func StoreElementsWithMovies[T any](
 	last_movie_id string,
 ) {
 	after_write_function := func(f *os.File) {
-		fmt.Fprintf(f, "LAST_ID %s\n", last_movie_id)
+		line := fmt.Sprintf("LAST_ID %s\n", last_movie_id)
+		doWrite([]byte(line), f)
 	}
 
 	genericStoreElements(results, client_id, storage_base_dir, after_write_function)
@@ -175,7 +176,8 @@ func StoreElementsWithBoolean[T any](
 	boolean bool,
 ) {
 	after_write_function := func(f *os.File) {
-		fmt.Fprintf(f, "BOOLEAN %t\n", boolean)
+		line := fmt.Sprintf("BOOLEAN %t\n", boolean)
+		doWrite([]byte(line), f)
 	}
 
 	genericStoreElements(results, client_id, storage_base_dir, after_write_function)
@@ -230,6 +232,19 @@ func StoreElements[T any](results map[string]T, client_id, storage_base_dir stri
 	genericStoreElements(results, client_id, storage_base_dir, nil)
 }
 
+// No short-write function
+func doWrite(data []byte, file *os.File) error {
+	data_written_so_far := 0
+	for data_written_so_far < len(data) {
+		data_written, err := file.Write(data[data_written_so_far:])
+		if err != nil {
+			return err
+		}
+		data_written_so_far += data_written
+	}
+	return nil
+}
+
 func genericStoreElements[T any](results map[string]T, client_id, storage_base_dir string, after_write_function func(f *os.File)) {
 	dir := filepath.Join(storage_base_dir, "state")
 	err := os.MkdirAll(dir, 0755)
@@ -255,10 +270,10 @@ func genericStoreElements[T any](results map[string]T, client_id, storage_base_d
 	if err != nil {
 		cleanup()
 	}
-	if _, err := tmpFile.Write(data); err != nil {
+	if err := doWrite(data, tmpFile); err != nil {
 		cleanup()
 	}
-	if _, err := tmpFile.Write([]byte("\n")); err != nil {
+	if err := doWrite([]byte("\n"), tmpFile); err != nil {
 		cleanup()
 	}
 
