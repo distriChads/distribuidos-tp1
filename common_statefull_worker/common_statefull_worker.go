@@ -142,8 +142,8 @@ func appendIds(storage_base_dir string, last_movie_id string, client_id string) 
 		panic("Si no pudimos crear el archivo, medio que cagamos fuego tambien")
 	}
 	defer f.Close()
-
-	if _, err := f.WriteString(last_movie_id); err != nil {
+	message_to_write := fmt.Sprintf("%s\n", last_movie_id)
+	if _, err := f.WriteString(message_to_write); err != nil {
 		panic("Por ahora paniqueamos ni idea")
 	}
 }
@@ -321,11 +321,8 @@ func GetElements[T any](storage_base_dir string) (map[string]map[string]T, []str
 	return grouped, nil, last_messages
 }
 
-// CleanState deletes all state files for a given client
-// storage_base_dir is the base directory where state files are stored
-// client_id is the id of the client to delete state files for
-func CleanState(storage_base_dir string, client_id string) {
-	dir := fmt.Sprintf("%s/state", storage_base_dir)
+func genericCleanState(storage_base_dir string, client_id string, dir_name string) {
+	dir := fmt.Sprintf("%s/%s", storage_base_dir, dir_name)
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		log.Warningf("Error reading state directory for deletion: %s", err.Error())
@@ -339,4 +336,12 @@ func CleanState(storage_base_dir string, client_id string) {
 			log.Warningf("Error deleting state file %s: %s", file.Name(), err.Error())
 		}
 	}
+}
+
+// CleanState deletes all state files for a given client
+// storage_base_dir is the base directory where state files are stored
+// client_id is the id of the client to delete state files for
+func CleanState(storage_base_dir string, client_id string) {
+	genericCleanState(storage_base_dir, client_id, "state")
+	genericCleanState(storage_base_dir, client_id, "ids")
 }

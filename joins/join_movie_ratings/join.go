@@ -21,7 +21,7 @@ type JoinMovieRatingById struct {
 	client_movies_by_id map[string]map[string]string
 	pending_ratings     map[string][]string
 	received_movies     bool
-	node_name           string
+	storage_base_dir    string
 }
 
 // ---------------------------------
@@ -53,9 +53,9 @@ func joinMovieWithRating(lines []string, movies_by_id map[string]string) []strin
 	return result
 }
 
-func NewJoinMovieRatingById(config JoinMovieRatingByIdConfig, node_name string) *JoinMovieRatingById {
+func NewJoinMovieRatingById(config JoinMovieRatingByIdConfig, storage_base_dir string) *JoinMovieRatingById {
 	log.Infof("JoinMovieRatingById: %+v", config)
-	grouped_elements, _, _ := common_statefull_worker.GetElements[string](node_name)
+	grouped_elements, _, _ := common_statefull_worker.GetElements[string](storage_base_dir)
 	worker, err := worker.NewWorker(config.WorkerConfig)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
@@ -67,7 +67,7 @@ func NewJoinMovieRatingById(config JoinMovieRatingByIdConfig, node_name string) 
 		client_movies_by_id: grouped_elements,
 		pending_ratings:     make(map[string][]string),
 		received_movies:     false,
-		node_name:           node_name,
+		storage_base_dir:    storage_base_dir,
 	}
 }
 
@@ -117,7 +117,7 @@ func (f *JoinMovieRatingById) RunWorker(ctx context.Context, starting_message st
 
 			line := strings.TrimSpace(message_str)
 			storeMovieWithId(line, f.client_movies_by_id[client_id])
-			common_statefull_worker.StoreElements(f.client_movies_by_id[client_id], client_id, f.node_name)
+			common_statefull_worker.StoreElements(f.client_movies_by_id[client_id], client_id, f.storage_base_dir)
 			msg.Ack(false)
 
 		} else { // recibiendo credits

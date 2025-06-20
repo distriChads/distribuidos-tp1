@@ -138,15 +138,17 @@
             "name": "join-movie-ratings",
             "replicas": 1,
             "log_level": "info",
-            "input_routing_keys": ["join-movie-ratings.movies.router", "join-movie-ratings.ratings.router"],
-            "output_routing_keys": ["join_movie_ratings.router"]
+            "input_routing_keys": ["join-movie-ratings", "join-ratings"],
+            "output_routing_keys": ["join_movie_ratings.router"],
+            "storage": ".local-storage"
         },
         {
             "name": "join-movie-credits",
             "replicas": 1,
             "log_level": "info",
-            "input_routing_keys": ["join-movie-credits.movies.router", "join-movie-credits.credits.router"],
-            "output_routing_keys": ["join_movie_credits.router"]
+            "input_routing_keys": ["join-movie-credits", "join-credits"],
+            "output_routing_keys": ["join_movie_credits.router"],
+            "storage": ".local-storage"
         },
         {
             "name": "first-and-last",

@@ -326,11 +326,14 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_LOG_LEVEL=warning
-    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=join-movie-ratings.movies.router.1,join-movie-ratings.ratings.router.1
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=join-movie-ratings.1,join-ratings.1
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join_movie_ratings.router
+    - CLI_WORKER_STORAGE=/app/storage
     image: join_movie_ratings:latest
     networks:
     - movies_net
+    volumes:
+    - .local-storage/join-movie-ratings-1:/app/storage
   join-movie-credits-1:
     build:
       context: .
@@ -342,11 +345,14 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_LOG_LEVEL=warning
-    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=join-movie-credits.movies.router.1,join-movie-credits.credits.router.1
+    - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=join-movie-credits.1,join-credits.1
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join_movie_credits.router
+    - CLI_WORKER_STORAGE=/app/storage
     image: join_movie_credits:latest
     networks:
     - movies_net
+    volumes:
+    - .local-storage/join-movie-credits-1:/app/storage
   first-and-last-1:
     build:
       context: .
