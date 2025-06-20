@@ -138,6 +138,7 @@ func (f *JoinMovieRatingById) RunWorker(ctx context.Context, starting_message st
 				}
 
 				delete(f.client_movies_by_id, client_id)
+				common_statefull_worker.CleanState(f.storage_base_dir, client_id)
 				msg.Ack(false)
 				continue
 			}
