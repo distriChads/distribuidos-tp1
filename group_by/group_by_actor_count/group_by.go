@@ -34,12 +34,8 @@ func (g *GroupByActorAndCount) EnsureClient(client_id string) {
 	}
 }
 
-func (g *GroupByActorAndCount) HandleCommit(messages_before_commit int, client_id string, message_id string) bool {
-	if messages_before_commit >= g.messages_before_commit {
-		common_statefull_worker.StoreElementsWithMovies(g.grouped_elements[client_id], client_id, g.storage_base_dir, message_id)
-		return true
-	}
-	return false
+func (g *GroupByActorAndCount) HandleCommit(messages_before_commit int, client_id string, message_id string) {
+	common_statefull_worker.StoreElementsWithMovies(g.grouped_elements[client_id], client_id, g.storage_base_dir, message_id)
 }
 
 func (g *GroupByActorAndCount) MapToLines(client_id string) string {

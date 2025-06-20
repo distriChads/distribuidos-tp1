@@ -22,7 +22,7 @@ type StatefullWorker interface {
 	HandleEOF(client_id string) error
 	// Converts the current state for the specified client to a string representation
 	MapToLines(client_id string) string
-	HandleCommit(messages_before_commit int, client_id string, message_id string) bool
+	HandleCommit(messages_before_commit int, client_id string, message_id string)
 	EnsureClient(client_id string)
 }
 
@@ -89,9 +89,8 @@ func RunWorker(s StatefullWorker, ctx context.Context, w worker.Worker, starting
 		messages_since_last_commit += 1
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		s.UpdateState(lines, client_id, message_id)
-		if s.HandleCommit(messages_since_last_commit, client_id, message_id) {
-			messages_since_last_commit = 0
-		}
+		s.HandleCommit(messages_since_last_commit, client_id, message_id)
+
 		message.Ack(false)
 	}
 }

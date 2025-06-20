@@ -34,12 +34,10 @@ func (g *TopFiveCountryBudget) EnsureClient(client_id string) {
 	}
 }
 
-func (g *TopFiveCountryBudget) HandleCommit(messages_before_commit int, client_id string, message_id string) bool {
-	if messages_before_commit >= g.messages_before_commit {
-		storeGroupedElements(g.top_five[client_id], client_id)
-		return true
-	}
-	return false
+func (g *TopFiveCountryBudget) HandleCommit(messages_before_commit int, client_id string, message_id string) {
+
+	storeGroupedElements(g.top_five[client_id], client_id)
+
 }
 
 func (g *TopFiveCountryBudget) MapToLines(client_id string) string {

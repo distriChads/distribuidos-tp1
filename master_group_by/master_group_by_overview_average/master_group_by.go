@@ -26,8 +26,8 @@ type MasterGroupByOverviewAndAvg struct {
 }
 
 type ScoreAndCount struct {
-	count int
-	score float64
+	Count int
+	Score float64
 }
 
 var log = logging.MustGetLogger("master_group_by_overview_average")
@@ -41,12 +41,8 @@ func (g *MasterGroupByOverviewAndAvg) EnsureClient(client_id string) {
 	}
 }
 
-func (g *MasterGroupByOverviewAndAvg) HandleCommit(messages_before_commit int, client_id string, message_id string) bool {
-	if messages_before_commit >= g.messages_before_commit {
-		common_statefull_worker.StoreElementsWithMovies(g.grouped_elements[client_id], client_id, g.storage_base_dir, message_id)
-		return true
-	}
-	return false
+func (g *MasterGroupByOverviewAndAvg) HandleCommit(messages_before_commit int, client_id string, message_id string) {
+	common_statefull_worker.StoreElementsWithMovies(g.grouped_elements[client_id], client_id, g.storage_base_dir, message_id)
 }
 
 func (g *MasterGroupByOverviewAndAvg) MapToLines(client_id string) string {
@@ -56,7 +52,7 @@ func (g *MasterGroupByOverviewAndAvg) MapToLines(client_id string) string {
 func mapToLines(grouped_elements map[string]ScoreAndCount) string {
 	var lines []string
 	for overview, value := range grouped_elements {
-		average := value.score / float64(value.count)
+		average := value.Score / float64(value.Count)
 		line := fmt.Sprintf("%s%s%f", overview, worker.MESSAGE_SEPARATOR, average)
 		lines = append(lines, line)
 	}
@@ -104,8 +100,8 @@ func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]ScoreA
 		}
 
 		current := grouped_elements[parts[OVERVIEW]]
-		current.score += average
-		current.count += count
+		current.Score += average
+		current.Count += count
 		grouped_elements[parts[OVERVIEW]] = current
 
 	}

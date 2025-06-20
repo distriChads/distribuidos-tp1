@@ -38,12 +38,10 @@ func (g *FirstAndLast) EnsureClient(client_id string) {
 	}
 }
 
-func (g *FirstAndLast) HandleCommit(messages_before_commit int, client_id string, message_id string) bool {
-	if messages_before_commit >= g.messages_before_commit {
-		storeGroupedElements(g.first_and_last_movies[client_id], client_id)
-		return true
-	}
-	return false
+func (g *FirstAndLast) HandleCommit(messages_before_commit int, client_id string, message_id string) {
+
+	storeGroupedElements(g.first_and_last_movies[client_id], client_id)
+
 }
 
 func (g *FirstAndLast) MapToLines(client_id string) string {
