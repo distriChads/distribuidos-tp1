@@ -42,56 +42,72 @@
             "replicas": 1,
             "log_level": "info",
             "input_routing_keys": ["group-by-country-sum"],
-            "output_routing_keys": ["movies.group_by_country_sum"]
+            "output_routing_keys": ["movies.group_by_country_sum"],
+            "storage": ".local-storage",
+            "messages_per_commit": 10
         },
         {
             "name": "group-by-movie-average",
             "replicas": 1,
             "log_level": "info",
             "input_routing_keys": ["group-by-movie-average"],
-            "output_routing_keys": ["movies.group_by_movie_average"]
+            "output_routing_keys": ["movies.group_by_movie_average"],
+            "storage": ".local-storage",
+            "messages_per_commit": 10
         },
         {
             "name": "group-by-actor-count",
             "replicas": 1,
             "log_level": "info",
             "input_routing_keys": ["group-by-actor-count"],
-            "output_routing_keys": ["movies.group_by_actor_count"]
+            "output_routing_keys": ["movies.group_by_actor_count"],
+            "storage": ".local-storage",
+            "messages_per_commit": 10
         },
         {
             "name": "group-by-overview-average",
             "replicas": 1,
             "log_level": "info",
             "input_routing_keys": ["group-by-overview-average"],
-            "output_routing_keys": ["movies.group_by_overview_average"]
+            "output_routing_keys": ["movies.group_by_overview_average"],
+            "storage": ".local-storage",
+            "messages_per_commit": 10
         },
         {
             "name": "master-group-by-country-sum",
             "replicas": 1,
             "log_level": "info",
             "input_routing_keys": ["movies.group_by_country_sum"],
-            "output_routing_keys": ["master.country_sum"]
+            "output_routing_keys": ["master.country_sum"],
+            "storage": ".local-storage",
+            "messages_per_commit": 1
         },
         {
             "name": "master-group-by-movie-average",
             "replicas": 1,
             "log_level": "info",
             "input_routing_keys": ["movies.group_by_movie_average"],
-            "output_routing_keys": ["master.movie_average"]
+            "output_routing_keys": ["master.movie_average"],
+            "storage": ".local-storage",
+            "messages_per_commit": 1
         },
         {
             "name": "master-group-by-actor-count",
             "replicas": 1,
             "log_level": "info",
             "input_routing_keys": ["movies.group_by_actor_count"],
-            "output_routing_keys": ["master.actor_count"]
+            "output_routing_keys": ["master.actor_count"],
+            "storage": ".local-storage",
+            "messages_per_commit": 1
         },
         {
             "name": "master-group-by-overview-average",
             "replicas": 1,
             "log_level": "info",
             "input_routing_keys": ["movies.group_by_overview_average"],
-            "output_routing_keys": ["query5.results"]
+            "output_routing_keys": ["query5.results"],
+            "storage": ".local-storage",
+            "messages_per_commit": 1
         },
         {
             "name": "machine-learning",
@@ -105,14 +121,18 @@
             "replicas": 1,
             "log_level": "info",
             "input_routing_keys": ["master.country_sum"],
-            "output_routing_keys": ["query2.results"]
+            "output_routing_keys": ["query2.results"],
+            "storage": ".local-storage",
+            "messages_per_commit": 10
         },
         {
             "name": "top-ten-cast-movie",
             "replicas": 1,
             "log_level": "info",
             "input_routing_keys": ["master.actor_count"],
-            "output_routing_keys": ["query4.results"]
+            "output_routing_keys": ["query4.results"],
+            "storage": ".local-storage",
+            "messages_per_commit": 10
         },
         {
             "name": "join-movie-ratings",
@@ -133,7 +153,9 @@
             "replicas": 1,
             "log_level": "info",
             "input_routing_keys": ["master.movie_average"],
-            "output_routing_keys": ["query3.results"]
+            "output_routing_keys": ["query3.results"],
+            "storage": ".local-storage",
+            "messages_per_commit": 10
         },
         {
             "name": "router",

@@ -8,3 +8,7 @@ datasets
 # Runtime configuration. Git only needs to track a template
 docker-compose.yaml
 scripts/compose-spec.json
+
+# Docker volumes
+.local-storage
+client/results

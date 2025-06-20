@@ -52,13 +52,13 @@ func main() {
 		expectedEof = 1
 	}
 
-	node_name := v.GetString("worker.nodename")
+	storage_base_dir := v.GetString("worker.storage")
 	master_group_by := master_group_by.NewGroupByActorAndCount(master_group_by.MasterGroupByActorAndCountConfig{
 		WorkerConfig: worker.WorkerConfig{
 			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
 		},
-	}, maxMessages, expectedEof, node_name)
+	}, maxMessages, expectedEof, storage_base_dir)
 	if master_group_by == nil {
 		return
 	}

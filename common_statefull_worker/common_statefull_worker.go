@@ -16,11 +16,14 @@ import (
 )
 
 type StatefullWorker interface {
+	// Updates the internal in-memory state with the given lines for the specified client
 	UpdateState(lines []string, client_id string, message_id string)
+	// Handles EOF message processing for the specified client
 	HandleEOF(client_id string) error
+	// Converts the current state for the specified client to a string representation
 	MapToLines(client_id string) string
-	ShouldCommit(messages_before_commit int, client_id string, message_id string) bool
-	NewClient(client_id string)
+	HandleCommit(messages_before_commit int, client_id string, message_id string) bool
+	EnsureClient(client_id string)
 }
 
 var log = logging.MustGetLogger("common_group_by")
@@ -64,7 +67,7 @@ func RunWorker(s StatefullWorker, ctx context.Context, w worker.Worker, starting
 			return err
 		}
 		message_str := string(message.Body)
-		log.Infof("Received message: %s", message_str)
+		log.Debugf("Received message: %s", message_str)
 		if len(message_str) == 0 {
 			message.Ack(false)
 			continue
@@ -72,7 +75,7 @@ func RunWorker(s StatefullWorker, ctx context.Context, w worker.Worker, starting
 		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 3)[0]
 		message_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 3)[1]
 		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 3)[2]
-		s.NewClient(client_id)
+		s.EnsureClient(client_id)
 
 		if message_str == worker.MESSAGE_EOF {
 			err := s.HandleEOF(client_id)
@@ -86,20 +89,20 @@ func RunWorker(s StatefullWorker, ctx context.Context, w worker.Worker, starting
 		messages_since_last_commit += 1
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		s.UpdateState(lines, client_id, message_id)
-		if s.ShouldCommit(messages_since_last_commit, client_id, message_id) {
+		if s.HandleCommit(messages_since_last_commit, client_id, message_id) {
 			messages_since_last_commit = 0
 		}
 		message.Ack(false)
 	}
 }
 
-func RestoreStateIfNeeded(last_messages_in_state, last_messages_in_ids map[string]string, node_name string) {
+func RestoreStateIfNeeded(last_messages_in_state, last_messages_in_ids map[string]string, storage_base_dir string) {
 	// recorro los ultimos ids guardados en el estado que es quien tiene la posta del ultimo mensaje (primero guardo estado, luego appendeo)
 	// si hay alguno que no esten igual, eso significa que me mori antes de appendear el ultimo mensaje
 	// por lo tanto, a ese nodo, de ese cliente, le mando el ultimo movie id que este en el estado al log de ids
 	for client_id, last_movie_id := range last_messages_in_state {
 		if bv, ok := last_messages_in_ids[client_id]; !ok || bv != last_movie_id {
-			appendIds(node_name, last_movie_id, client_id)
+			appendIds(storage_base_dir, last_movie_id, client_id)
 		}
 	}
 }
@@ -125,8 +128,8 @@ func RestoreStateIfNeeded(last_messages_in_state, last_messages_in_ids map[strin
 // si el archivo ya existe y esta todo bien, pudo o no haber pasado error de tipo 2), no lo sabemos...
 // la solucion que se me ocurre es quiza mandar los timestamps en los mensajes? quiza podemos rescatar algo de eso
 
-func appendIds(node_name string, last_movie_id string, client_id string) {
-	dir := filepath.Join("ids", node_name)
+func appendIds(storage_base_dir string, last_movie_id string, client_id string) {
+	dir := filepath.Join(storage_base_dir, "ids")
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		panic("Che, si no puedo crear el directorio medio que cagamos fuego")
@@ -145,26 +148,31 @@ func appendIds(node_name string, last_movie_id string, client_id string) {
 	}
 }
 
+// StoreElements stores the state for a given client in the given storage base directory
+// results is the state to store
+// client_id is the id of the client to store the state for
+// storage_base_dir is the base directory where state files are stored
+// replicas is the number of replicas to create
 func StoreElementsWithMovies[T any](
 	results map[string]T,
-	client_id, node_name string,
+	client_id, storage_base_dir string,
 	last_movie_id string,
 ) {
 	after_write_function := func(f *os.File) {
 		fmt.Fprintf(f, "LAST_ID %s\n", last_movie_id)
 	}
 
-	genericStoreElements(results, client_id, node_name, after_write_function)
+	genericStoreElements(results, client_id, storage_base_dir, after_write_function)
 
-	appendIds(node_name, last_movie_id, client_id)
+	appendIds(storage_base_dir, last_movie_id, client_id)
 
 }
 
-func GetIds(node_name string) (map[string][]string, map[string]string) {
+func GetIds(storage_base_dir string) (map[string][]string, map[string]string) {
 	grouped := make(map[string][]string)
 	last_messages := make(map[string]string)
 
-	dir := fmt.Sprintf("ids/%s", node_name)
+	dir := fmt.Sprintf("%s/ids", storage_base_dir)
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		return grouped, last_messages // si no existia el directorio, te devuelvo las cosas como vacios
@@ -204,16 +212,17 @@ func GetIds(node_name string) (map[string][]string, map[string]string) {
 	return grouped, last_messages
 }
 
-func StoreElements[T any](results map[string]T, client_id, node_name string) {
-	genericStoreElements(results, client_id, node_name, nil)
+func StoreElements[T any](results map[string]T, client_id, storage_base_dir string) {
+	genericStoreElements(results, client_id, storage_base_dir, nil)
 }
 
-// node_name deberia ser algo como por ej group-by-country-sum-1 (los mismos nombres que usamos para los containers de docker seria lo ideal creo yo)
-func genericStoreElements[T any](results map[string]T, client_id, node_name string, after_write_function func(f *os.File)) {
-	dir := filepath.Join("logs", node_name)
+// storage_base_dir deberia ser algo como por ej group-by-country-sum-1 (los mismos nombres que usamos para los containers de docker seria lo ideal creo yo)
+func genericStoreElements[T any](results map[string]T, client_id, storage_base_dir string, after_write_function func(f *os.File)) {
+	dir := filepath.Join(storage_base_dir, "state")
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
-		panic("Che, si no puedo crear el directorio medio que cagamos fuego")
+		log.Criticalf("Error creating directory: %s", err.Error())
+		panic(err)
 	}
 
 	commited_filename := filepath.Join(dir, fmt.Sprintf("%s_commited.txt", client_id))
@@ -258,11 +267,11 @@ func genericStoreElements[T any](results map[string]T, client_id, node_name stri
 	tmpFile.Close()
 }
 
-func GetElements[T any](node_name string) (map[string]map[string]T, []string, map[string]string) {
+func GetElements[T any](storage_base_dir string) (map[string]map[string]T, []string, map[string]string) {
 	grouped := make(map[string]map[string]T)
 	last_messages := make(map[string]string)
 
-	dir := fmt.Sprintf("logs/%s", node_name)
+	dir := fmt.Sprintf("%s/state", storage_base_dir)
 
 	files, err := os.ReadDir(dir)
 	if err != nil {
@@ -310,4 +319,24 @@ func GetElements[T any](node_name string) (map[string]map[string]T, []string, ma
 	}
 
 	return grouped, nil, last_messages
+}
+
+// CleanState deletes all state files for a given client
+// storage_base_dir is the base directory where state files are stored
+// client_id is the id of the client to delete state files for
+func CleanState(storage_base_dir string, client_id string) {
+	dir := fmt.Sprintf("%s/state", storage_base_dir)
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		log.Warningf("Error reading state directory for deletion: %s", err.Error())
+	}
+	for _, file := range files {
+		if file.IsDir() || !strings.HasSuffix(file.Name(), ".txt") || !strings.HasPrefix(file.Name(), client_id) {
+			continue
+		}
+		err := os.Remove(fmt.Sprintf("%s/%s", dir, file.Name()))
+		if err != nil {
+			log.Warningf("Error deleting state file %s: %s", file.Name(), err.Error())
+		}
+	}
 }

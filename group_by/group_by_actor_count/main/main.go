@@ -50,13 +50,13 @@ func main() {
 		maxMessages = 10
 	}
 
-	node_name := v.GetString("worker.nodename")
+	storage_base_dir := v.GetString("worker.storage")
 	group_by := group_by.NewGroupByActorAndCount(group_by.GroupByActorAndCountConfig{
 		WorkerConfig: worker.WorkerConfig{
 			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
 		},
-	}, maxMessages, node_name)
+	}, maxMessages, storage_base_dir)
 
 	ctx, cancel := context.WithCancel(context.Background())
 

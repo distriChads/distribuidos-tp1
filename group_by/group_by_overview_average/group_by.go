@@ -28,7 +28,7 @@ type GroupByOverviewAndAvg struct {
 	expected_eof           int
 	grouped_elements       map[string]map[string]RevenueBudgetCount
 	eofs                   map[string]int
-	node_name              string
+	storage_base_dir       string
 	messages_id            map[string][]string
 }
 
@@ -39,7 +39,7 @@ type RevenueBudgetCount struct {
 
 var log = logging.MustGetLogger("group_by_overview_average")
 
-func (g *GroupByOverviewAndAvg) NewClient(client_id string) {
+func (g *GroupByOverviewAndAvg) EnsureClient(client_id string) {
 	if _, ok := g.grouped_elements[client_id]; !ok {
 		g.grouped_elements[client_id] = make(map[string]RevenueBudgetCount)
 	}
@@ -48,9 +48,9 @@ func (g *GroupByOverviewAndAvg) NewClient(client_id string) {
 	}
 }
 
-func (g *GroupByOverviewAndAvg) ShouldCommit(messages_before_commit int, client_id string, message_id string) bool {
+func (g *GroupByOverviewAndAvg) HandleCommit(messages_before_commit int, client_id string, message_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		common_statefull_worker.StoreElementsWithMovies(g.grouped_elements[client_id], client_id, g.node_name, message_id)
+		common_statefull_worker.StoreElementsWithMovies(g.grouped_elements[client_id], client_id, g.storage_base_dir, message_id)
 		return true
 	}
 	return false
@@ -86,6 +86,7 @@ func (g *GroupByOverviewAndAvg) HandleEOF(client_id string) error {
 	}
 	delete(g.grouped_elements, client_id)
 	delete(g.eofs, client_id)
+	common_statefull_worker.CleanState(g.storage_base_dir, client_id)
 	return nil
 }
 
@@ -118,13 +119,13 @@ func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]Revenu
 	}
 }
 
-func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_before_commit int, node_name string) *GroupByOverviewAndAvg {
+func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_before_commit int, storage_base_dir string) *GroupByOverviewAndAvg {
 	log.Infof("GroupByOverviewAndAvg: %+v", config)
 
-	grouped_elements, _, last_messages_in_state := common_statefull_worker.GetElements[RevenueBudgetCount](node_name)
-	messages_id, last_messages_in_id := common_statefull_worker.GetIds(node_name)
+	grouped_elements, _, last_messages_in_state := common_statefull_worker.GetElements[RevenueBudgetCount](storage_base_dir)
+	messages_id, last_messages_in_id := common_statefull_worker.GetIds(storage_base_dir)
 
-	common_statefull_worker.RestoreStateIfNeeded(last_messages_in_state, last_messages_in_id, node_name)
+	common_statefull_worker.RestoreStateIfNeeded(last_messages_in_state, last_messages_in_id, storage_base_dir)
 	worker, err := worker.NewWorker(config.WorkerConfig)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
@@ -136,7 +137,7 @@ func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_befor
 		messages_before_commit: messages_before_commit,
 		eofs:                   make(map[string]int),
 		grouped_elements:       grouped_elements,
-		node_name:              node_name,
+		storage_base_dir:       storage_base_dir,
 		messages_id:            messages_id,
 	}
 }

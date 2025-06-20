@@ -28,13 +28,13 @@ type CountrByBudget struct {
 
 var log = logging.MustGetLogger("top_five_country_budget")
 
-func (g *TopFiveCountryBudget) NewClient(client_id string) {
+func (g *TopFiveCountryBudget) EnsureClient(client_id string) {
 	if _, ok := g.top_five[client_id]; !ok {
 		g.top_five[client_id] = make([]CountrByBudget, 0)
 	}
 }
 
-func (g *TopFiveCountryBudget) ShouldCommit(messages_before_commit int, client_id string, message_id string) bool {
+func (g *TopFiveCountryBudget) HandleCommit(messages_before_commit int, client_id string, message_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
 		storeGroupedElements(g.top_five[client_id], client_id)
 		return true

@@ -21,7 +21,7 @@ type GroupByMovieAndAvg struct {
 	expected_eof           int
 	grouped_elements       map[string]map[string]ScoreAndCount
 	eofs                   map[string]int
-	node_name              string
+	storage_base_dir       string
 	messages_id            map[string][]string
 }
 
@@ -32,7 +32,7 @@ type ScoreAndCount struct {
 
 var log = logging.MustGetLogger("group_by_movie_average")
 
-func (g *GroupByMovieAndAvg) NewClient(client_id string) {
+func (g *GroupByMovieAndAvg) EnsureClient(client_id string) {
 	if _, ok := g.grouped_elements[client_id]; !ok {
 		g.grouped_elements[client_id] = make(map[string]ScoreAndCount)
 	}
@@ -41,9 +41,9 @@ func (g *GroupByMovieAndAvg) NewClient(client_id string) {
 	}
 }
 
-func (g *GroupByMovieAndAvg) ShouldCommit(messages_before_commit int, client_id string, message_id string) bool {
+func (g *GroupByMovieAndAvg) HandleCommit(messages_before_commit int, client_id string, message_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		common_statefull_worker.StoreElementsWithMovies(g.grouped_elements[client_id], client_id, g.node_name, message_id)
+		common_statefull_worker.StoreElementsWithMovies(g.grouped_elements[client_id], client_id, g.storage_base_dir, message_id)
 		return true
 	}
 	return false
@@ -70,6 +70,7 @@ func (g *GroupByMovieAndAvg) HandleEOF(client_id string) error {
 	}
 	delete(g.grouped_elements, client_id)
 	delete(g.eofs, client_id)
+	common_statefull_worker.CleanState(g.storage_base_dir, client_id)
 	return nil
 }
 
@@ -104,13 +105,13 @@ func groupByMovieAndUpdate(lines []string, grouped_elements map[string]ScoreAndC
 	}
 }
 
-func NewGroupByMovieAndAvg(config GroupByMovieAndAvgConfig, messages_before_commit int, node_name string) *GroupByMovieAndAvg {
+func NewGroupByMovieAndAvg(config GroupByMovieAndAvgConfig, messages_before_commit int, storage_base_dir string) *GroupByMovieAndAvg {
 	log.Infof("GroupByMovieAndAvg: %+v", config)
 
-	grouped_elements, _, last_messages_in_state := common_statefull_worker.GetElements[ScoreAndCount](node_name)
-	messages_id, last_messages_in_id := common_statefull_worker.GetIds(node_name)
+	grouped_elements, _, last_messages_in_state := common_statefull_worker.GetElements[ScoreAndCount](storage_base_dir)
+	messages_id, last_messages_in_id := common_statefull_worker.GetIds(storage_base_dir)
 
-	common_statefull_worker.RestoreStateIfNeeded(last_messages_in_state, last_messages_in_id, node_name)
+	common_statefull_worker.RestoreStateIfNeeded(last_messages_in_state, last_messages_in_id, storage_base_dir)
 	worker, err := worker.NewWorker(config.WorkerConfig)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
@@ -122,7 +123,7 @@ func NewGroupByMovieAndAvg(config GroupByMovieAndAvgConfig, messages_before_comm
 		messages_before_commit: messages_before_commit,
 		eofs:                   make(map[string]int),
 		grouped_elements:       grouped_elements,
-		node_name:              node_name,
+		storage_base_dir:       storage_base_dir,
 		messages_id:            messages_id,
 	}
 }

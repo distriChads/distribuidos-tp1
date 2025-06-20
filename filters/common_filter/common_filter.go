@@ -29,7 +29,7 @@ func RunWorker(f Filter, worker worker.Worker, ctx context.Context, starting_mes
 		}
 
 		message_str := string(msg.Body)
-		// log.Infof("Received message: %s", message_str)
+		log.Debugf("Received message: %s", message_str)
 		if len(message_str) == 0 {
 			log.Warning("Received empty message")
 			msg.Ack(false)

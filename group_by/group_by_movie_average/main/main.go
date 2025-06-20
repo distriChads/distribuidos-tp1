@@ -50,15 +50,14 @@ func main() {
 		maxMessages = 10
 	}
 
-	number := exchangeSpec.InputRoutingKeys[0][len(exchangeSpec.InputRoutingKeys[0])-1:]
-	node_name := "group_by_movie_average" + number
+	storage_base_dir := v.GetString("worker.storage")
 
 	group_by := group_by.NewGroupByMovieAndAvg(group_by.GroupByMovieAndAvgConfig{
 		WorkerConfig: worker.WorkerConfig{
 			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
 		},
-	}, maxMessages, node_name)
+	}, maxMessages, storage_base_dir)
 	if group_by == nil {
 		return
 	}

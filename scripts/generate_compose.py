@@ -103,7 +103,12 @@ def generic_worker_service(name, dockerfile_path, replica, spec, entrypoint):
         f"CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS={','.join(spec['output_routing_keys'])}"
     ]
 
-    return {
+    if "storage" in spec:
+        env.append("CLI_WORKER_STORAGE=/app/storage")
+    if "messages_per_commit" in spec:
+        env.append(f"CLI_WORKER_MAXMESSAGES={spec['messages_per_commit']}")
+
+    service = {
         "build": {
             "context": ".",
             "dockerfile": dockerfile_path
@@ -116,6 +121,10 @@ def generic_worker_service(name, dockerfile_path, replica, spec, entrypoint):
         "networks": ["movies_net"],
     }
 
+    if "storage" in spec:
+        service["volumes"] = [f"{spec['storage']}/{name}-{replica}:/app/storage"]
+
+    return service
 
 def generate_compose(spec_path, output_path):
     with open(spec_path, "r") as f:
@@ -196,7 +205,6 @@ def generate_compose(spec_path, output_path):
                 )
 
     with open(output_path, "w") as f:
-        f.write("version: '3.8'\n")
         f.write(yaml.dump(compose, sort_keys=False))
 
 

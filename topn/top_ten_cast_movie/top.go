@@ -28,13 +28,13 @@ type TopTenCastCount struct {
 
 var log = logging.MustGetLogger("top_ten_cast_movie")
 
-func (g *TopTenCastMovie) NewClient(client_id string) {
+func (g *TopTenCastMovie) EnsureClient(client_id string) {
 	if _, ok := g.top_ten[client_id]; !ok {
 		g.top_ten[client_id] = make([]TopTenCastCount, 0)
 	}
 }
 
-func (g *TopTenCastMovie) ShouldCommit(messages_before_commit int, client_id string, message_id string) bool {
+func (g *TopTenCastMovie) HandleCommit(messages_before_commit int, client_id string, message_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
 		storeGroupedElements(g.top_ten[client_id], client_id)
 		return true
