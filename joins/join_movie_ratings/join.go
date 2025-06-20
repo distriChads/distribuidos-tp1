@@ -19,7 +19,6 @@ type JoinMovieRatingByIdConfig struct {
 type JoinMovieRatingById struct {
 	worker.Worker
 	client_movies_by_id map[string]map[string]string
-	pending_ratings     map[string][]string
 	received_movies     bool
 	storage_base_dir    string
 }
@@ -55,7 +54,7 @@ func joinMovieWithRating(lines []string, movies_by_id map[string]string) []strin
 
 func NewJoinMovieRatingById(config JoinMovieRatingByIdConfig, storage_base_dir string) *JoinMovieRatingById {
 	log.Infof("JoinMovieRatingById: %+v", config)
-	grouped_elements, _, _ := common_statefull_worker.GetElements[string](storage_base_dir)
+	grouped_elements, received_movies, _ := common_statefull_worker.GetElements[string](storage_base_dir)
 	worker, err := worker.NewWorker(config.WorkerConfig)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
@@ -65,8 +64,7 @@ func NewJoinMovieRatingById(config JoinMovieRatingByIdConfig, storage_base_dir s
 	return &JoinMovieRatingById{
 		Worker:              *worker,
 		client_movies_by_id: grouped_elements,
-		pending_ratings:     make(map[string][]string),
-		received_movies:     false,
+		received_movies:     received_movies,
 		storage_base_dir:    storage_base_dir,
 	}
 }
@@ -94,23 +92,7 @@ func (f *JoinMovieRatingById) RunWorker(ctx context.Context, starting_message st
 			}
 
 			if message_str == worker.MESSAGE_EOF {
-				pending_messages := f.pending_ratings[client_id]
-				for _, pending_message := range pending_messages {
-					lines := strings.Split(strings.TrimSpace(pending_message), "\n")
-					result := joinMovieWithRating(lines, f.client_movies_by_id[client_id])
-					message_to_send := strings.Join(result, "\n")
-					if len(message_to_send) != 0 {
-						send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
-						message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message_to_send
-						err := f.Worker.SendMessage(message_to_send, send_queue_key)
-						if err != nil {
-							log.Infof("Error sending message: %s", err.Error())
-						}
-					}
-				}
 				f.received_movies = true
-
-				// guardar estado
 				msg.Ack(false)
 				continue
 			}
@@ -122,9 +104,7 @@ func (f *JoinMovieRatingById) RunWorker(ctx context.Context, starting_message st
 
 		} else { // recibiendo credits
 			if !f.received_movies {
-				f.pending_ratings[client_id] = append(f.pending_ratings[client_id], message_str)
-				// guardar estado
-				msg.Ack(false)
+				msg.Nack(false, true)
 				continue
 			}
 

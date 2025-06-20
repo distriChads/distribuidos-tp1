@@ -20,7 +20,6 @@ type JoinMovieCreditsById struct {
 	worker.Worker
 	client_movies_by_id map[string]map[string]string
 	received_movies     bool
-	pending_credits     map[string][]string
 	storage_base_dir    string
 }
 
@@ -58,7 +57,7 @@ func joinMovieWithCredits(lines []string, movies_by_id map[string]string) []stri
 
 func NewJoinMovieCreditsById(config JoinMovieCreditsByIdConfig, storage_base_dir string) *JoinMovieCreditsById {
 	log.Infof("JoinMovieCreditsById: %+v", config)
-	grouped_elements, _, _ := common_statefull_worker.GetElements[string](storage_base_dir)
+	grouped_elements, received_movies, _ := common_statefull_worker.GetElements[string](storage_base_dir)
 	worker, err := worker.NewWorker(config.WorkerConfig)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
@@ -68,8 +67,7 @@ func NewJoinMovieCreditsById(config JoinMovieCreditsByIdConfig, storage_base_dir
 	return &JoinMovieCreditsById{
 		Worker:              *worker,
 		client_movies_by_id: grouped_elements,
-		received_movies:     false,
-		pending_credits:     make(map[string][]string),
+		received_movies:     received_movies,
 		storage_base_dir:    storage_base_dir,
 	}
 }
@@ -99,23 +97,7 @@ func (f *JoinMovieCreditsById) RunWorker(ctx context.Context, starting_message s
 
 			if message_str == worker.MESSAGE_EOF {
 				log.Warning("RECIBO EOF DE LAS MOVIES")
-				pending_messages := f.pending_credits[client_id]
-				for _, pending_message := range pending_messages {
-					lines := strings.Split(strings.TrimSpace(pending_message), "\n")
-					result := joinMovieWithCredits(lines, f.client_movies_by_id[client_id])
-					message_to_send := strings.Join(result, "\n")
-					if len(message_to_send) != 0 {
-						send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
-						message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message_to_send
-						err := f.Worker.SendMessage(message_to_send, send_queue_key)
-						if err != nil {
-							log.Infof("Error sending message: %s", err.Error())
-						}
-					}
-				}
 				f.received_movies = true
-
-				// guardar estado
 				msg.Ack(false)
 				continue
 			}
@@ -127,9 +109,7 @@ func (f *JoinMovieCreditsById) RunWorker(ctx context.Context, starting_message s
 
 		} else { // recibiendo credits
 			if !f.received_movies {
-				f.pending_credits[client_id] = append(f.pending_credits[client_id], message_str)
-				// guardar estado
-				msg.Ack(false)
+				msg.Nack(false, true)
 				continue
 			}
 

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"strings"
 
@@ -167,6 +168,20 @@ func StoreElementsWithMovies[T any](
 
 }
 
+// Store the state and a boolean at the end
+func StoreElementsWithBoolean[T any](
+	results map[string]T,
+	client_id, storage_base_dir string,
+	boolean bool,
+) {
+	after_write_function := func(f *os.File) {
+		fmt.Fprintf(f, "BOOLEAN %t\n", boolean)
+	}
+
+	genericStoreElements(results, client_id, storage_base_dir, after_write_function)
+
+}
+
 func GetIds(storage_base_dir string) (map[string][]string, map[string]string) {
 	grouped := make(map[string][]string)
 	last_messages := make(map[string]string)
@@ -262,15 +277,15 @@ func genericStoreElements[T any](results map[string]T, client_id, storage_base_d
 	tmpFile.Close()
 }
 
-func GetElements[T any](storage_base_dir string) (map[string]map[string]T, []string, map[string]string) {
+func GetElements[T any](storage_base_dir string) (map[string]map[string]T, bool, map[string]string) {
 	grouped := make(map[string]map[string]T)
 	last_messages := make(map[string]string)
-
+	boolean := false
 	dir := fmt.Sprintf("%s/state", storage_base_dir)
 
 	files, err := os.ReadDir(dir)
 	if err != nil {
-		return grouped, nil, last_messages // si no existia el directorio, te devuelvo las cosas como vacios
+		return grouped, boolean, last_messages // si no existia el directorio, te devuelvo las cosas como vacios
 	}
 
 	for _, entry := range files {
@@ -299,6 +314,11 @@ func GetElements[T any](storage_base_dir string) (map[string]map[string]T, []str
 			switch {
 			case strings.HasPrefix(line, "LAST_ID"):
 				last_messages[client_id] = strings.Fields(line)[1]
+			case strings.HasPrefix(line, "BOOLEAN"):
+				boolean, err = strconv.ParseBool(strings.Fields(line)[1])
+				if err != nil {
+					continue
+				}
 			default:
 				jsonLines = append(jsonLines, line)
 			}
@@ -313,7 +333,7 @@ func GetElements[T any](storage_base_dir string) (map[string]map[string]T, []str
 
 	}
 
-	return grouped, nil, last_messages
+	return grouped, boolean, last_messages
 }
 
 func genericCleanState(storage_base_dir string, client_id string, dir_name string) {
