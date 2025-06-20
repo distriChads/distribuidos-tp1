@@ -130,7 +130,7 @@ func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]ScoreA
 func NewGroupByOverviewAndAvg(config MasterGroupByOverviewAndAvgConfig, messages_before_commit int, expected_eof int, storage_base_dir string) *MasterGroupByOverviewAndAvg {
 	log.Infof("MasterGroupByOverviewAndAvg: %+v", config)
 
-	worker, err := worker.NewWorker(config.WorkerConfig, 10)
+	worker, err := worker.NewWorker(config.WorkerConfig, messages_before_commit)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
 		return nil

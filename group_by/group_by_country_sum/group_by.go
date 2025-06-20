@@ -41,7 +41,6 @@ func (g *GroupByCountryAndSum) EnsureClient(client_id string) {
 func (g *GroupByCountryAndSum) HandleCommit(client_id string, message amqp091.Delivery) {
 	g.messages[client_id] = append(g.messages[client_id], message)
 	if len(g.messages[client_id]) >= g.messages_before_commit {
-		log.Warningf("COMMIT")
 		common_statefull_worker.StoreElementsWithMessageIds(g.grouped_elements[client_id],
 			client_id, g.storage_base_dir,
 			g.messages_id[client_id][len(g.messages_id[client_id])-g.messages_before_commit:])
@@ -127,7 +126,7 @@ func NewGroupByCountryAndSum(config GroupByCountryAndSumConfig, messages_before_
 	if common_statefull_worker.RestoreStateIfNeeded(last_messages_in_state, last_message_in_id, storage_base_dir) {
 		messages_id, _ = common_statefull_worker.GetIds(storage_base_dir)
 	}
-	worker, err := worker.NewWorker(config.WorkerConfig, 10)
+	worker, err := worker.NewWorker(config.WorkerConfig, messages_before_commit)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
 		return nil

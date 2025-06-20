@@ -144,7 +144,7 @@ func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_befor
 	if common_statefull_worker.RestoreStateIfNeeded(last_messages_in_state, last_message_in_id, storage_base_dir) {
 		messages_id, _ = common_statefull_worker.GetIds(storage_base_dir)
 	}
-	worker, err := worker.NewWorker(config.WorkerConfig, 10)
+	worker, err := worker.NewWorker(config.WorkerConfig, messages_before_commit)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
 		return nil
