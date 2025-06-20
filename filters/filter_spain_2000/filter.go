@@ -20,7 +20,7 @@ type FilterBySpainAndOf2000 struct {
 
 func NewFilterBySpainAndOf2000(config FilterBySpainAndOf2000Config) *FilterBySpainAndOf2000 {
 	log.Infof("FilterBySpainAndOf2000: %+v", config)
-	worker, err := worker.NewWorker(config.WorkerConfig)
+	worker, err := worker.NewWorker(config.WorkerConfig, 1)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
 		return nil

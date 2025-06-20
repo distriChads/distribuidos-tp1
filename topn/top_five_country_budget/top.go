@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/op/go-logging"
+	"github.com/rabbitmq/amqp091-go"
 )
 
 type TopFiveCountryBudgetConfig struct {
@@ -34,9 +35,10 @@ func (g *TopFiveCountryBudget) EnsureClient(client_id string) {
 	}
 }
 
-func (g *TopFiveCountryBudget) HandleCommit(messages_before_commit int, client_id string, message_id string) {
+func (g *TopFiveCountryBudget) HandleCommit(client_id string, message amqp091.Delivery) {
 
 	storeGroupedElements(g.top_five[client_id], client_id)
+	message.Ack(false)
 
 }
 
@@ -53,7 +55,7 @@ func mapToLines(top_five []CountrByBudget) string {
 	return strings.Join(lines, "\n")
 }
 
-func (g *TopFiveCountryBudget) HandleEOF(client_id string) error {
+func (g *TopFiveCountryBudget) HandleEOF(client_id string, message_id string) error {
 	err := common_statefull_worker.SendResult(g.Worker, g, client_id)
 	if err != nil {
 		return err
@@ -110,7 +112,7 @@ func getGroupedElements() []CountrByBudget {
 
 func NewTopFiveCountryBudget(config TopFiveCountryBudgetConfig, messages_before_commit int) *TopFiveCountryBudget {
 	log.Infof("TopFiveCountryBudget: %+v", config)
-	worker, err := worker.NewWorker(config.WorkerConfig)
+	worker, err := worker.NewWorker(config.WorkerConfig, 1)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
 		return nil

@@ -20,7 +20,7 @@ type FilterByAfterYear2000 struct {
 
 func NewFilterByAfterYear2000(config FilterByAfterYear2000Config) *FilterByAfterYear2000 {
 	log.Infof("FilterByAfterYear2000: %+v", config)
-	worker, err := worker.NewWorker(config.WorkerConfig)
+	worker, err := worker.NewWorker(config.WorkerConfig, 1)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
 		return nil

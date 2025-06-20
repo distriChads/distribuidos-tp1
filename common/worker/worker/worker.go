@@ -82,7 +82,7 @@ func initConnection(broker string) (*amqp.Connection, error) {
 	return conn, nil
 }
 
-func NewWorker(config WorkerConfig) (*Worker, error) {
+func NewWorker(config WorkerConfig, prefetch_count int) (*Worker, error) {
 	log.Infof("Worker: %+v", config)
 	worker := Worker{
 		Exchange:      config.Exchange,
@@ -97,7 +97,7 @@ func NewWorker(config WorkerConfig) (*Worker, error) {
 		return nil, err
 	}
 
-	err = worker.initReceiver()
+	err = worker.initReceiver(prefetch_count)
 	if err != nil {
 		log.Errorf("Error initializing sender: %s", err)
 		return nil, err
@@ -139,7 +139,7 @@ func (w *Worker) initSender() error {
 	return nil
 }
 
-func (w *Worker) initReceiver() error {
+func (w *Worker) initReceiver(prefetch_count int) error {
 	conn, err := initConnection(w.MessageBroker)
 	if err != nil {
 		return err
@@ -151,9 +151,9 @@ func (w *Worker) initReceiver() error {
 	}
 
 	err = ch.Qos(
-		1,     // prefetch count
-		0,     // prefetch size
-		false, // global
+		prefetch_count, // prefetch count
+		0,              // prefetch size
+		false,          // global
 	)
 	if err != nil {
 		return err

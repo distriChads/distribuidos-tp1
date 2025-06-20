@@ -19,7 +19,7 @@ type FilterByOnlyOneCountry struct {
 
 func NewFilterByOnlyOneCountry(config FilterByOnlyOneCountryConfig) *FilterByOnlyOneCountry {
 	log.Infof("FilterByOnlyOneCountry: %+v", config)
-	worker, err := worker.NewWorker(config.WorkerConfig)
+	worker, err := worker.NewWorker(config.WorkerConfig, 1)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
 		return nil

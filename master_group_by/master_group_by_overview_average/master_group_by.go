@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/op/go-logging"
+	"github.com/rabbitmq/amqp091-go"
 )
 
 type MasterGroupByOverviewAndAvgConfig struct {
@@ -23,6 +24,7 @@ type MasterGroupByOverviewAndAvg struct {
 	eofs                   map[string]int
 	storage_base_dir       string
 	messages_id            map[string][]string
+	messages               map[string][]amqp091.Delivery
 }
 
 type ScoreAndCount struct {
@@ -41,8 +43,18 @@ func (g *MasterGroupByOverviewAndAvg) EnsureClient(client_id string) {
 	}
 }
 
-func (g *MasterGroupByOverviewAndAvg) HandleCommit(messages_before_commit int, client_id string, message_id string) {
-	common_statefull_worker.StoreElementsWithMovies(g.grouped_elements[client_id], client_id, g.storage_base_dir, message_id)
+func (g *MasterGroupByOverviewAndAvg) HandleCommit(client_id string, message amqp091.Delivery) {
+	g.messages[client_id] = append(g.messages[client_id], message)
+	if len(g.messages[client_id]) >= g.messages_before_commit {
+		common_statefull_worker.StoreElementsWithMessageIds(g.grouped_elements[client_id],
+			client_id, g.storage_base_dir,
+			g.messages_id[client_id][len(g.messages_id[client_id])-g.messages_before_commit:])
+
+		for _, message := range g.messages[client_id] {
+			message.Ack(false)
+		}
+		g.messages[client_id] = g.messages[client_id][:0]
+	}
 }
 
 func (g *MasterGroupByOverviewAndAvg) MapToLines(client_id string) string {
@@ -59,12 +71,20 @@ func mapToLines(grouped_elements map[string]ScoreAndCount) string {
 	return strings.Join(lines, "\n")
 }
 
-func (g *MasterGroupByOverviewAndAvg) HandleEOF(client_id string) error {
+func (g *MasterGroupByOverviewAndAvg) HandleEOF(client_id string, message_id string) error {
+
+	for _, message := range g.messages[client_id] {
+		message.Ack(false)
+	}
+
 	log.Infof("MasterGroupByOverviewAndAvg: Handling EOF for client %s", client_id)
 	err := common_statefull_worker.SendResult(g.Worker, g, client_id)
 	if err != nil {
 		return err
 	}
+	common_statefull_worker.StoreElementsWithMessageIds(g.grouped_elements[client_id], client_id, g.storage_base_dir, []string{message_id})
+
+	delete(g.messages, client_id)
 	delete(g.grouped_elements, client_id)
 	delete(g.eofs, client_id)
 	common_statefull_worker.CleanState(g.storage_base_dir, client_id)
@@ -110,16 +130,18 @@ func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]ScoreA
 func NewGroupByOverviewAndAvg(config MasterGroupByOverviewAndAvgConfig, messages_before_commit int, expected_eof int, storage_base_dir string) *MasterGroupByOverviewAndAvg {
 	log.Infof("MasterGroupByOverviewAndAvg: %+v", config)
 
-	worker, err := worker.NewWorker(config.WorkerConfig)
+	worker, err := worker.NewWorker(config.WorkerConfig, 10)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
 		return nil
 	}
 
 	grouped_elements, _, last_messages_in_state := common_statefull_worker.GetElements[ScoreAndCount](storage_base_dir)
-	messages_id, last_messages_in_id := common_statefull_worker.GetIds(storage_base_dir)
+	messages_id, last_message_in_id := common_statefull_worker.GetIds(storage_base_dir)
 
-	common_statefull_worker.RestoreStateIfNeeded(last_messages_in_state, last_messages_in_id, storage_base_dir)
+	if common_statefull_worker.RestoreStateIfNeeded(last_messages_in_state, last_message_in_id, storage_base_dir) {
+		messages_id, _ = common_statefull_worker.GetIds(storage_base_dir)
+	}
 	return &MasterGroupByOverviewAndAvg{
 		Worker:                 *worker,
 		messages_before_commit: messages_before_commit,
@@ -128,5 +150,6 @@ func NewGroupByOverviewAndAvg(config MasterGroupByOverviewAndAvgConfig, messages
 		eofs:                   make(map[string]int),
 		storage_base_dir:       storage_base_dir,
 		messages_id:            messages_id,
+		messages:               make(map[string][]amqp091.Delivery),
 	}
 }

@@ -29,7 +29,7 @@ var log = logging.MustGetLogger("router")
 
 func NewRouter(config RouterConfig, routingMap RoutingMap) *Router {
 	log.Infof("Router: %+v", config)
-	worker, err := worker.NewWorker(config.WorkerConfig)
+	worker, err := worker.NewWorker(config.WorkerConfig, 1)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
 		return nil

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/op/go-logging"
+	"github.com/rabbitmq/amqp091-go"
 )
 
 type FirstAndLastConfig struct {
@@ -38,9 +39,10 @@ func (g *FirstAndLast) EnsureClient(client_id string) {
 	}
 }
 
-func (g *FirstAndLast) HandleCommit(messages_before_commit int, client_id string, message_id string) {
+func (g *FirstAndLast) HandleCommit(client_id string, message amqp091.Delivery) {
 
 	storeGroupedElements(g.first_and_last_movies[client_id], client_id)
+	message.Ack(false)
 
 }
 
@@ -59,7 +61,7 @@ func mapToLines(first_and_last_movies FirstAndLastMovies) string {
 	return strings.Join(lines, "\n")
 }
 
-func (g *FirstAndLast) HandleEOF(client_id string) error {
+func (g *FirstAndLast) HandleEOF(client_id string, message_id string) error {
 	err := common_statefull_worker.SendResult(g.Worker, g, client_id)
 	if err != nil {
 		return err
@@ -112,7 +114,7 @@ func getGroupedElements() FirstAndLastMovies {
 
 func NewFirstAndLast(config FirstAndLastConfig, messages_before_commit int) *FirstAndLast {
 	log.Infof("FirstAndLast: %+v", config)
-	worker, err := worker.NewWorker(config.WorkerConfig)
+	worker, err := worker.NewWorker(config.WorkerConfig, 1)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
 		return nil

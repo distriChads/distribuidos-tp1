@@ -58,7 +58,7 @@ func joinMovieWithCredits(lines []string, movies_by_id map[string]string) []stri
 func NewJoinMovieCreditsById(config JoinMovieCreditsByIdConfig, storage_base_dir string) *JoinMovieCreditsById {
 	log.Infof("JoinMovieCreditsById: %+v", config)
 	grouped_elements, received_movies, _ := common_statefull_worker.GetElements[string](storage_base_dir)
-	worker, err := worker.NewWorker(config.WorkerConfig)
+	worker, err := worker.NewWorker(config.WorkerConfig, 1)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
 		return nil

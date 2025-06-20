@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/op/go-logging"
+	"github.com/rabbitmq/amqp091-go"
 )
 
 type TopTenCastMovieConfig struct {
@@ -34,9 +35,10 @@ func (g *TopTenCastMovie) EnsureClient(client_id string) {
 	}
 }
 
-func (g *TopTenCastMovie) HandleCommit(messages_before_commit int, client_id string, message_id string) {
+func (g *TopTenCastMovie) HandleCommit(client_id string, message amqp091.Delivery) {
 
 	storeGroupedElements(g.top_ten[client_id], client_id)
+	message.Ack(false)
 
 }
 
@@ -53,7 +55,7 @@ func mapToLines(top_ten []TopTenCastCount) string {
 	return strings.Join(lines, "\n")
 }
 
-func (g *TopTenCastMovie) HandleEOF(client_id string) error {
+func (g *TopTenCastMovie) HandleEOF(client_id string, message_id string) error {
 	err := common_statefull_worker.SendResult(g.Worker, g, client_id)
 	if err != nil {
 		return err
@@ -115,7 +117,7 @@ func getGroupedElements() []TopTenCastCount {
 
 func NewTopTenCastMovie(config TopTenCastMovieConfig, messages_before_commit int) *TopTenCastMovie {
 	log.Infof("TopTenCastMovie: %+v", config)
-	worker, err := worker.NewWorker(config.WorkerConfig)
+	worker, err := worker.NewWorker(config.WorkerConfig, 1)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
 		return nil

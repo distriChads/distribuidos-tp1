@@ -14,16 +14,17 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/op/go-logging"
+	"github.com/rabbitmq/amqp091-go"
 )
 
 type StatefullWorker interface {
 	// Updates the internal in-memory state with the given lines for the specified client
 	UpdateState(lines []string, client_id string, message_id string)
 	// Handles EOF message processing for the specified client
-	HandleEOF(client_id string) error
+	HandleEOF(client_id string, message_id string) error
 	// Converts the current state for the specified client to a string representation
 	MapToLines(client_id string) string
-	HandleCommit(messages_before_commit int, client_id string, message_id string)
+	HandleCommit(client_id string, message amqp091.Delivery)
 	EnsureClient(client_id string)
 }
 
@@ -60,7 +61,6 @@ func SendResult(w worker.Worker, s StatefullWorker, client_id string) error {
 func RunWorker(s StatefullWorker, ctx context.Context, w worker.Worker, starting_message string) error {
 	log.Info(starting_message)
 
-	messages_since_last_commit := 0
 	for {
 		message, _, err := w.ReceivedMessages(ctx)
 		if err != nil {
@@ -79,7 +79,7 @@ func RunWorker(s StatefullWorker, ctx context.Context, w worker.Worker, starting
 		s.EnsureClient(client_id)
 
 		if message_str == worker.MESSAGE_EOF {
-			err := s.HandleEOF(client_id)
+			err := s.HandleEOF(client_id, message_id)
 			if err != nil {
 				return err
 			}
@@ -87,24 +87,25 @@ func RunWorker(s StatefullWorker, ctx context.Context, w worker.Worker, starting
 			continue
 		}
 
-		messages_since_last_commit += 1
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		s.UpdateState(lines, client_id, message_id)
-		s.HandleCommit(messages_since_last_commit, client_id, message_id)
-
-		message.Ack(false)
+		s.HandleCommit(client_id, message)
 	}
 }
 
-func RestoreStateIfNeeded(last_messages_in_state, last_messages_in_ids map[string]string, storage_base_dir string) {
-	// recorro los ultimos ids guardados en el estado que es quien tiene la posta del ultimo mensaje (primero guardo estado, luego appendeo)
-	// si hay alguno que no esten igual, eso significa que me mori antes de appendear el ultimo mensaje
-	// por lo tanto, a ese nodo, de ese cliente, le mando el ultimo movie id que este en el estado al log de ids
-	for client_id, last_movie_id := range last_messages_in_state {
-		if bv, ok := last_messages_in_ids[client_id]; !ok || bv != last_movie_id {
-			appendIds(storage_base_dir, last_movie_id, client_id)
+func RestoreStateIfNeeded(last_messages_in_state map[string][]string, last_message_in_ids map[string]string, storage_base_dir string) bool {
+	var clients_ids_to_restore []string
+	for client_id, last_movies_id := range last_messages_in_state {
+		if last_message_in_ids[client_id] != last_movies_id[len(last_movies_id)-1] {
+			clients_ids_to_restore = append(clients_ids_to_restore, client_id)
 		}
 	}
+
+	for _, client_id := range clients_ids_to_restore {
+		appendIds(storage_base_dir, last_messages_in_state[client_id], client_id)
+	}
+
+	return len(clients_ids_to_restore) != 0
 }
 
 // hay 2 tipos de errores.
@@ -128,7 +129,7 @@ func RestoreStateIfNeeded(last_messages_in_state, last_messages_in_ids map[strin
 // si el archivo ya existe y esta todo bien, pudo o no haber pasado error de tipo 2), no lo sabemos...
 // la solucion que se me ocurre es quiza mandar los timestamps en los mensajes? quiza podemos rescatar algo de eso
 
-func appendIds(storage_base_dir string, last_movie_id string, client_id string) {
+func appendIds(storage_base_dir string, last_message_ids []string, client_id string) {
 	dir := filepath.Join(storage_base_dir, "ids")
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
@@ -142,10 +143,13 @@ func appendIds(storage_base_dir string, last_movie_id string, client_id string) 
 		panic("Si no pudimos crear el archivo, medio que cagamos fuego tambien")
 	}
 	defer f.Close()
-	line := fmt.Sprintf("%s\n", last_movie_id)
-	if err := doWrite([]byte(line), f); err != nil {
-		panic("Por ahora paniqueamos ni idea")
+	for _, line := range last_message_ids {
+		line := fmt.Sprintf("%s\n", line)
+		if err := doWrite([]byte(line), f); err != nil {
+			panic("Por ahora paniqueamos ni idea")
+		}
 	}
+
 }
 
 // StoreElements stores the state for a given client in the given storage base directory
@@ -153,19 +157,21 @@ func appendIds(storage_base_dir string, last_movie_id string, client_id string) 
 // client_id is the id of the client to store the state for
 // storage_base_dir is the base directory where state files are stored
 // replicas is the number of replicas to create
-func StoreElementsWithMovies[T any](
+func StoreElementsWithMessageIds[T any](
 	results map[string]T,
 	client_id, storage_base_dir string,
-	last_movie_id string,
+	last_message_ids []string,
 ) {
 	after_write_function := func(f *os.File) {
-		line := fmt.Sprintf("LAST_ID %s\n", last_movie_id)
-		doWrite([]byte(line), f)
+		for _, line := range last_message_ids {
+			line := fmt.Sprintf("LAST_ID %s\n", line)
+			doWrite([]byte(line), f)
+		}
 	}
 
 	genericStoreElements(results, client_id, storage_base_dir, after_write_function)
 
-	appendIds(storage_base_dir, last_movie_id, client_id)
+	appendIds(storage_base_dir, last_message_ids, client_id)
 
 }
 
@@ -292,9 +298,9 @@ func genericStoreElements[T any](results map[string]T, client_id, storage_base_d
 	tmpFile.Close()
 }
 
-func GetElements[T any](storage_base_dir string) (map[string]map[string]T, bool, map[string]string) {
+func GetElements[T any](storage_base_dir string) (map[string]map[string]T, bool, map[string][]string) {
 	grouped := make(map[string]map[string]T)
-	last_messages := make(map[string]string)
+	last_messages := make(map[string][]string)
 	boolean := false
 	dir := fmt.Sprintf("%s/state", storage_base_dir)
 
@@ -328,7 +334,7 @@ func GetElements[T any](storage_base_dir string) (map[string]map[string]T, bool,
 			line := scanner.Text()
 			switch {
 			case strings.HasPrefix(line, "LAST_ID"):
-				last_messages[client_id] = strings.Fields(line)[1]
+				last_messages[client_id] = append(last_messages[client_id], strings.Fields(line)[1])
 			case strings.HasPrefix(line, "BOOLEAN"):
 				boolean, err = strconv.ParseBool(strings.Fields(line)[1])
 				if err != nil {

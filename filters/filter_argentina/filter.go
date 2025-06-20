@@ -19,7 +19,7 @@ type FilterByArgentina struct {
 
 func NewFilterByArgentina(config FilterByArgentinaConfig) *FilterByArgentina {
 	log.Infof("FilterByArgentina: %+v", config)
-	worker, err := worker.NewWorker(config.WorkerConfig)
+	worker, err := worker.NewWorker(config.WorkerConfig, 1)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
 		return nil
