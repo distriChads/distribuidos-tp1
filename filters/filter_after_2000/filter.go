@@ -54,12 +54,12 @@ func (f *FilterByAfterYear2000) Filter(lines []string) []string {
 	return result
 }
 
-func (f *FilterByAfterYear2000) HandleEOF(client_id string) error {
-	f.SendMessage([]string{worker.MESSAGE_EOF}, client_id)
+func (f *FilterByAfterYear2000) HandleEOF(client_id string, message_id string) error {
+	f.SendMessage([]string{worker.MESSAGE_EOF}, client_id, message_id)
 	return nil
 }
 
-func (f *FilterByAfterYear2000) SendMessage(message_to_send []string, client_id string) error {
+func (f *FilterByAfterYear2000) SendMessage(message_to_send []string, client_id string, message_id string) error {
 	for _, line := range message_to_send {
 		// TODO: clean up commented code, the hasher node is used to send messages
 		// parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
@@ -69,7 +69,7 @@ func (f *FilterByAfterYear2000) SendMessage(message_to_send []string, client_id 
 			// 	return err
 			// }
 			send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
-			message := client_id + worker.MESSAGE_SEPARATOR + line
+			message := client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + line
 			err := f.Worker.SendMessage(message, send_queue_key)
 			if err != nil {
 				return err

@@ -50,16 +50,16 @@ func (f *FilterByArgentina) Filter(lines []string) []string {
 	return result
 }
 
-func (f *FilterByArgentina) HandleEOF(client_id string) error {
-	f.SendMessage([]string{worker.MESSAGE_EOF}, client_id)
+func (f *FilterByArgentina) HandleEOF(client_id string, message_id string) error {
+	f.SendMessage([]string{worker.MESSAGE_EOF}, client_id, message_id)
 	return nil
 }
 
-func (f *FilterByArgentina) SendMessage(message_to_send []string, client_id string) error {
+func (f *FilterByArgentina) SendMessage(message_to_send []string, client_id string, message_id string) error {
 	message := strings.Join(message_to_send, "\n")
 	if len(message) != 0 {
 		send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
-		message = client_id + worker.MESSAGE_SEPARATOR + message
+		message = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message
 		err := f.Worker.SendMessage(message, send_queue_key)
 		if err != nil {
 			return err

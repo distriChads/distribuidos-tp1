@@ -47,7 +47,7 @@ func (f *FilterByOnlyOneCountry) Filter(lines []string) []string {
 	return result
 }
 
-func (f *FilterByOnlyOneCountry) HandleEOF(client_id string) error {
+func (f *FilterByOnlyOneCountry) HandleEOF(client_id string, message_id string) error {
 	// if _, ok := f.eofs[client_id]; !ok {
 	// 	f.eofs[client_id] = 0
 	// }
@@ -65,17 +65,17 @@ func (f *FilterByOnlyOneCountry) HandleEOF(client_id string) error {
 	// 	log.Infof("Client %s finished", client_id)
 	// }
 
-	f.SendMessage([]string{worker.MESSAGE_EOF}, client_id)
+	f.SendMessage([]string{worker.MESSAGE_EOF}, client_id, message_id)
 	return nil
 }
 
-func (f *FilterByOnlyOneCountry) SendMessage(message_to_send []string, client_id string) error {
+func (f *FilterByOnlyOneCountry) SendMessage(message_to_send []string, client_id string, message_id string) error {
 	message := strings.Join(message_to_send, "\n")
 	log.Infof("Sent message: %s", message)
 	if len(message) != 0 {
 		// send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
 		send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
-		message = client_id + worker.MESSAGE_SEPARATOR + message
+		message = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message
 		err := f.Worker.SendMessage(message, send_queue_key)
 		// f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
 		if err != nil {

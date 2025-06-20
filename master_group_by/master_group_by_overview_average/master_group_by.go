@@ -4,6 +4,7 @@ import (
 	worker "distribuidos-tp1/common/worker/worker"
 	"distribuidos-tp1/common_statefull_worker"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -21,8 +22,7 @@ type MasterGroupByOverviewAndAvg struct {
 	grouped_elements       map[string]map[string]ScoreAndCount
 	eofs                   map[string]int
 	node_name              string
-	log_replicas           int
-	movies_id              map[string][]string
+	messages_id            map[string][]string
 }
 
 type ScoreAndCount struct {
@@ -41,9 +41,9 @@ func (g *MasterGroupByOverviewAndAvg) NewClient(client_id string) {
 	}
 }
 
-func (g *MasterGroupByOverviewAndAvg) ShouldCommit(messages_before_commit int, client_id string) bool {
+func (g *MasterGroupByOverviewAndAvg) ShouldCommit(messages_before_commit int, client_id string, message_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		common_statefull_worker.StoreElementsWithMovies(g.grouped_elements[client_id], client_id, g.node_name, g.log_replicas, g.movies_id[client_id])
+		common_statefull_worker.StoreElementsWithMovies(g.grouped_elements[client_id], client_id, g.node_name, message_id)
 		return true
 	}
 	return false
@@ -74,8 +74,13 @@ func (g *MasterGroupByOverviewAndAvg) HandleEOF(client_id string) error {
 	return nil
 }
 
-func (g *MasterGroupByOverviewAndAvg) UpdateState(lines []string, client_id string) {
-	g.movies_id[client_id] = groupByOverviewAndUpdate(lines, g.grouped_elements[client_id], g.movies_id[client_id])
+func (g *MasterGroupByOverviewAndAvg) UpdateState(lines []string, client_id string, message_id string) {
+	if slices.Contains(g.messages_id[client_id], message_id) {
+		log.Warning("Mensaje repetido")
+		return
+	}
+	g.messages_id[client_id] = append(g.messages_id[client_id], message_id)
+	groupByOverviewAndUpdate(lines, g.grouped_elements[client_id])
 }
 
 // ---------------------------------
@@ -85,10 +90,9 @@ const OVERVIEW = 0
 const AVERAGE = 1
 const COUNT = 2
 
-func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]ScoreAndCount, movies_id []string) []string {
+func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]ScoreAndCount) {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
-		movies_id = append(movies_id, parts[common_statefull_worker.MOVIE_ID])
 		average, err := strconv.ParseFloat(parts[AVERAGE], 64)
 		if err != nil {
 			continue
@@ -104,7 +108,6 @@ func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]ScoreA
 		grouped_elements[parts[OVERVIEW]] = current
 
 	}
-	return movies_id
 }
 
 func NewGroupByOverviewAndAvg(config MasterGroupByOverviewAndAvgConfig, messages_before_commit int, expected_eof int, node_name string) *MasterGroupByOverviewAndAvg {
@@ -116,8 +119,10 @@ func NewGroupByOverviewAndAvg(config MasterGroupByOverviewAndAvgConfig, messages
 		return nil
 	}
 
-	replicas := 3
-	grouped_elements, _, _ := common_statefull_worker.GetElements[ScoreAndCount](node_name, replicas+1)
+	grouped_elements, _, last_messages_in_state := common_statefull_worker.GetElements[ScoreAndCount](node_name)
+	messages_id, last_messages_in_id := common_statefull_worker.GetIds(node_name)
+
+	common_statefull_worker.RestoreStateIfNeeded(last_messages_in_state, last_messages_in_id, node_name)
 	return &MasterGroupByOverviewAndAvg{
 		Worker:                 *worker,
 		messages_before_commit: messages_before_commit,
@@ -125,7 +130,6 @@ func NewGroupByOverviewAndAvg(config MasterGroupByOverviewAndAvgConfig, messages
 		grouped_elements:       grouped_elements,
 		eofs:                   make(map[string]int),
 		node_name:              node_name,
-		log_replicas:           replicas,
-		movies_id:              make(map[string][]string),
+		messages_id:            messages_id,
 	}
 }

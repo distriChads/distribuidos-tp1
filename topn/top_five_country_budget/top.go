@@ -34,7 +34,7 @@ func (g *TopFiveCountryBudget) NewClient(client_id string) {
 	}
 }
 
-func (g *TopFiveCountryBudget) ShouldCommit(messages_before_commit int, client_id string) bool {
+func (g *TopFiveCountryBudget) ShouldCommit(messages_before_commit int, client_id string, message_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
 		storeGroupedElements(g.top_five[client_id], client_id)
 		return true
@@ -64,7 +64,7 @@ func (g *TopFiveCountryBudget) HandleEOF(client_id string) error {
 	return nil
 }
 
-func (g *TopFiveCountryBudget) UpdateState(lines []string, client_id string) {
+func (g *TopFiveCountryBudget) UpdateState(lines []string, client_id string, message_id string) {
 	g.top_five[client_id] = updateTopFive(lines, g.top_five[client_id])
 }
 

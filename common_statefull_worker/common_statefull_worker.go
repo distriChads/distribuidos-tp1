@@ -6,38 +6,44 @@ import (
 	worker "distribuidos-tp1/common/worker/worker"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
-	"time"
 
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/op/go-logging"
 )
 
-const MOVIE_ID = 0
-
 type StatefullWorker interface {
-	UpdateState(lines []string, client_id string)
+	UpdateState(lines []string, client_id string, message_id string)
 	HandleEOF(client_id string) error
 	MapToLines(client_id string) string
-	ShouldCommit(messages_before_commit int, client_id string) bool
+	ShouldCommit(messages_before_commit int, client_id string, message_id string) bool
 	NewClient(client_id string)
 }
 
 var log = logging.MustGetLogger("common_group_by")
 
 func SendResult(w worker.Worker, s StatefullWorker, client_id string) error {
-	send_queue_key := w.Exchange.OutputRoutingKeys[0] // POR QUE VA A ENVIAR A UN UNICO NODO MAESTRO
-	message_to_send := client_id + worker.MESSAGE_SEPARATOR + s.MapToLines(client_id)
-	err := w.SendMessage(message_to_send, send_queue_key)
+	send_queue_key := w.Exchange.OutputRoutingKeys[0]
+	message_id, err := uuid.NewRandom()
+	if err != nil {
+		log.Errorf("Error generating uuid: %s", err.Error())
+		return err
+	}
+	message_to_send := client_id + worker.MESSAGE_SEPARATOR + message_id.String() + worker.MESSAGE_SEPARATOR + s.MapToLines(client_id)
+	err = w.SendMessage(message_to_send, send_queue_key)
 	if err != nil {
 		log.Errorf("Error sending message: %s", err.Error())
 		return err
 	}
-
-	message_to_send = client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
+	message_id, err = uuid.NewRandom()
+	if err != nil {
+		log.Errorf("Error generating uuid: %s", err.Error())
+		return err
+	}
+	message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_id.String() + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
 	err = w.SendMessage(message_to_send, send_queue_key)
 	if err != nil {
 		log.Errorf("Error sending message: %s", err.Error())
@@ -63,9 +69,9 @@ func RunWorker(s StatefullWorker, ctx context.Context, w worker.Worker, starting
 			message.Ack(false)
 			continue
 		}
-
-		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
-		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
+		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 3)[0]
+		message_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 3)[1]
+		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 3)[2]
 		s.NewClient(client_id)
 
 		if message_str == worker.MESSAGE_EOF {
@@ -79,11 +85,22 @@ func RunWorker(s StatefullWorker, ctx context.Context, w worker.Worker, starting
 
 		messages_since_last_commit += 1
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
-		s.UpdateState(lines, client_id)
-		if s.ShouldCommit(messages_since_last_commit, client_id) {
+		s.UpdateState(lines, client_id, message_id)
+		if s.ShouldCommit(messages_since_last_commit, client_id, message_id) {
 			messages_since_last_commit = 0
 		}
 		message.Ack(false)
+	}
+}
+
+func RestoreStateIfNeeded(last_messages_in_state, last_messages_in_ids map[string]string, node_name string) {
+	// recorro los ultimos ids guardados en el estado que es quien tiene la posta del ultimo mensaje (primero guardo estado, luego appendeo)
+	// si hay alguno que no esten igual, eso significa que me mori antes de appendear el ultimo mensaje
+	// por lo tanto, a ese nodo, de ese cliente, le mando el ultimo movie id que este en el estado al log de ids
+	for client_id, last_movie_id := range last_messages_in_state {
+		if bv, ok := last_messages_in_ids[client_id]; !ok || bv != last_movie_id {
+			appendIds(node_name, last_movie_id, client_id)
+		}
 	}
 }
 
@@ -108,106 +125,155 @@ func RunWorker(s StatefullWorker, ctx context.Context, w worker.Worker, starting
 // si el archivo ya existe y esta todo bien, pudo o no haber pasado error de tipo 2), no lo sabemos...
 // la solucion que se me ocurre es quiza mandar los timestamps en los mensajes? quiza podemos rescatar algo de eso
 
-func StoreElementsWithMovies[T any](
-	results map[string]T,
-	client_id, node_name string,
-	replicas int,
-	movies_id []string,
-) {
-	before_write_function := func(f *os.File) {
-		for _, id := range movies_id {
-			fmt.Fprintf(f, "movie: %s\n", id)
-		}
-	}
-
-	// Llamamos a la genérica con el hook
-	genericStoreElements(results, client_id, node_name, replicas, before_write_function)
-}
-
-func StoreElements[T any](results map[string]T, client_id, node_name string, replicas int) {
-	genericStoreElements(results, client_id, node_name, replicas, nil)
-}
-
-// node_name deberia ser algo como por ej group-by-country-sum-1 (los mismos nombres que usamos para los containers de docker seria lo ideal creo yo)
-func genericStoreElements[T any](results map[string]T, client_id, node_name string, replicas int, before_write_function func(f *os.File)) {
-	dir := filepath.Join("logs", node_name)
+func appendIds(node_name string, last_movie_id string, client_id string) {
+	dir := filepath.Join("ids", node_name)
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		panic("Che, si no puedo crear el directorio medio que cagamos fuego")
 	}
-	filename := fmt.Sprintf("%s/%s_0.txt", dir, client_id)
 
-	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	filename := fmt.Sprintf("%s/%s_ids.txt", dir, client_id)
+
+	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		panic("Si no pudimos crear el archivo, medio que cagamos fuego tambien")
 	}
 	defer f.Close()
 
-	initTime := time.Now().UTC().Format(time.RFC3339)
-	fmt.Fprintf(f, "INIT %s\n", initTime) // los Fprintf tienen short writes?
-
-	if before_write_function != nil {
-		before_write_function(f)
-	}
-
-	data, err := json.MarshalIndent(results, "", "  ")
-	if err != nil {
-		panic(err)
-	}
-	f.Write(data)
-	f.Write([]byte("\n"))
-
-	endTime := time.Now().UTC().Format(time.RFC3339)
-	fmt.Fprintf(f, "END %s\n", endTime)
-
-	for i := 1; i <= replicas; i++ {
-		replicaFilename := fmt.Sprintf("%s/%s_%d.txt", dir, client_id, i)
-		err := copyFile(filename, replicaFilename)
-		if err != nil {
-			log.Infof("Error creando la replica, no nos molesta realmente %d\n", i)
-		}
+	if _, err := f.WriteString(last_movie_id); err != nil {
+		panic("Por ahora paniqueamos ni idea")
 	}
 }
 
-func copyFile(filename_to_copy string, filename_destination string) error {
-	original, err := os.Open(filename_to_copy)
-	if err != nil {
-		return err
+func StoreElementsWithMovies[T any](
+	results map[string]T,
+	client_id, node_name string,
+	last_movie_id string,
+) {
+	after_write_function := func(f *os.File) {
+		fmt.Fprintf(f, "LAST_ID %s\n", last_movie_id)
 	}
-	defer original.Close()
 
-	destination, err := os.Create(filename_destination)
-	if err != nil {
-		return err
-	}
-	defer destination.Close()
+	genericStoreElements(results, client_id, node_name, after_write_function)
 
-	// Copy tiene short writes?
-	_, err = io.Copy(destination, original)
-	return err
+	appendIds(node_name, last_movie_id, client_id)
+
 }
 
-func GetElements[T any](node_name string, number_of_logs_to_search int) (map[string]map[string]T, []string, map[string][]string) {
-	grouped := make(map[string]map[string]T)
-	movies_map := make(map[string][]string)
+func GetIds(node_name string) (map[string][]string, map[string]string) {
+	grouped := make(map[string][]string)
+	last_messages := make(map[string]string)
 
-	dir := fmt.Sprintf("logs/%s", node_name)
-	visited_clients := make(map[string]bool)
-	client_counter := make(map[string]int)
+	dir := fmt.Sprintf("ids/%s", node_name)
 	files, err := os.ReadDir(dir)
 	if err != nil {
-		return grouped, nil, nil // si no existia el directorio, te devuelvo las cosas como vacios
+		return grouped, last_messages // si no existia el directorio, te devuelvo las cosas como vacios
 	}
 
 	for _, entry := range files {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".txt") {
 			continue
 		}
-		clientID := strings.Split(entry.Name(), "_")[0]
-		if visited_clients[clientID] { // si ya te marque que tengo un estado OK, empeza a ignorar el resto de archivos de este cliente
+		client_id := strings.Split(entry.Name(), "_")[0]
+
+		filePath := fmt.Sprintf("%s/%s", dir, entry.Name())
+		if info, err := os.Stat(filePath); err == nil {
+			if info.Size() == 0 {
+				continue
+			}
+		}
+		f, err := os.Open(filePath)
+		if err != nil {
 			continue
 		}
-		client_counter[clientID] = client_counter[clientID] + 1
+		defer f.Close()
+
+		scanner := bufio.NewScanner(f)
+		var ids []string
+
+		for scanner.Scan() {
+			line := scanner.Text()
+			ids = append(ids, line)
+			last_messages[client_id] = line
+		}
+
+		grouped[client_id] = ids
+
+	}
+
+	return grouped, last_messages
+}
+
+func StoreElements[T any](results map[string]T, client_id, node_name string) {
+	genericStoreElements(results, client_id, node_name, nil)
+}
+
+// node_name deberia ser algo como por ej group-by-country-sum-1 (los mismos nombres que usamos para los containers de docker seria lo ideal creo yo)
+func genericStoreElements[T any](results map[string]T, client_id, node_name string, after_write_function func(f *os.File)) {
+	dir := filepath.Join("logs", node_name)
+	err := os.MkdirAll(dir, 0755)
+	if err != nil {
+		panic("Che, si no puedo crear el directorio medio que cagamos fuego")
+	}
+
+	commited_filename := filepath.Join(dir, fmt.Sprintf("%s_commited.txt", client_id))
+
+	// Crear archivo temporal (en el mismo dir para asegurar que Rename sea atómico)
+	tmpFile, err := os.CreateTemp(dir, client_id+"_*.tmp")
+	if err != nil {
+		panic("No se pudo crear archivo temporal")
+	}
+
+	tmpFilePath := tmpFile.Name()
+	cleanup := func() {
+		tmpFile.Close()
+		os.Remove(tmpFilePath)
+	}
+
+	data, err := json.MarshalIndent(results, "", "  ")
+	if err != nil {
+		cleanup()
+	}
+	if _, err := tmpFile.Write(data); err != nil {
+		cleanup()
+	}
+	if _, err := tmpFile.Write([]byte("\n")); err != nil {
+		cleanup()
+	}
+
+	if after_write_function != nil {
+		after_write_function(tmpFile)
+	}
+
+	// Asegurarse que todo esté en disco
+	if err := tmpFile.Sync(); err != nil {
+		cleanup()
+	}
+
+	// Rename atómico
+	if err := os.Rename(tmpFile.Name(), commited_filename); err != nil {
+		cleanup()
+	}
+	// como lo renombre, ya no existe por lo que no hago el remove :) medio feo por que no puedo usar defer
+	tmpFile.Close()
+}
+
+func GetElements[T any](node_name string) (map[string]map[string]T, []string, map[string]string) {
+	grouped := make(map[string]map[string]T)
+	last_messages := make(map[string]string)
+
+	dir := fmt.Sprintf("logs/%s", node_name)
+
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return grouped, nil, last_messages // si no existia el directorio, te devuelvo las cosas como vacios
+	}
+
+	for _, entry := range files {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".txt") {
+			continue
+		}
+		client_id := strings.Split(entry.Name(), "_")[0]
 
 		filePath := fmt.Sprintf("%s/%s", dir, entry.Name())
 		if info, err := os.Stat(filePath); err == nil {
@@ -223,34 +289,15 @@ func GetElements[T any](node_name string, number_of_logs_to_search int) (map[str
 
 		scanner := bufio.NewScanner(f)
 		var jsonLines []string
-		var movies []string
-		var initTimeStr, endTimeStr string
 
 		for scanner.Scan() {
 			line := scanner.Text()
-
 			switch {
-			case strings.HasPrefix(line, "INIT"):
-				initTimeStr = strings.Fields(line)[1]
-
-			case strings.HasPrefix(line, "END"):
-				endTimeStr = strings.Fields(line)[1]
-
-			case strings.HasPrefix(line, "movie:"):
-				movies = append(movies, strings.TrimPrefix(line, "movie: "))
-
+			case strings.HasPrefix(line, "LAST_ID"):
+				last_messages[client_id] = strings.Fields(line)[1]
 			default:
 				jsonLines = append(jsonLines, line)
 			}
-		}
-
-		initTime, err := time.Parse(time.RFC3339, initTimeStr)
-		if err != nil {
-			continue
-		}
-		endTime, err := time.Parse(time.RFC3339, endTimeStr)
-		if err != nil || endTime.Before(initTime) {
-			continue
 		}
 
 		var inner map[string]T
@@ -258,21 +305,9 @@ func GetElements[T any](node_name string, number_of_logs_to_search int) (map[str
 		if err != nil {
 			continue
 		}
-		grouped[clientID] = inner
-		movies_map[clientID] = movies
-		visited_clients[clientID] = true
-	}
-	var clients_with_wrong_state []string
-	for key, value := range client_counter {
-		if !visited_clients[key] && value == number_of_logs_to_search+1 {
-			clients_with_wrong_state = append(clients_with_wrong_state, key)
-		}
+		grouped[client_id] = inner
+
 	}
 
-	if len(clients_with_wrong_state) != 0 {
-		return grouped, clients_with_wrong_state, movies_map // aca te paso esto, seguramente lo tengamos que guardar en algun lado en el nodo
-		// asi sabe a que clientes le termina de mandar el EOF-FAIL :)
-	}
-
-	return grouped, nil, movies_map
+	return grouped, nil, last_messages
 }

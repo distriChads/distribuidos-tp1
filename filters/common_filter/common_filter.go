@@ -12,8 +12,8 @@ import (
 
 type Filter interface {
 	Filter(lines []string) []string
-	HandleEOF(client_id string) error
-	SendMessage(lines []string, client_id string) error
+	HandleEOF(client_id string, message_id string) error
+	SendMessage(lines []string, client_id string, message_id string) error
 }
 
 var log = logging.MustGetLogger("common_filter")
@@ -36,8 +36,9 @@ func RunWorker(f Filter, worker worker.Worker, ctx context.Context, starting_mes
 			continue
 		}
 
-		client_id := strings.SplitN(message_str, worker_package.MESSAGE_SEPARATOR, 2)[0]
-		message_str = strings.SplitN(message_str, worker_package.MESSAGE_SEPARATOR, 2)[1]
+		client_id := strings.SplitN(message_str, worker_package.MESSAGE_SEPARATOR, 3)[0]
+		message_id := strings.SplitN(message_str, worker_package.MESSAGE_SEPARATOR, 3)[1]
+		message_str = strings.SplitN(message_str, worker_package.MESSAGE_SEPARATOR, 3)[2]
 
 		if len(message_str) == 0 {
 			log.Warning("Received empty message")
@@ -46,7 +47,7 @@ func RunWorker(f Filter, worker worker.Worker, ctx context.Context, starting_mes
 		}
 
 		if strings.TrimSpace(message_str) == worker_package.MESSAGE_EOF {
-			err := f.HandleEOF(client_id)
+			err := f.HandleEOF(client_id, message_id)
 			if err != nil {
 				log.Infof("Error sending message: %s", err.Error())
 				return err
@@ -59,7 +60,7 @@ func RunWorker(f Filter, worker worker.Worker, ctx context.Context, starting_mes
 		filtered_lines := f.Filter(lines)
 
 		if len(filtered_lines) != 0 {
-			err = f.SendMessage(filtered_lines, client_id)
+			err = f.SendMessage(filtered_lines, client_id, message_id)
 			if err != nil {
 				log.Infof("Error sending message: %s", err.Error())
 				return err

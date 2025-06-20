@@ -5,6 +5,7 @@ from textblob import TextBlob
 import logging
 from .worker import Worker, WorkerConfig, MESSAGE_SEPARATOR, MESSAGE_EOF
 import queue
+import uuid
 
 log = logging.getLogger("machine_learning")
 
@@ -125,13 +126,13 @@ class MachineLearning:
                 if not raw_msg:
                     continue
 
-                client_id, message = raw_msg.split(MESSAGE_SEPARATOR, 1)
+                client_id, _, message = raw_msg.split(MESSAGE_SEPARATOR, 2)
                 if client_id not in self.batches_per_client:
                     self.batches_per_client[client_id] = []
                     self.movies_processed_per_client[client_id] = 0
 
                 if message == MESSAGE_EOF:
-                    self._process_remaining_messages(raw_msg, client_id)
+                    self._process_remaining_messages(message, client_id)
                     continue
 
                 self.use_all_messages_up(client_id, message)
@@ -181,18 +182,21 @@ class MachineLearning:
 
         return valid_movies, revenue_0_in_batch
 
-    def _process_remaining_messages(self, raw_msg: str, client_id: str):
+    def _process_remaining_messages(self, message: str, client_id: str):
         if len(self.batches_per_client[client_id]) > 0:
             self.__process_and_send_batch(client_id)
             del self.batches_per_client[client_id]
 
+        
         for routing_key in self.output_routing_keys:
-            self.worker.send_message(raw_msg, routing_key)
+            identifier = str(uuid.uuid4())
+            self.worker.send_message(f"{client_id}{MESSAGE_SEPARATOR}{identifier}{MESSAGE_SEPARATOR}{message}", routing_key)
         log.info("Sent EOF to all routing keys")
 
     def __process_and_send_batch(self, client_id: str):
         for result in self.__process_batch(client_id):
-            result = f"{client_id}{MESSAGE_SEPARATOR}{result}"
+            identifier = str(uuid.uuid4())
+            result = f"{client_id}{MESSAGE_SEPARATOR}{identifier}{MESSAGE_SEPARATOR}{result}"
             routing_queue = self.output_routing_keys[self.queue_to_send]
             self.worker.send_message(result, routing_queue)
             self.queue_to_send = (

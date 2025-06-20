@@ -34,7 +34,7 @@ func (g *TopTenCastMovie) NewClient(client_id string) {
 	}
 }
 
-func (g *TopTenCastMovie) ShouldCommit(messages_before_commit int, client_id string) bool {
+func (g *TopTenCastMovie) ShouldCommit(messages_before_commit int, client_id string, message_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
 		storeGroupedElements(g.top_ten[client_id], client_id)
 		return true
@@ -64,7 +64,7 @@ func (g *TopTenCastMovie) HandleEOF(client_id string) error {
 	return nil
 }
 
-func (g *TopTenCastMovie) UpdateState(lines []string, client_id string) {
+func (g *TopTenCastMovie) UpdateState(lines []string, client_id string, message_id string) {
 	g.top_ten[client_id] = updateTopTen(lines, g.top_ten[client_id])
 }
 

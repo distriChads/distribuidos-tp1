@@ -63,16 +63,16 @@ func (f *FilterBySpainAndOf2000) Filter(lines []string) []string {
 	return result
 }
 
-func (f *FilterBySpainAndOf2000) HandleEOF(client_id string) error {
+func (f *FilterBySpainAndOf2000) HandleEOF(client_id string, message_id string) error {
 	return nil
 }
 
-func (f *FilterBySpainAndOf2000) SendMessage(message_to_send []string, client_id string) error {
+func (f *FilterBySpainAndOf2000) SendMessage(message_to_send []string, client_id string, message_id string) error {
 	message := strings.Join(message_to_send, "\n")
 	if len(message) != 0 {
 		// send_queue_key := f.Worker.OutputExchange.RoutingKeys[f.queue_to_send]
 		send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
-		message = client_id + worker.MESSAGE_SEPARATOR + message
+		message = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message
 		err := f.Worker.SendMessage(message, send_queue_key)
 		// f.queue_to_send = (f.queue_to_send + 1) % len(f.Worker.OutputExchange.RoutingKeys)
 		if err != nil {

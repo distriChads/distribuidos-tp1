@@ -4,6 +4,7 @@ import (
 	worker "distribuidos-tp1/common/worker/worker"
 	"distribuidos-tp1/common_statefull_worker"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/op/go-logging"
@@ -16,12 +17,10 @@ type GroupByActorAndCountConfig struct {
 type GroupByActorAndCount struct {
 	worker.Worker
 	messages_before_commit int
-	expected_eof           int
 	grouped_elements       map[string]map[string]int
 	eofs                   map[string]int
 	node_name              string
-	log_replicas           int
-	movies_id              map[string][]string // id cliente a muchos ids de mensajes recibidos
+	messages_id            map[string][]string
 }
 
 var log = logging.MustGetLogger("group_by_actor_count")
@@ -35,9 +34,9 @@ func (g *GroupByActorAndCount) NewClient(client_id string) {
 	}
 }
 
-func (g *GroupByActorAndCount) ShouldCommit(messages_before_commit int, client_id string) bool {
+func (g *GroupByActorAndCount) ShouldCommit(messages_before_commit int, client_id string, message_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
-		common_statefull_worker.StoreElementsWithMovies(g.grouped_elements[client_id], client_id, g.node_name, g.log_replicas, g.movies_id[client_id])
+		common_statefull_worker.StoreElementsWithMovies(g.grouped_elements[client_id], client_id, g.node_name, message_id)
 		return true
 	}
 	return false
@@ -75,29 +74,34 @@ func (g *GroupByActorAndCount) HandleEOF(client_id string) error {
 	return nil
 }
 
-func (g *GroupByActorAndCount) UpdateState(lines []string, client_id string) {
-	g.movies_id[client_id] = groupByActorAndUpdate(lines, g.grouped_elements[client_id], g.movies_id[client_id])
+func (g *GroupByActorAndCount) UpdateState(lines []string, client_id string, message_id string) {
+	if slices.Contains(g.messages_id[client_id], message_id) {
+		log.Warning("Mensaje repetido")
+		return
+	}
+	g.messages_id[client_id] = append(g.messages_id[client_id], message_id)
+	groupByActorAndUpdate(lines, g.grouped_elements[client_id])
 }
 
 const ACTORS = 1
 
-func groupByActorAndUpdate(lines []string, grouped_elements map[string]int, movies_id []string) []string {
+func groupByActorAndUpdate(lines []string, grouped_elements map[string]int) {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
-		movies_id = append(movies_id, parts[common_statefull_worker.MOVIE_ID])
 
 		actors := strings.Split(parts[ACTORS], worker.MESSAGE_ARRAY_SEPARATOR)
 		for _, actor := range actors {
 			grouped_elements[actor] += 1
 		}
 	}
-	return movies_id
 }
 
 func NewGroupByActorAndCount(config GroupByActorAndCountConfig, messages_before_commit int, node_name string) *GroupByActorAndCount {
 	log.Infof("GroupByActorAndCount: %+v", config)
-	replicas := 3
-	grouped_elements, _, _ := common_statefull_worker.GetElements[int](node_name, replicas+1)
+	grouped_elements, _, last_messages_in_state := common_statefull_worker.GetElements[int](node_name)
+	messages_id, last_messages_in_id := common_statefull_worker.GetIds(node_name)
+
+	common_statefull_worker.RestoreStateIfNeeded(last_messages_in_state, last_messages_in_id, node_name)
 	worker, err := worker.NewWorker(config.WorkerConfig)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
@@ -109,7 +113,6 @@ func NewGroupByActorAndCount(config GroupByActorAndCountConfig, messages_before_
 		grouped_elements:       grouped_elements,
 		eofs:                   make(map[string]int),
 		node_name:              node_name,
-		log_replicas:           3,
-		movies_id:              make(map[string][]string),
+		messages_id:            messages_id,
 	}
 }

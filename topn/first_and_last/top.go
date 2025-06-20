@@ -38,7 +38,7 @@ func (g *FirstAndLast) NewClient(client_id string) {
 	}
 }
 
-func (g *FirstAndLast) ShouldCommit(messages_before_commit int, client_id string) bool {
+func (g *FirstAndLast) ShouldCommit(messages_before_commit int, client_id string, message_id string) bool {
 	if messages_before_commit >= g.messages_before_commit {
 		storeGroupedElements(g.first_and_last_movies[client_id], client_id)
 		return true
@@ -70,7 +70,7 @@ func (g *FirstAndLast) HandleEOF(client_id string) error {
 	return nil
 }
 
-func (g *FirstAndLast) UpdateState(lines []string, client_id string) {
+func (g *FirstAndLast) UpdateState(lines []string, client_id string, message_id string) {
 	g.first_and_last_movies[client_id] = updateFirstAndLast(lines, g.first_and_last_movies[client_id])
 }
 

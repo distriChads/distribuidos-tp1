@@ -112,8 +112,9 @@ class Worker:
     def send_message(self, message: str, routing_key: str):
         if not self.sender:
             raise Exception("Sender not initialized")
-
-        message = f"{self.client_id}|{message}"
+        
+        identifier = str(uuid.uuid4())
+        message = f"{self.client_id}|{identifier}|{message}"
         self.sender.ch.basic_publish(
             exchange=self.exchange.name,
             routing_key=routing_key,

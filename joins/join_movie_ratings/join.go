@@ -22,7 +22,6 @@ type JoinMovieRatingById struct {
 	pending_ratings     map[string][]string
 	received_movies     bool
 	node_name           string
-	log_replicas        int
 }
 
 // ---------------------------------
@@ -56,9 +55,7 @@ func joinMovieWithRating(lines []string, movies_by_id map[string]string) []strin
 
 func NewJoinMovieRatingById(config JoinMovieRatingByIdConfig, node_name string) *JoinMovieRatingById {
 	log.Infof("JoinMovieRatingById: %+v", config)
-
-	replicas := 3
-	grouped_elements, _, _ := common_statefull_worker.GetElements[string](node_name, replicas+1)
+	grouped_elements, _, _ := common_statefull_worker.GetElements[string](node_name)
 	worker, err := worker.NewWorker(config.WorkerConfig)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
@@ -71,7 +68,6 @@ func NewJoinMovieRatingById(config JoinMovieRatingByIdConfig, node_name string) 
 		pending_ratings:     make(map[string][]string),
 		received_movies:     false,
 		node_name:           node_name,
-		log_replicas:        replicas,
 	}
 }
 
@@ -87,8 +83,10 @@ func (f *JoinMovieRatingById) RunWorker(ctx context.Context, starting_message st
 			return err
 		}
 		message_str := string(msg.Body)
-		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[0]
-		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 2)[1]
+
+		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 3)[0]
+		message_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 3)[1]
+		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 3)[2]
 
 		if inputIndex == 0 { // recibiendo movies
 			if _, ok := f.client_movies_by_id[client_id]; !ok {
@@ -103,7 +101,7 @@ func (f *JoinMovieRatingById) RunWorker(ctx context.Context, starting_message st
 					message_to_send := strings.Join(result, "\n")
 					if len(message_to_send) != 0 {
 						send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
-						message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_to_send
+						message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message_to_send
 						err := f.Worker.SendMessage(message_to_send, send_queue_key)
 						if err != nil {
 							log.Infof("Error sending message: %s", err.Error())
@@ -119,7 +117,7 @@ func (f *JoinMovieRatingById) RunWorker(ctx context.Context, starting_message st
 
 			line := strings.TrimSpace(message_str)
 			storeMovieWithId(line, f.client_movies_by_id[client_id])
-			common_statefull_worker.StoreElements(f.client_movies_by_id[client_id], client_id, f.node_name, f.log_replicas)
+			common_statefull_worker.StoreElements(f.client_movies_by_id[client_id], client_id, f.node_name)
 			msg.Ack(false)
 
 		} else { // recibiendo credits
@@ -133,7 +131,7 @@ func (f *JoinMovieRatingById) RunWorker(ctx context.Context, starting_message st
 			if message_str == worker.MESSAGE_EOF {
 				log.Warning("RECIBO EOF DE LOS RATINGS")
 				send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
-				message_to_send := client_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
+				message_to_send := client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
 				err := f.Worker.SendMessage(message_to_send, send_queue_key)
 				if err != nil {
 					log.Infof("Error sending message: %s", err.Error())
@@ -149,7 +147,7 @@ func (f *JoinMovieRatingById) RunWorker(ctx context.Context, starting_message st
 			message_to_send := strings.Join(result, "\n")
 			if len(message_to_send) != 0 {
 				send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
-				message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_to_send
+				message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message_to_send
 				err := f.Worker.SendMessage(message_to_send, send_queue_key)
 				if err != nil {
 					log.Infof("Error sending message: %s", err.Error())

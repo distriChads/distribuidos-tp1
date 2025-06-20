@@ -120,14 +120,14 @@ func (r *Router) RunWorker(ctx context.Context, starting_message string) error {
 func (r *Router) routeDataByMovieId(outputRoutingKeys []string, inputData string) []string {
 	dataDistributed := make([]string, len(outputRoutingKeys))
 
-	splitedData := strings.SplitN(inputData, FIELD_SEPARATOR, 2)
-	clientId, message := splitedData[0], splitedData[1]
+	splitedData := strings.SplitN(inputData, FIELD_SEPARATOR, 3)
+	clientId, message_id, message := splitedData[0], splitedData[1], splitedData[2]
 	lines := strings.Split(message, LINE_SEPARATOR)
 
 	if message == worker.MESSAGE_EOF {
 		log.Infof("Received EOF message from client %s", clientId)
 		for i := range dataDistributed {
-			dataDistributed[i] = clientId + FIELD_SEPARATOR + worker.MESSAGE_EOF
+			dataDistributed[i] = clientId + FIELD_SEPARATOR + message_id + FIELD_SEPARATOR + worker.MESSAGE_EOF
 		}
 		return dataDistributed
 	}
@@ -150,7 +150,7 @@ func (r *Router) routeDataByMovieId(outputRoutingKeys []string, inputData string
 
 		indexForSharding := movieId % len(outputRoutingKeys)
 		if len(dataDistributed[indexForSharding]) == 0 {
-			dataDistributed[indexForSharding] = clientId + FIELD_SEPARATOR + line
+			dataDistributed[indexForSharding] = clientId + FIELD_SEPARATOR + message_id + FIELD_SEPARATOR + line
 		} else {
 			dataDistributed[indexForSharding] += LINE_SEPARATOR + line
 		}

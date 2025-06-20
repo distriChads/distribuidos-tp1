@@ -95,8 +95,8 @@ class ClientHandler:
     def __manage_client_results(self):
         for method_frame, _properties, result_encoded in self.worker.received_messages():
             result = result_encoded.decode('utf-8')
-            client_id = result.split("|", 1)[0]
-            result = result.split("|", 1)[1]
+            client_id = result.split("|", 2)[0]
+            result = result.split("|", 2)[2]
             query_number = method_frame.routing_key.split(".")[0]
             logging.info(
                 "Received result for client %s from worker: %s", client_id, result)
