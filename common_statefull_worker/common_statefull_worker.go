@@ -215,7 +215,6 @@ func StoreElements[T any](results map[string]T, client_id, storage_base_dir stri
 	genericStoreElements(results, client_id, storage_base_dir, nil)
 }
 
-// storage_base_dir deberia ser algo como por ej group-by-country-sum-1 (los mismos nombres que usamos para los containers de docker seria lo ideal creo yo)
 func genericStoreElements[T any](results map[string]T, client_id, storage_base_dir string, after_write_function func(f *os.File)) {
 	dir := filepath.Join(storage_base_dir, "state")
 	err := os.MkdirAll(dir, 0755)
@@ -226,7 +225,6 @@ func genericStoreElements[T any](results map[string]T, client_id, storage_base_d
 
 	commited_filename := filepath.Join(dir, fmt.Sprintf("%s_commited.txt", client_id))
 
-	// Crear archivo temporal (en el mismo dir para asegurar que Rename sea atómico)
 	tmpFile, err := os.CreateTemp(dir, client_id+"_*.tmp")
 	if err != nil {
 		panic("No se pudo crear archivo temporal")
@@ -253,12 +251,10 @@ func genericStoreElements[T any](results map[string]T, client_id, storage_base_d
 		after_write_function(tmpFile)
 	}
 
-	// Asegurarse que todo esté en disco
 	if err := tmpFile.Sync(); err != nil {
 		cleanup()
 	}
 
-	// Rename atómico
 	if err := os.Rename(tmpFile.Name(), commited_filename); err != nil {
 		cleanup()
 	}
