@@ -19,7 +19,7 @@ type TopFiveCountryBudgetConfig struct {
 
 type TopFiveCountryBudget struct {
 	worker.Worker
-	top_five               map[string][]CountrByBudget
+	top_five               map[string]map[string][]CountrByBudget
 	messages_before_commit int
 	storage_base_dir       string
 }
@@ -33,19 +33,25 @@ var log = logging.MustGetLogger("top_five_country_budget")
 
 func (g *TopFiveCountryBudget) EnsureClient(client_id string) {
 	if _, ok := g.top_five[client_id]; !ok {
-		g.top_five[client_id] = make([]CountrByBudget, 0)
+		g.top_five[client_id] = make(map[string][]CountrByBudget, 0)
+	}
+	if _, ok := g.top_five[client_id][client_id]; !ok {
+		g.top_five[client_id][client_id] = make([]CountrByBudget, 0)
 	}
 }
 
 func (g *TopFiveCountryBudget) HandleCommit(client_id string, message amqp091.Delivery) error {
 
-	storeGroupedElements(g.top_five[client_id], client_id)
+	err := common_statefull_worker.StoreElements(g.top_five[client_id], client_id, g.storage_base_dir)
+	if err != nil {
+		return err
+	}
 	message.Ack(false)
 	return nil
 }
 
 func (g *TopFiveCountryBudget) MapToLines(client_id string) string {
-	return mapToLines(g.top_five[client_id])
+	return mapToLines(g.top_five[client_id][client_id])
 }
 
 func mapToLines(top_five []CountrByBudget) string {
@@ -63,11 +69,12 @@ func (g *TopFiveCountryBudget) HandleEOF(client_id string, message_id string) er
 		return err
 	}
 	delete(g.top_five, client_id)
+	common_statefull_worker.CleanState(g.storage_base_dir, client_id)
 	return nil
 }
 
 func (g *TopFiveCountryBudget) UpdateState(lines []string, client_id string, message_id string) {
-	g.top_five[client_id] = updateTopFive(lines, g.top_five[client_id])
+	g.top_five[client_id][client_id] = updateTopFive(lines, g.top_five[client_id][client_id])
 }
 
 // ---------------------------------
@@ -107,17 +114,9 @@ func updateTopFive(lines []string, top_five []CountrByBudget) []CountrByBudget {
 	return top_five
 }
 
-func storeGroupedElements(results []CountrByBudget, client_id string) {
-	// TODO: Dumpear el hashmap a un archivo
-}
-
-func getGroupedElements() []CountrByBudget {
-	// TODO: Cuando se caiga un worker, deberia leer de este archivo lo que estuvo obteniendo
-	return []CountrByBudget{}
-}
-
 func NewTopFiveCountryBudget(config TopFiveCountryBudgetConfig, messages_before_commit int, storage_base_dir string) *TopFiveCountryBudget {
 	log.Infof("TopFiveCountryBudget: %+v", config)
+	grouped_elements, _, _ := common_statefull_worker.GetElements[[]CountrByBudget](storage_base_dir)
 	worker, err := worker.NewWorker(config.WorkerConfig, 1)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
@@ -126,7 +125,7 @@ func NewTopFiveCountryBudget(config TopFiveCountryBudgetConfig, messages_before_
 
 	return &TopFiveCountryBudget{
 		Worker:                 *worker,
-		top_five:               make(map[string][]CountrByBudget, 0),
+		top_five:               grouped_elements,
 		messages_before_commit: messages_before_commit,
 		storage_base_dir:       storage_base_dir,
 	}

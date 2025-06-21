@@ -19,7 +19,7 @@ type TopTenCastMovieConfig struct {
 
 type TopTenCastMovie struct {
 	worker.Worker
-	top_ten                map[string][]TopTenCastCount
+	top_ten                map[string]map[string][]TopTenCastCount
 	messages_before_commit int
 	storage_base_dir       string
 }
@@ -33,19 +33,24 @@ var log = logging.MustGetLogger("top_ten_cast_movie")
 
 func (g *TopTenCastMovie) EnsureClient(client_id string) {
 	if _, ok := g.top_ten[client_id]; !ok {
-		g.top_ten[client_id] = make([]TopTenCastCount, 0)
+		g.top_ten[client_id] = make(map[string][]TopTenCastCount, 0)
+	}
+	if _, ok := g.top_ten[client_id][client_id]; !ok {
+		g.top_ten[client_id][client_id] = make([]TopTenCastCount, 0)
 	}
 }
 
 func (g *TopTenCastMovie) HandleCommit(client_id string, message amqp091.Delivery) error {
-
-	storeGroupedElements(g.top_ten[client_id], client_id)
+	err := common_statefull_worker.StoreElements(g.top_ten[client_id], client_id, g.storage_base_dir)
+	if err != nil {
+		return err
+	}
 	message.Ack(false)
 	return nil
 }
 
 func (g *TopTenCastMovie) MapToLines(client_id string) string {
-	return mapToLines(g.top_ten[client_id])
+	return mapToLines(g.top_ten[client_id][client_id])
 }
 
 func mapToLines(top_ten []TopTenCastCount) string {
@@ -63,11 +68,12 @@ func (g *TopTenCastMovie) HandleEOF(client_id string, message_id string) error {
 		return err
 	}
 	delete(g.top_ten, client_id)
+	common_statefull_worker.CleanState(g.storage_base_dir, client_id)
 	return nil
 }
 
 func (g *TopTenCastMovie) UpdateState(lines []string, client_id string, message_id string) {
-	g.top_ten[client_id] = updateTopTen(lines, g.top_ten[client_id])
+	g.top_ten[client_id][client_id] = updateTopTen(lines, g.top_ten[client_id][client_id])
 }
 
 // ---------------------------------
@@ -111,17 +117,9 @@ func updateTopTen(lines []string, top_ten []TopTenCastCount) []TopTenCastCount {
 	return top_ten
 }
 
-func storeGroupedElements(results []TopTenCastCount, client_id string) {
-	// TODO: Dumpear el hashmap a un archivo
-}
-
-func getGroupedElements() []TopTenCastCount {
-	// TODO: Cuando se caiga un worker, deberia leer de este archivo lo que estuvo obteniendo
-	return []TopTenCastCount{}
-}
-
 func NewTopTenCastMovie(config TopTenCastMovieConfig, messages_before_commit int, storage_base_dir string) *TopTenCastMovie {
 	log.Infof("TopTenCastMovie: %+v", config)
+	grouped_elements, _, _ := common_statefull_worker.GetElements[[]TopTenCastCount](storage_base_dir)
 	worker, err := worker.NewWorker(config.WorkerConfig, 1)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
@@ -130,7 +128,7 @@ func NewTopTenCastMovie(config TopTenCastMovieConfig, messages_before_commit int
 
 	return &TopTenCastMovie{
 		Worker:                 *worker,
-		top_ten:                make(map[string][]TopTenCastCount, 0),
+		top_ten:                grouped_elements,
 		messages_before_commit: messages_before_commit,
 		storage_base_dir:       storage_base_dir,
 	}

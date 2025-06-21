@@ -17,7 +17,7 @@ type FirstAndLastConfig struct {
 
 type FirstAndLast struct {
 	worker.Worker
-	first_and_last_movies  map[string]FirstAndLastMovies
+	first_and_last_movies  map[string]map[string]FirstAndLastMovies
 	messages_before_commit int
 	storage_base_dir       string
 }
@@ -28,35 +28,42 @@ type MovieAvgByScore struct {
 }
 
 type FirstAndLastMovies struct {
-	first MovieAvgByScore
-	last  MovieAvgByScore
+	First MovieAvgByScore
+	Last  MovieAvgByScore
 }
 
 var log = logging.MustGetLogger("first_and_last")
 
 func (g *FirstAndLast) EnsureClient(client_id string) {
 	if _, ok := g.first_and_last_movies[client_id]; !ok {
-		g.first_and_last_movies[client_id] = FirstAndLastMovies{}
+		g.first_and_last_movies[client_id] = make(map[string]FirstAndLastMovies)
 	}
+	if _, ok := g.first_and_last_movies[client_id][client_id]; !ok {
+		g.first_and_last_movies[client_id][client_id] = FirstAndLastMovies{}
+	}
+
 }
 
 func (g *FirstAndLast) HandleCommit(client_id string, message amqp091.Delivery) error {
 
-	storeGroupedElements(g.first_and_last_movies[client_id], client_id)
+	err := common_statefull_worker.StoreElements(g.first_and_last_movies[client_id], client_id, g.storage_base_dir)
+	if err != nil {
+		return err
+	}
 	message.Ack(false)
 	return nil
 }
 
 func (g *FirstAndLast) MapToLines(client_id string) string {
-	return mapToLines(g.first_and_last_movies[client_id])
+	return mapToLines(g.first_and_last_movies[client_id][client_id])
 }
 
 func mapToLines(first_and_last_movies FirstAndLastMovies) string {
 	var lines []string
 
-	line := fmt.Sprintf("%s%s%f", first_and_last_movies.first.Movie, worker.MESSAGE_SEPARATOR, first_and_last_movies.first.Average)
+	line := fmt.Sprintf("%s%s%f", first_and_last_movies.First.Movie, worker.MESSAGE_SEPARATOR, first_and_last_movies.First.Average)
 	lines = append(lines, line)
-	line = fmt.Sprintf("%s%s%f", first_and_last_movies.last.Movie, worker.MESSAGE_SEPARATOR, first_and_last_movies.last.Average)
+	line = fmt.Sprintf("%s%s%f", first_and_last_movies.Last.Movie, worker.MESSAGE_SEPARATOR, first_and_last_movies.Last.Average)
 	lines = append(lines, line)
 
 	return strings.Join(lines, "\n")
@@ -68,11 +75,12 @@ func (g *FirstAndLast) HandleEOF(client_id string, message_id string) error {
 		return err
 	}
 	delete(g.first_and_last_movies, client_id)
+	common_statefull_worker.CleanState(g.storage_base_dir, client_id)
 	return nil
 }
 
 func (g *FirstAndLast) UpdateState(lines []string, client_id string, message_id string) {
-	g.first_and_last_movies[client_id] = updateFirstAndLast(lines, g.first_and_last_movies[client_id])
+	g.first_and_last_movies[client_id][client_id] = updateFirstAndLast(lines, g.first_and_last_movies[client_id][client_id])
 }
 
 // ---------------------------------
@@ -90,31 +98,23 @@ func updateFirstAndLast(lines []string, firstAndLastMovies FirstAndLastMovies) F
 			continue
 		}
 
-		if firstAndLastMovies.first.Movie == "" && firstAndLastMovies.last.Movie == "" {
-			firstAndLastMovies.first = MovieAvgByScore{Movie: movie, Average: average}
-			firstAndLastMovies.last = MovieAvgByScore{Movie: movie, Average: average}
+		if firstAndLastMovies.First.Movie == "" && firstAndLastMovies.Last.Movie == "" {
+			firstAndLastMovies.First = MovieAvgByScore{Movie: movie, Average: average}
+			firstAndLastMovies.Last = MovieAvgByScore{Movie: movie, Average: average}
 		} else {
-			if average >= firstAndLastMovies.first.Average {
-				firstAndLastMovies.first = MovieAvgByScore{Movie: movie, Average: average}
-			} else if average <= firstAndLastMovies.last.Average {
-				firstAndLastMovies.last = MovieAvgByScore{Movie: movie, Average: average}
+			if average >= firstAndLastMovies.First.Average {
+				firstAndLastMovies.First = MovieAvgByScore{Movie: movie, Average: average}
+			} else if average <= firstAndLastMovies.Last.Average {
+				firstAndLastMovies.Last = MovieAvgByScore{Movie: movie, Average: average}
 			}
 		}
 	}
 	return firstAndLastMovies
 }
 
-func storeGroupedElements(results FirstAndLastMovies, client_id string) {
-	// TODO: Dumpear el hashmap a un archivo
-}
-
-func getGroupedElements() FirstAndLastMovies {
-	// TODO: Cuando se caiga un worker, deberia leer de este archivo lo que estuvo obteniendo
-	return FirstAndLastMovies{}
-}
-
 func NewFirstAndLast(config FirstAndLastConfig, messages_before_commit int, storage_base_dir string) *FirstAndLast {
 	log.Infof("FirstAndLast: %+v", config)
+	grouped_elements, _, _ := common_statefull_worker.GetElements[FirstAndLastMovies](storage_base_dir)
 	worker, err := worker.NewWorker(config.WorkerConfig, 1)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
@@ -123,7 +123,7 @@ func NewFirstAndLast(config FirstAndLastConfig, messages_before_commit int, stor
 
 	return &FirstAndLast{
 		Worker:                 *worker,
-		first_and_last_movies:  make(map[string]FirstAndLastMovies, 0),
+		first_and_last_movies:  grouped_elements,
 		messages_before_commit: messages_before_commit,
 		storage_base_dir:       storage_base_dir,
 	}
