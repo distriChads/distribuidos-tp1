@@ -19,6 +19,7 @@ type FirstAndLast struct {
 	worker.Worker
 	first_and_last_movies  map[string]FirstAndLastMovies
 	messages_before_commit int
+	storage_base_dir       string
 }
 
 type MovieAvgByScore struct {
@@ -112,7 +113,7 @@ func getGroupedElements() FirstAndLastMovies {
 	return FirstAndLastMovies{}
 }
 
-func NewFirstAndLast(config FirstAndLastConfig, messages_before_commit int) *FirstAndLast {
+func NewFirstAndLast(config FirstAndLastConfig, messages_before_commit int, storage_base_dir string) *FirstAndLast {
 	log.Infof("FirstAndLast: %+v", config)
 	worker, err := worker.NewWorker(config.WorkerConfig, 1)
 	if err != nil {
@@ -124,5 +125,6 @@ func NewFirstAndLast(config FirstAndLastConfig, messages_before_commit int) *Fir
 		Worker:                 *worker,
 		first_and_last_movies:  make(map[string]FirstAndLastMovies, 0),
 		messages_before_commit: messages_before_commit,
+		storage_base_dir:       storage_base_dir,
 	}
 }

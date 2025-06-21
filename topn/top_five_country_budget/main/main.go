@@ -48,13 +48,13 @@ func main() {
 	if maxMessages == 0 {
 		maxMessages = 10
 	}
-
+	storage_base_dir := v.GetString("worker.storage")
 	topn := topn.NewTopFiveCountryBudget(topn.TopFiveCountryBudgetConfig{
 		WorkerConfig: worker.WorkerConfig{
 			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
 		},
-	}, maxMessages)
+	}, maxMessages, storage_base_dir)
 	if topn == nil {
 		return
 	}

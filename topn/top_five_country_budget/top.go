@@ -20,6 +20,7 @@ type TopFiveCountryBudget struct {
 	worker.Worker
 	top_five               map[string][]CountrByBudget
 	messages_before_commit int
+	storage_base_dir       string
 }
 
 type CountrByBudget struct {
@@ -110,7 +111,7 @@ func getGroupedElements() []CountrByBudget {
 	return []CountrByBudget{}
 }
 
-func NewTopFiveCountryBudget(config TopFiveCountryBudgetConfig, messages_before_commit int) *TopFiveCountryBudget {
+func NewTopFiveCountryBudget(config TopFiveCountryBudgetConfig, messages_before_commit int, storage_base_dir string) *TopFiveCountryBudget {
 	log.Infof("TopFiveCountryBudget: %+v", config)
 	worker, err := worker.NewWorker(config.WorkerConfig, 1)
 	if err != nil {
@@ -122,5 +123,6 @@ func NewTopFiveCountryBudget(config TopFiveCountryBudgetConfig, messages_before_
 		Worker:                 *worker,
 		top_five:               make(map[string][]CountrByBudget, 0),
 		messages_before_commit: messages_before_commit,
+		storage_base_dir:       storage_base_dir,
 	}
 }

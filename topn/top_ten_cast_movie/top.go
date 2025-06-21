@@ -20,6 +20,7 @@ type TopTenCastMovie struct {
 	worker.Worker
 	top_ten                map[string][]TopTenCastCount
 	messages_before_commit int
+	storage_base_dir       string
 }
 
 type TopTenCastCount struct {
@@ -115,7 +116,7 @@ func getGroupedElements() []TopTenCastCount {
 	return []TopTenCastCount{}
 }
 
-func NewTopTenCastMovie(config TopTenCastMovieConfig, messages_before_commit int) *TopTenCastMovie {
+func NewTopTenCastMovie(config TopTenCastMovieConfig, messages_before_commit int, storage_base_dir string) *TopTenCastMovie {
 	log.Infof("TopTenCastMovie: %+v", config)
 	worker, err := worker.NewWorker(config.WorkerConfig, 1)
 	if err != nil {
@@ -127,5 +128,6 @@ func NewTopTenCastMovie(config TopTenCastMovieConfig, messages_before_commit int
 		Worker:                 *worker,
 		top_ten:                make(map[string][]TopTenCastCount, 0),
 		messages_before_commit: messages_before_commit,
+		storage_base_dir:       storage_base_dir,
 	}
 }
