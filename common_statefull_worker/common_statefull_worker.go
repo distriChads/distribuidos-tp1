@@ -24,7 +24,7 @@ type StatefullWorker interface {
 	HandleEOF(client_id string, message_id string) error
 	// Converts the current state for the specified client to a string representation
 	MapToLines(client_id string) string
-	HandleCommit(client_id string, message amqp091.Delivery)
+	HandleCommit(client_id string, message amqp091.Delivery) error
 	EnsureClient(client_id string)
 }
 
@@ -89,11 +89,17 @@ func RunWorker(s StatefullWorker, ctx context.Context, w worker.Worker, starting
 
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
 		s.UpdateState(lines, client_id, message_id)
-		s.HandleCommit(client_id, message)
+		err = s.HandleCommit(client_id, message)
+		if err != nil {
+			log.Warningf("Error while commiting")
+			return err
+		}
 	}
 }
 
-func RestoreStateIfNeeded(last_messages_in_state map[string][]string, last_message_in_ids map[string]string, storage_base_dir string) bool {
+// Verify the last id that is in the inner state of the node with the last message id in the ids append file
+// if there is a difference, means we died before appending all the ids, so we have to recover them in the append file of ids
+func RestoreStateIfNeeded(last_messages_in_state map[string][]string, last_message_in_ids map[string]string, storage_base_dir string) (bool, error) {
 	var clients_ids_to_restore []string
 	for client_id, last_movies_id := range last_messages_in_state {
 		if last_message_in_ids[client_id] != last_movies_id[len(last_movies_id)-1] {
@@ -102,10 +108,13 @@ func RestoreStateIfNeeded(last_messages_in_state map[string][]string, last_messa
 	}
 
 	for _, client_id := range clients_ids_to_restore {
-		appendIds(storage_base_dir, last_messages_in_state[client_id], client_id)
+		err := appendIds(storage_base_dir, last_messages_in_state[client_id], client_id)
+		if err != nil {
+			return false, err
+		}
 	}
 
-	return len(clients_ids_to_restore) != 0
+	return len(clients_ids_to_restore) != 0, nil
 }
 
 // hay 2 tipos de errores.
@@ -129,27 +138,27 @@ func RestoreStateIfNeeded(last_messages_in_state map[string][]string, last_messa
 // si el archivo ya existe y esta todo bien, pudo o no haber pasado error de tipo 2), no lo sabemos...
 // la solucion que se me ocurre es quiza mandar los timestamps en los mensajes? quiza podemos rescatar algo de eso
 
-func appendIds(storage_base_dir string, last_message_ids []string, client_id string) {
+func appendIds(storage_base_dir string, last_message_ids []string, client_id string) error {
 	dir := filepath.Join(storage_base_dir, "ids")
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
-		panic("Che, si no puedo crear el directorio medio que cagamos fuego")
+		return err
 	}
 
 	filename := fmt.Sprintf("%s/%s_ids.txt", dir, client_id)
 
 	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		panic("Si no pudimos crear el archivo, medio que cagamos fuego tambien")
+		return err
 	}
 	defer f.Close()
 	for _, line := range last_message_ids {
 		line := fmt.Sprintf("%s\n", line)
 		if err := doWrite([]byte(line), f); err != nil {
-			panic("Por ahora paniqueamos ni idea")
+			return err
 		}
 	}
-
+	return err
 }
 
 // StoreElements stores the state for a given client in the given storage base directory
@@ -161,18 +170,24 @@ func StoreElementsWithMessageIds[T any](
 	results map[string]T,
 	client_id, storage_base_dir string,
 	last_message_ids []string,
-) {
-	after_write_function := func(f *os.File) {
+) error {
+	after_write_function := func(f *os.File) error {
 		for _, line := range last_message_ids {
 			line := fmt.Sprintf("LAST_ID %s\n", line)
-			doWrite([]byte(line), f)
+			err := doWrite([]byte(line), f)
+			if err != nil {
+				return err
+			}
 		}
+		return nil
 	}
 
-	genericStoreElements(results, client_id, storage_base_dir, after_write_function)
+	err := genericStoreElements(results, client_id, storage_base_dir, after_write_function)
+	if err != nil {
+		return err
+	}
 
-	appendIds(storage_base_dir, last_message_ids, client_id)
-
+	return appendIds(storage_base_dir, last_message_ids, client_id)
 }
 
 // Store the state and a boolean at the end
@@ -180,13 +195,13 @@ func StoreElementsWithBoolean[T any](
 	results map[string]T,
 	client_id, storage_base_dir string,
 	boolean bool,
-) {
-	after_write_function := func(f *os.File) {
+) error {
+	after_write_function := func(f *os.File) error {
 		line := fmt.Sprintf("BOOLEAN %t\n", boolean)
-		doWrite([]byte(line), f)
+		return doWrite([]byte(line), f)
 	}
 
-	genericStoreElements(results, client_id, storage_base_dir, after_write_function)
+	return genericStoreElements(results, client_id, storage_base_dir, after_write_function)
 
 }
 
@@ -234,8 +249,8 @@ func GetIds(storage_base_dir string) (map[string][]string, map[string]string) {
 	return grouped, last_messages
 }
 
-func StoreElements[T any](results map[string]T, client_id, storage_base_dir string) {
-	genericStoreElements(results, client_id, storage_base_dir, nil)
+func StoreElements[T any](results map[string]T, client_id, storage_base_dir string) error {
+	return genericStoreElements(results, client_id, storage_base_dir, nil)
 }
 
 // No short-write function
@@ -251,19 +266,19 @@ func doWrite(data []byte, file *os.File) error {
 	return nil
 }
 
-func genericStoreElements[T any](results map[string]T, client_id, storage_base_dir string, after_write_function func(f *os.File)) {
+func genericStoreElements[T any](results map[string]T, client_id, storage_base_dir string, after_write_function func(f *os.File) error) error {
 	dir := filepath.Join(storage_base_dir, "state")
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		log.Criticalf("Error creating directory: %s", err.Error())
-		panic(err)
+		return err
 	}
 
 	commited_filename := filepath.Join(dir, fmt.Sprintf("%s_commited.txt", client_id))
 
 	tmpFile, err := os.CreateTemp(dir, client_id+"_*.tmp")
 	if err != nil {
-		panic("No se pudo crear archivo temporal")
+		return err
 	}
 
 	tmpFilePath := tmpFile.Name()
@@ -275,12 +290,15 @@ func genericStoreElements[T any](results map[string]T, client_id, storage_base_d
 	data, err := json.MarshalIndent(results, "", "  ")
 	if err != nil {
 		cleanup()
+		return err
 	}
 	if err := doWrite(data, tmpFile); err != nil {
 		cleanup()
+		return err
 	}
 	if err := doWrite([]byte("\n"), tmpFile); err != nil {
 		cleanup()
+		return err
 	}
 
 	if after_write_function != nil {
@@ -289,13 +307,16 @@ func genericStoreElements[T any](results map[string]T, client_id, storage_base_d
 
 	if err := tmpFile.Sync(); err != nil {
 		cleanup()
+		return err
 	}
 
 	if err := os.Rename(tmpFile.Name(), commited_filename); err != nil {
 		cleanup()
+		return err
 	}
 	// como lo renombre, ya no existe por lo que no hago el remove :) medio feo por que no puedo usar defer
 	tmpFile.Close()
+	return nil
 }
 
 func GetElements[T any](storage_base_dir string) (map[string]map[string]T, bool, map[string][]string) {

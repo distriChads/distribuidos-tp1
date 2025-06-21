@@ -39,11 +39,11 @@ func (g *FirstAndLast) EnsureClient(client_id string) {
 	}
 }
 
-func (g *FirstAndLast) HandleCommit(client_id string, message amqp091.Delivery) {
+func (g *FirstAndLast) HandleCommit(client_id string, message amqp091.Delivery) error {
 
 	storeGroupedElements(g.first_and_last_movies[client_id], client_id)
 	message.Ack(false)
-
+	return nil
 }
 
 func (g *FirstAndLast) MapToLines(client_id string) string {

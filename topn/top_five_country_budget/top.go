@@ -35,11 +35,11 @@ func (g *TopFiveCountryBudget) EnsureClient(client_id string) {
 	}
 }
 
-func (g *TopFiveCountryBudget) HandleCommit(client_id string, message amqp091.Delivery) {
+func (g *TopFiveCountryBudget) HandleCommit(client_id string, message amqp091.Delivery) error {
 
 	storeGroupedElements(g.top_five[client_id], client_id)
 	message.Ack(false)
-
+	return nil
 }
 
 func (g *TopFiveCountryBudget) MapToLines(client_id string) string {

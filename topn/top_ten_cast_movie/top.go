@@ -35,11 +35,11 @@ func (g *TopTenCastMovie) EnsureClient(client_id string) {
 	}
 }
 
-func (g *TopTenCastMovie) HandleCommit(client_id string, message amqp091.Delivery) {
+func (g *TopTenCastMovie) HandleCommit(client_id string, message amqp091.Delivery) error {
 
 	storeGroupedElements(g.top_ten[client_id], client_id)
 	message.Ack(false)
-
+	return nil
 }
 
 func (g *TopTenCastMovie) MapToLines(client_id string) string {

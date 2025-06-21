@@ -43,18 +43,23 @@ func (g *MasterGroupByMovieAndAvg) EnsureClient(client_id string) {
 	}
 }
 
-func (g *MasterGroupByMovieAndAvg) HandleCommit(client_id string, message amqp091.Delivery) {
+func (g *MasterGroupByMovieAndAvg) HandleCommit(client_id string, message amqp091.Delivery) error {
 	g.messages[client_id] = append(g.messages[client_id], message)
 	if len(g.messages[client_id]) >= g.messages_before_commit {
-		common_statefull_worker.StoreElementsWithMessageIds(g.grouped_elements[client_id],
+		err := common_statefull_worker.StoreElementsWithMessageIds(g.grouped_elements[client_id],
 			client_id, g.storage_base_dir,
 			g.messages_id[client_id][len(g.messages_id[client_id])-g.messages_before_commit:])
+
+		if err != nil {
+			return err
+		}
 
 		for _, message := range g.messages[client_id] {
 			message.Ack(false)
 		}
 		g.messages[client_id] = g.messages[client_id][:0]
 	}
+	return nil
 }
 
 func (g *MasterGroupByMovieAndAvg) MapToLines(client_id string) string {
@@ -125,7 +130,12 @@ func NewGroupByMovieAndAvg(config MasterGroupByMovieAndAvgConfig, messages_befor
 	grouped_elements, _, last_messages_in_state := common_statefull_worker.GetElements[ScoreAndCount](storage_base_dir)
 	messages_id, last_message_in_id := common_statefull_worker.GetIds(storage_base_dir)
 
-	if common_statefull_worker.RestoreStateIfNeeded(last_messages_in_state, last_message_in_id, storage_base_dir) {
+	need_to_update, err := common_statefull_worker.RestoreStateIfNeeded(last_messages_in_state, last_message_in_id, storage_base_dir)
+	if err != nil {
+		log.Errorf("Error restoring state: %s", err)
+		return nil
+	}
+	if need_to_update {
 		messages_id, _ = common_statefull_worker.GetIds(storage_base_dir)
 	}
 	worker, err := worker.NewWorker(config.WorkerConfig, messages_before_commit)
