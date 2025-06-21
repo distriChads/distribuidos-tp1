@@ -6,70 +6,64 @@
             "log_level": "info",
             "replicas": 1,
             "input_routing_keys": ["*.results"],
-            "output_routing_keys": ["movies.client_handler", "ratings.client-handler.router", "credits.client-handler.router"],
+            "movies_output_nodes": ["filter-argentina", "filter-only-one-country"],
+            "ratings_output_nodes": ["join-movie-ratings"],
+            "credits_output_nodes": ["join-movie-credits"],
             "listen_backlog": 5
         },
         {
             "name": "filter-argentina",
-            "replicas": 1,
+            "replicas": 2,
             "log_level": "info",
-            "input_routing_keys": ["movies.client_handler"],
-            "output_routing_keys": ["movies.argentina"]
+            "output_nodes": ["filter-spain-2000", "filter-after-2000"]
         },
         {
             "name": "filter-spain-2000",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
-            "input_routing_keys": ["movies.argentina"],
-            "output_routing_keys": ["query1.results"]
+            "output_routing_key": ["query1.results"]
         },
         {
             "name": "filter-only-one-country",
-            "replicas": 1,
+            "replicas": 4,
             "log_level": "info",
-            "input_routing_keys": ["movies.client_handler"],
-            "output_routing_keys": ["movies.filter_only_one_country.router"]
+            "output_nodes": ["group-by-country-sum"]
         },
         {
             "name": "filter-after-2000",
-            "replicas": 1,
+            "replicas": 5,
             "log_level": "info",
-            "input_routing_keys": ["movies.argentina"],
-            "output_routing_keys": ["movies.after_2000"]
+            "output_nodes": ["join-movie-ratings", "join-movie-credits"]
         },
         {
             "name": "group-by-country-sum",
-            "replicas": 1,
+            "replicas": 4,
             "log_level": "info",
-            "input_routing_keys": ["group-by-country-sum"],
-            "output_routing_keys": ["movies.group_by_country_sum"],
+            "output_nodes": ["master-group-by-country-sum"],
             "storage": ".local-storage",
             "messages_per_commit": 10
         },
         {
             "name": "group-by-movie-average",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
-            "input_routing_keys": ["group-by-movie-average"],
-            "output_routing_keys": ["movies.group_by_movie_average"],
+            "output_nodes": ["master-group-by-movie-average"],
             "storage": ".local-storage",
             "messages_per_commit": 10
         },
         {
             "name": "group-by-actor-count",
-            "replicas": 1,
+            "replicas": 2,
             "log_level": "info",
-            "input_routing_keys": ["group-by-actor-count"],
-            "output_routing_keys": ["movies.group_by_actor_count"],
+            "output_nodes": ["master-group-by-actor-count"],
             "storage": ".local-storage",
             "messages_per_commit": 10
         },
         {
             "name": "group-by-overview-average",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
-            "input_routing_keys": ["group-by-overview-average"],
-            "output_routing_keys": ["movies.group_by_overview_average"],
+            "output_nodes": ["master-group-by-overview-average"],
             "storage": ".local-storage",
             "messages_per_commit": 10
         },
@@ -77,8 +71,7 @@
             "name": "master-group-by-country-sum",
             "replicas": 1,
             "log_level": "info",
-            "input_routing_keys": ["movies.group_by_country_sum"],
-            "output_routing_keys": ["master.country_sum"],
+            "output_nodes": ["top-five-country-budget"],
             "storage": ".local-storage",
             "messages_per_commit": 1
         },
@@ -86,8 +79,7 @@
             "name": "master-group-by-movie-average",
             "replicas": 1,
             "log_level": "info",
-            "input_routing_keys": ["movies.group_by_movie_average"],
-            "output_routing_keys": ["master.movie_average"],
+            "output_nodes": ["first-and-last"],
             "storage": ".local-storage",
             "messages_per_commit": 1
         },
@@ -95,8 +87,7 @@
             "name": "master-group-by-actor-count",
             "replicas": 1,
             "log_level": "info",
-            "input_routing_keys": ["movies.group_by_actor_count"],
-            "output_routing_keys": ["master.actor_count"],
+            "output_nodes": ["top-ten-cast-movie"],
             "storage": ".local-storage",
             "messages_per_commit": 1
         },
@@ -104,24 +95,21 @@
             "name": "master-group-by-overview-average",
             "replicas": 1,
             "log_level": "info",
-            "input_routing_keys": ["movies.group_by_overview_average"],
-            "output_routing_keys": ["query5.results"],
+            "output_routing_key": ["query5.results"],
             "storage": ".local-storage",
             "messages_per_commit": 1
         },
         {
             "name": "machine-learning",
-            "replicas": 1,
+            "replicas": 4,
             "log_level": "info",
-            "input_routing_keys": ["movies.client_handler"],
-            "output_routing_keys": ["movies.ml.router"]
+            "output_nodes": ["group-by-overview-average"]
         },
         {
             "name": "top-five-country-budget",
             "replicas": 1,
             "log_level": "info",
-            "input_routing_keys": ["master.country_sum"],
-            "output_routing_keys": ["query2.results"],
+            "output_routing_key": ["query2.results"],
             "storage": ".local-storage",
             "messages_per_commit": 10
         },
@@ -129,41 +117,31 @@
             "name": "top-ten-cast-movie",
             "replicas": 1,
             "log_level": "info",
-            "input_routing_keys": ["master.actor_count"],
-            "output_routing_keys": ["query4.results"],
+            "output_routing_key": ["query4.results"],
             "storage": ".local-storage",
             "messages_per_commit": 10
         },
         {
             "name": "join-movie-ratings",
-            "replicas": 1,
+            "replicas": 5,
             "log_level": "info",
-            "input_routing_keys": ["join-movie-ratings", "join-ratings"],
-            "output_routing_keys": ["join_movie_ratings.router"],
+            "output_nodes": ["master-group-by-movie-average"],
             "storage": ".local-storage"
         },
         {
             "name": "join-movie-credits",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
-            "input_routing_keys": ["join-movie-credits", "join-credits"],
-            "output_routing_keys": ["join_movie_credits.router"],
+            "output_nodes": ["master-group-by-actor-count"],
             "storage": ".local-storage"
         },
         {
             "name": "first-and-last",
             "replicas": 1,
             "log_level": "info",
-            "input_routing_keys": ["master.movie_average"],
-            "output_routing_keys": ["query3.results"],
+            "output_routing_key": ["query3.results"],
             "storage": ".local-storage",
             "messages_per_commit": 10
-        },
-        {
-            "name": "router",
-            "replicas": 1,
-            "log_level": "info",
-            "input_routing_keys": ["movies.after_2000", "ratings.client-handler.router", "credits.client-handler.router", "movies.filter_only_one_country.router", "movies.ml.router", "join_movie_ratings.router", "join_movie_credits.router"]
         }
     ]
 }

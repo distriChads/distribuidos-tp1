@@ -2,6 +2,37 @@ import json
 import yaml
 import sys
 
+# Constants for service names
+CLIENT_HANDLER = "client-handler"
+
+FILTER_ARG = "filter-argentina"
+FILTER_SPAIN_2000 = "filter-spain-2000"
+FILTER_ONE_COUNTRY = "filter-only-one-country"
+FILTER_AFTER_2000 = "filter-after-2000"
+
+GROUP_BY_COUNTRY_SUM = "group-by-country-sum"
+GROUP_BY_MOVIE_AVG = "group-by-movie-avg"
+GROUP_BY_ACTOR_COUNT = "group-by-actor-count"
+GROUP_BY_OVERVIEW_AVG = "group-by-overview-avg"
+
+MASTER_GROUP_BY_COUNTRY_SUM = "master-group-by-country-sum"
+MASTER_GROUP_BY_MOVIE_AVG = "master-group-by-movie-avg"
+MASTER_GROUP_BY_ACTOR_COUNT = "master-group-by-actor-count"
+MASTER_GROUP_BY_OVERVIEW_AVG = "master-group-by-overview-avg"
+
+MACHINE_LEARNING = "machine-learning"
+
+TOP_FIVE_COUNTRY_BUDGET = "top-five-country-budget"
+TOP_TEN_CAST_MOVIE = "top-ten-cast-movie"
+FIRST_AND_LAST = "first-and-last"
+
+JOIN_MOVIES_RATINGS = "join-movie-ratings"
+JOIN_MOVIES_CREDITS = "join-movie-credits"
+
+
+MOVIES_OUTPUT_NODES = [FILTER_ARG, FILTER_ONE_COUNTRY]
+
+# Constants for configuration
 DEFAULT_BROKER = "amqp://guest:guest@rabbitmq:5672/"
 CLI_HANDLER_PORT = 3000
 CLI_HANDLER_BACKLOG = 5
@@ -25,13 +56,25 @@ def rabbitmq_service(silent):
     return service
 
 
+def get_output_routing_keys_strings(service_name, replicas):
+    return ",".join(f"{service_name}.{i}" for i in range(1, replicas + 1))
+
+
 def client_handler_service(broker,
                            logging_level,
                            listen_backlog,
-                           input_routing_keys,
-                           output_routing_keys):
-    input_routing_keys = ",".join(input_routing_keys)
-    output_routing_keys = ",".join(output_routing_keys)
+                           filter_arg_replicas,
+                           filter_one_country_replicas,
+                           ratings_join_replicas,
+                           credits_join_replicas):
+    filter_arg_out_routing_keys = get_output_routing_keys_strings(
+        FILTER_ARG, filter_arg_replicas)
+    filter_one_country_out_routing_keys = get_output_routing_keys_strings(
+        FILTER_ONE_COUNTRY, filter_one_country_replicas)
+    ratings_join_replicas = get_output_routing_keys_strings(
+        JOIN_MOVIES_RATINGS, ratings_join_replicas)
+    credits_join_replicas = get_output_routing_keys_strings(
+        JOIN_MOVIES_CREDITS, credits_join_replicas)
 
     env = []
     env.extend([
@@ -39,8 +82,10 @@ def client_handler_service(broker,
         f"LOGGING_LEVEL={logging_level}",
         f"CLI_WORKER_BROKER={broker}",
         f"CLIENT_HANDLER_LISTEN_BACKLOG={listen_backlog}",
-        f"CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS={input_routing_keys}",
-        f"CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS={output_routing_keys}"
+        f"OUTPUT_ROUTINGKEYS_FILTER_ARG={filter_arg_out_routing_keys}",
+        f"OUTPUT_ROUTINGKEYS_FILTER_ONE_COUNTRY={filter_one_country_out_routing_keys}",
+        f"OUTPUT_ROUTINGKEYS_JOIN_MOVIES_RATING={ratings_join_replicas}",
+        f"OUTPUT_ROUTINGKEYS_JOIN_MOVIES_CREDITS={credits_join_replicas}",
     ])
 
     return {
@@ -58,50 +103,19 @@ def client_handler_service(broker,
     }
 
 
-def router_service(spec, replicas, replicas_services, replica_index):
-    env = [
-        f"CLI_LOG_LEVEL={spec['log_level']}",
-        f"CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS={','.join(spec['input_routing_keys'])}",
-        f"CLI_WORKER_BROKER={spec.get('broker', DEFAULT_BROKER)}",
-    ]
-
-    for service in replicas_services:
-        replica_for_service = replicas[service]
-        output_routing_keys = ",".join(
-            f"{service}.{i}" for i in range(1, replica_for_service + 1))
-        env.append(
-            f"CLI_WORKER_OUTPUT_ROUTINGKEYS_{service.upper()}={output_routing_keys}"
-        )
-
-    return {
-        "build": {
-            "context": ".",
-            "dockerfile": "router/Dockerfile"
-        },
-        "container_name": f"router-{replica_index}",
-        "entrypoint": "/run_worker",
-        "image": "router:latest",
-        "networks": COMMON_NETWORKS,
-        "depends_on": COMMON_DEPENDS_ON,
-        "environment": env
-    }
-
-
-def generic_worker_service(name, dockerfile_path, replica, spec, entrypoint):
+def generic_worker_service(name, dockerfile_path, replica, spec, entrypoint, output_routing_keys):
     broker = spec.get("broker", DEFAULT_BROKER)
-    input_routing_keys = spec['input_routing_keys']
 
-    if name.startswith("join") or name.startswith("group-by"):
-        routing_keys = spec['input_routing_keys']
-        input_routing_keys = [
-            f"{key}.{replica}" for key in routing_keys]
+    input_routing_keys = f"{name}.{replica}"
 
     env = [
         f"CLI_WORKER_BROKER={broker}",
         f"CLI_LOG_LEVEL={spec['log_level']}",
-        f"CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS={','.join(input_routing_keys)}",
-        f"CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS={','.join(spec['output_routing_keys'])}"
+        f"ROUTINGKEYS_INPUT={input_routing_keys}",
     ]
+
+    for key, value in output_routing_keys.items():
+        env.append(f"ROUTINGKEYS_OUTPUT_{key.upper()}={value}")
 
     if "storage" in spec:
         env.append("CLI_WORKER_STORAGE=/app/storage")
@@ -122,9 +136,12 @@ def generic_worker_service(name, dockerfile_path, replica, spec, entrypoint):
     }
 
     if "storage" in spec:
-        service["volumes"] = [f"{spec['storage']}/{name}-{replica}:/app/storage"]
+        service["volumes"] = [
+            f"{spec['storage']}/{name}-{replica}:/app/storage"
+        ]
 
     return service
+
 
 def generate_compose(spec_path, output_path):
     with open(spec_path, "r") as f:
@@ -145,39 +162,31 @@ def generate_compose(spec_path, output_path):
         }
     }
 
+    node_replica_mapping = get_replicas(spec["services"])
+    print("Node replica mapping:", node_replica_mapping)
+
     for service_spec in spec["services"]:
         name = service_spec["name"]
-        replicas = service_spec["replicas"]
 
-        if name == "client-handler":
+        if name == CLIENT_HANDLER:
             broker = service_spec.get("broker", DEFAULT_BROKER)
             logging_level = service_spec.get("log_level", "INFO")
             listen_backlog = service_spec.get(
                 "listen_backlog", CLI_HANDLER_BACKLOG)
-            input_routing_keys = service_spec.get("input_routing_keys", [])
-            output_routing_keys = service_spec.get("output_routing_keys", [])
 
             compose["services"][name] = client_handler_service(
                 broker=broker,
                 logging_level=logging_level,
                 listen_backlog=listen_backlog,
-                input_routing_keys=input_routing_keys,
-                output_routing_keys=output_routing_keys
+                filter_arg_replicas=node_replica_mapping[FILTER_ARG.upper().replace(
+                    "-", "_")],
+                filter_one_country_replicas=node_replica_mapping[FILTER_ONE_COUNTRY.upper(
+                ).replace("-", "_")],
+                credits_join_replicas=node_replica_mapping[JOIN_MOVIES_CREDITS.upper().replace(
+                    "-", "_")],
+                ratings_join_replicas=node_replica_mapping[JOIN_MOVIES_RATINGS.upper().replace(
+                    "-", "_")],
             )
-
-        elif name == "router":
-            replicas_services = ["join-movie-credits", "join-movie-ratings",
-                                 "group-by-overview-average", "group-by-actor-count",
-                                 "group-by-movie-average", "group-by-country-sum"]
-            replicas_for_nodes = get_service_replica_for_router(
-                spec["services"], replicas_services
-            )
-            for i in range(1, replicas + 1):
-                name_with_index = f"{name}-{i}"
-                compose["services"][name_with_index] = router_service(
-                    service_spec, replicas_for_nodes, replicas_services, i
-                )
-
         else:
             prefix = ""
             entrypoint = "./run_worker"
@@ -192,23 +201,60 @@ def generate_compose(spec_path, output_path):
                 prefix = "master_group_by/"
             elif name.startswith("top") or name.startswith("first"):
                 prefix = "topn/"
-            elif name.startswith("machine-learning"):
+            elif name.startswith(MACHINE_LEARNING):
                 prefix = ""
                 entrypoint = "python main.py"
 
+            output_routing_keys = {}
+
+            if "output_routing_key" in service_spec:
+                output_routing_keys["OUTPUT_ROUTINGKEY"] = service_spec["output_routing_key"]
+            else:
+                output_nodes = service_spec.get("output_nodes", [])
+                if not output_nodes:
+                    raise ValueError(
+                        f"Service {name} must have at least one output node defined.")
+                output_routing_keys = get_output_routing_keys(
+                    output_nodes, node_replica_mapping[name.upper().replace("-", "_")])
+
             dockerfile_path = f"{prefix}{name.replace('-', '_')}/Dockerfile"
 
-            for i in range(1, replicas + 1):
+            for i in range(1, node_replica_mapping[name.upper().replace("-", "_")] + 1):
                 instance_name = f"{name}-{i}"
                 compose["services"][instance_name] = generic_worker_service(
-                    name, dockerfile_path, i, service_spec, entrypoint
+                    name, dockerfile_path, i, service_spec, entrypoint, output_routing_keys
                 )
 
     with open(output_path, "w") as f:
         f.write(yaml.dump(compose, sort_keys=False))
 
 
-def get_service_replica_for_router(spec, replicas_services):
+def get_replicas(services):
+    replicas = {}
+    for service in services:
+        name = service["name"]
+        name = name.upper().replace("-", "_")
+        if name not in replicas:
+            replicas[name] = service.get("replicas", 1)
+        else:
+            raise ValueError(f"Duplicate service name found: {name}")
+
+    return replicas
+
+
+def get_output_routing_keys(output_nodes, replicas):
+    output_routing_keys = {}
+
+    for node in output_nodes:
+        if node not in output_routing_keys:
+            output_routing_keys[node] = []
+        for i in range(1, replicas + 1):
+            output_routing_keys[node].append(f"{node}.{i}")
+
+    return {k: ",".join(v) for k, v in output_routing_keys.items()}
+
+
+def get_service_replica(spec, replicas_services):
     replicas = {}
     for service in replicas_services:
         service_spec = next(
