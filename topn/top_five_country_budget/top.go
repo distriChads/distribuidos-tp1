@@ -4,6 +4,7 @@ import (
 	worker "distribuidos-tp1/common/worker/worker"
 	"distribuidos-tp1/common_statefull_worker"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -83,14 +84,18 @@ func updateTopFive(lines []string, top_five []CountrByBudget) []CountrByBudget {
 		if err != nil {
 			continue
 		}
+		new_country_budget := CountrByBudget{Country: country, Budget: budget}
+		if slices.Contains(top_five, new_country_budget) {
+			continue
+		}
 		if len(top_five) < 5 {
-			top_five = append(top_five, CountrByBudget{Country: country, Budget: budget})
+			top_five = append(top_five, new_country_budget)
 			sort.Slice(top_five, func(i, j int) bool {
 				return top_five[i].Budget > top_five[j].Budget
 			})
 		} else {
 			if top_five[4].Budget < budget {
-				top_five[4] = CountrByBudget{Country: country, Budget: budget}
+				top_five[4] = new_country_budget
 				sort.Slice(top_five, func(i, j int) bool {
 					return top_five[i].Budget > top_five[j].Budget
 				})

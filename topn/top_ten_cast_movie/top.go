@@ -4,6 +4,7 @@ import (
 	worker "distribuidos-tp1/common/worker/worker"
 	"distribuidos-tp1/common_statefull_worker"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -84,6 +85,9 @@ func updateTopTen(lines []string, top_ten []TopTenCastCount) []TopTenCastCount {
 			continue
 		}
 		new_actor := TopTenCastCount{Actor: actor, Count: count}
+		if slices.Contains(top_ten, new_actor) {
+			continue
+		}
 
 		if len(top_ten) < 10 {
 			top_ten = append(top_ten, new_actor)
