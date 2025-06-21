@@ -6,7 +6,7 @@ from types import FrameType
 from typing import Optional
 from .worker import Worker, WorkerConfig
 from .client import Client
-
+from collections import defaultdict
 from common.communication import Socket
 
 FILES_TO_RECEIVE = 3
@@ -95,10 +95,15 @@ class ClientHandler:
             client.set_next_processor()
 
     def __manage_client_results(self):
+        received_messages_id = defaultdict(list)
         for method_frame, _properties, result_encoded in self.worker.received_messages():
             result = result_encoded.decode('utf-8')
-            client_id = result.split("|", 2)[0]
-            result = result.split("|", 2)[2]
+            parts = result.split("|", 2)
+            client_id, message_id, result = parts
+            if message_id in received_messages_id[client_id]:
+                logging.warning(f"Repeated message {message_id} for client {client_id}")
+                continue
+            received_messages_id[client_id].append(message_id)
             query_number = method_frame.routing_key.split(".")[0]
             logging.info(
                 "Received result for client %s from worker: %s", client_id, result)
@@ -111,6 +116,8 @@ class ClientHandler:
                         client = self.clients.pop(client_id)
                     client.send(EOF)
                     client.close()
+                    if client_id in received_messages_id:
+                        del received_messages_id[client_id]
                     logging.info(
                         f"EOF received for client {client_id} - closing connection")
                 continue
