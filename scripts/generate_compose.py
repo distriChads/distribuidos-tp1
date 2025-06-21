@@ -208,14 +208,14 @@ def generate_compose(spec_path, output_path):
             output_routing_keys = {}
 
             if "output_routing_key" in service_spec:
-                output_routing_keys["OUTPUT_ROUTINGKEY"] = service_spec["output_routing_key"]
+                output_routing_keys["OUTPUT_ROUTINGKEY"] = service_spec["output_routing_key"][0]
             else:
                 output_nodes = service_spec.get("output_nodes", [])
                 if not output_nodes:
                     raise ValueError(
                         f"Service {name} must have at least one output node defined.")
                 output_routing_keys = get_output_routing_keys(
-                    output_nodes, node_replica_mapping[name.upper().replace("-", "_")])
+                    output_nodes, node_replica_mapping)
 
             dockerfile_path = f"{prefix}{name.replace('-', '_')}/Dockerfile"
 
@@ -242,13 +242,15 @@ def get_replicas(services):
     return replicas
 
 
-def get_output_routing_keys(output_nodes, replicas):
+def get_output_routing_keys(output_nodes, node_replica_mapping):
     output_routing_keys = {}
 
     for node in output_nodes:
         if node not in output_routing_keys:
             output_routing_keys[node] = []
-        for i in range(1, replicas + 1):
+
+        node_replicas = node_replica_mapping[node.upper().replace("-", "_")]
+        for i in range(1, node_replicas + 1):
             output_routing_keys[node].append(f"{node}.{i}")
 
     return {k: ",".join(v) for k, v in output_routing_keys.items()}

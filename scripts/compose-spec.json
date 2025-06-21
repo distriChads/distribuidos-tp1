@@ -125,14 +125,14 @@
             "name": "join-movie-ratings",
             "replicas": 5,
             "log_level": "info",
-            "output_nodes": ["master-group-by-movie-average"],
+            "output_nodes": ["group-by-movie-average"],
             "storage": ".local-storage"
         },
         {
             "name": "join-movie-credits",
             "replicas": 3,
             "log_level": "info",
-            "output_nodes": ["master-group-by-actor-count"],
+            "output_nodes": ["group-by-actor-count"],
             "storage": ".local-storage"
         },
         {
