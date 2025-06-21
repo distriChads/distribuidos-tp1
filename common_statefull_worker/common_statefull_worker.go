@@ -97,6 +97,19 @@ func RunWorker(s StatefullWorker, ctx context.Context, w worker.Worker, starting
 	}
 }
 
+// No short-write function
+func doWrite(data []byte, file *os.File) error {
+	data_written_so_far := 0
+	for data_written_so_far < len(data) {
+		data_written, err := file.Write(data[data_written_so_far:])
+		if err != nil {
+			return err
+		}
+		data_written_so_far += data_written
+	}
+	return nil
+}
+
 // Verify the last id that is in the inner state of the node with the last message id in the ids append file
 // if there is a difference, means we died before appending all the ids, so we have to recover them in the append file of ids
 func RestoreStateIfNeeded(last_messages_in_state map[string][]string, last_message_in_ids map[string]string, storage_base_dir string) (bool, error) {
@@ -161,169 +174,11 @@ func appendIds(storage_base_dir string, last_message_ids []string, client_id str
 	return err
 }
 
-// StoreElements stores the state for a given client in the given storage base directory
-// results is the state to store
-// client_id is the id of the client to store the state for
-// storage_base_dir is the base directory where state files are stored
-// replicas is the number of replicas to create
-func StoreElementsWithMessageIds[T any](
-	results map[string]T,
-	client_id, storage_base_dir string,
-	last_message_ids []string,
-) error {
-	after_write_function := func(f *os.File) error {
-		for _, line := range last_message_ids {
-			line := fmt.Sprintf("LAST_ID %s\n", line)
-			err := doWrite([]byte(line), f)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-
-	err := genericStoreElements(results, client_id, storage_base_dir, after_write_function)
-	if err != nil {
-		return err
-	}
-
-	return appendIds(storage_base_dir, last_message_ids, client_id)
-}
-
-// Store the state and a boolean at the end
-func StoreElementsWithBoolean[T any](
-	results map[string]T,
-	client_id, storage_base_dir string,
-	boolean bool,
-) error {
-	after_write_function := func(f *os.File) error {
-		line := fmt.Sprintf("BOOLEAN %t\n", boolean)
-		return doWrite([]byte(line), f)
-	}
-
-	return genericStoreElements(results, client_id, storage_base_dir, after_write_function)
-
-}
-
-func GetIds(storage_base_dir string) (map[string][]string, map[string]string) {
-	grouped := make(map[string][]string)
-	last_messages := make(map[string]string)
-
-	dir := fmt.Sprintf("%s/ids", storage_base_dir)
-	files, err := os.ReadDir(dir)
-	if err != nil {
-		return grouped, last_messages // si no existia el directorio, te devuelvo las cosas como vacios
-	}
-
-	for _, entry := range files {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".txt") {
-			continue
-		}
-		client_id := strings.Split(entry.Name(), "_")[0]
-
-		filePath := fmt.Sprintf("%s/%s", dir, entry.Name())
-		if info, err := os.Stat(filePath); err == nil {
-			if info.Size() == 0 {
-				continue
-			}
-		}
-		f, err := os.Open(filePath)
-		if err != nil {
-			continue
-		}
-		defer f.Close()
-
-		scanner := bufio.NewScanner(f)
-		var ids []string
-
-		for scanner.Scan() {
-			line := scanner.Text()
-			ids = append(ids, line)
-			last_messages[client_id] = line
-		}
-
-		grouped[client_id] = ids
-
-	}
-
-	return grouped, last_messages
-}
-
-func StoreElements[T any](results map[string]T, client_id, storage_base_dir string) error {
-	return genericStoreElements(results, client_id, storage_base_dir, nil)
-}
-
-// No short-write function
-func doWrite(data []byte, file *os.File) error {
-	data_written_so_far := 0
-	for data_written_so_far < len(data) {
-		data_written, err := file.Write(data[data_written_so_far:])
-		if err != nil {
-			return err
-		}
-		data_written_so_far += data_written
-	}
-	return nil
-}
-
-func genericStoreElements[T any](results map[string]T, client_id, storage_base_dir string, after_write_function func(f *os.File) error) error {
-	dir := filepath.Join(storage_base_dir, "state")
-	err := os.MkdirAll(dir, 0755)
-	if err != nil {
-		log.Criticalf("Error creating directory: %s", err.Error())
-		return err
-	}
-
-	commited_filename := filepath.Join(dir, fmt.Sprintf("%s_commited.txt", client_id))
-
-	tmpFile, err := os.CreateTemp(dir, client_id+"_*.tmp")
-	if err != nil {
-		return err
-	}
-
-	tmpFilePath := tmpFile.Name()
-	cleanup := func() {
-		tmpFile.Close()
-		os.Remove(tmpFilePath)
-	}
-
-	data, err := json.MarshalIndent(results, "", "  ")
-	if err != nil {
-		cleanup()
-		return err
-	}
-	if err := doWrite(data, tmpFile); err != nil {
-		cleanup()
-		return err
-	}
-	if err := doWrite([]byte("\n"), tmpFile); err != nil {
-		cleanup()
-		return err
-	}
-
-	if after_write_function != nil {
-		after_write_function(tmpFile)
-	}
-
-	if err := tmpFile.Sync(); err != nil {
-		cleanup()
-		return err
-	}
-
-	if err := os.Rename(tmpFile.Name(), commited_filename); err != nil {
-		cleanup()
-		return err
-	}
-	// como lo renombre, ya no existe por lo que no hago el remove :) medio feo por que no puedo usar defer
-	tmpFile.Close()
-	return nil
-}
-
-func GetElements[T any](storage_base_dir string) (map[string]map[string]T, bool, map[string][]string) {
+func genericGetElements[T any](storage_base_dir string, dir_name string) (map[string]map[string]T, bool, map[string][]string) {
 	grouped := make(map[string]map[string]T)
 	last_messages := make(map[string][]string)
 	boolean := false
-	dir := fmt.Sprintf("%s/state", storage_base_dir)
+	dir := fmt.Sprintf("%s/%s", storage_base_dir, dir_name)
 
 	files, err := os.ReadDir(dir)
 	if err != nil {
@@ -378,6 +233,163 @@ func GetElements[T any](storage_base_dir string) (map[string]map[string]T, bool,
 	return grouped, boolean, last_messages
 }
 
+func GetPending[T any](storage_base_dir string) (map[string]map[string]T, bool, map[string][]string) {
+	return genericGetElements[T](storage_base_dir, "pending")
+}
+
+func GetElements[T any](storage_base_dir string) (map[string]map[string]T, bool, map[string][]string) {
+	return genericGetElements[T](storage_base_dir, "state")
+}
+
+func GetIds(storage_base_dir string) (map[string][]string, map[string]string) {
+	grouped := make(map[string][]string)
+	last_messages := make(map[string]string)
+
+	dir := fmt.Sprintf("%s/ids", storage_base_dir)
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return grouped, last_messages // si no existia el directorio, te devuelvo las cosas como vacios
+	}
+
+	for _, entry := range files {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".txt") {
+			continue
+		}
+		client_id := strings.Split(entry.Name(), "_")[0]
+
+		filePath := fmt.Sprintf("%s/%s", dir, entry.Name())
+		if info, err := os.Stat(filePath); err == nil {
+			if info.Size() == 0 {
+				continue
+			}
+		}
+		f, err := os.Open(filePath)
+		if err != nil {
+			continue
+		}
+		defer f.Close()
+
+		scanner := bufio.NewScanner(f)
+		var ids []string
+
+		for scanner.Scan() {
+			line := scanner.Text()
+			ids = append(ids, line)
+			last_messages[client_id] = line
+		}
+
+		grouped[client_id] = ids
+
+	}
+
+	return grouped, last_messages
+}
+
+// StoreElements stores the state for a given client in the given storage base directory
+// results is the state to store
+// client_id is the id of the client to store the state for
+// storage_base_dir is the base directory where state files are stored
+// replicas is the number of replicas to create
+func StoreElementsWithMessageIds[T any](
+	results map[string]T,
+	client_id, storage_base_dir string,
+	last_message_ids []string,
+) error {
+	after_write_function := func(f *os.File) error {
+		for _, line := range last_message_ids {
+			line := fmt.Sprintf("LAST_ID %s\n", line)
+			err := doWrite([]byte(line), f)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	err := genericStoreElements(results, client_id, storage_base_dir, after_write_function, "state")
+	if err != nil {
+		return err
+	}
+
+	return appendIds(storage_base_dir, last_message_ids, client_id)
+}
+
+// Store the state and a boolean at the end
+func StoreElementsWithBoolean[T any](
+	results map[string]T,
+	client_id, storage_base_dir string,
+	boolean bool,
+) error {
+	after_write_function := func(f *os.File) error {
+		line := fmt.Sprintf("BOOLEAN %t\n", boolean)
+		return doWrite([]byte(line), f)
+	}
+
+	return genericStoreElements(results, client_id, storage_base_dir, after_write_function, "state")
+
+}
+
+func StoreElements[T any](results map[string]T, client_id, storage_base_dir string) error {
+	return genericStoreElements(results, client_id, storage_base_dir, nil, "state")
+}
+
+func StorePending[T any](results map[string]T, client_id, storage_base_dir string) error {
+	return genericStoreElements(results, client_id, storage_base_dir, nil, "pending")
+}
+
+func genericStoreElements[T any](results map[string]T, client_id, storage_base_dir string, after_write_function func(f *os.File) error, dir_name string) error {
+	dir := filepath.Join(storage_base_dir, dir_name)
+	err := os.MkdirAll(dir, 0755)
+	if err != nil {
+		log.Criticalf("Error creating directory: %s", err.Error())
+		return err
+	}
+
+	commited_filename := filepath.Join(dir, fmt.Sprintf("%s_commited.txt", client_id))
+
+	tmpFile, err := os.CreateTemp(dir, client_id+"_*.tmp")
+	if err != nil {
+		return err
+	}
+
+	tmpFilePath := tmpFile.Name()
+	cleanup := func() {
+		tmpFile.Close()
+		os.Remove(tmpFilePath)
+	}
+
+	data, err := json.MarshalIndent(results, "", "  ")
+	if err != nil {
+		cleanup()
+		return err
+	}
+	if err := doWrite(data, tmpFile); err != nil {
+		cleanup()
+		return err
+	}
+	if err := doWrite([]byte("\n"), tmpFile); err != nil {
+		cleanup()
+		return err
+	}
+
+	if after_write_function != nil {
+		after_write_function(tmpFile)
+	}
+
+	if err := tmpFile.Sync(); err != nil {
+		cleanup()
+		return err
+	}
+
+	if err := os.Rename(tmpFile.Name(), commited_filename); err != nil {
+		cleanup()
+		return err
+	}
+	// como lo renombre, ya no existe por lo que no hago el remove :) medio feo por que no puedo usar defer
+	tmpFile.Close()
+	return nil
+}
+
 func genericCleanState(storage_base_dir string, client_id string, dir_name string) {
 	dir := fmt.Sprintf("%s/%s", storage_base_dir, dir_name)
 	files, err := os.ReadDir(dir)
@@ -395,10 +407,15 @@ func genericCleanState(storage_base_dir string, client_id string, dir_name strin
 	}
 }
 
+func CleanPending(storage_base_dir string, client_id string) {
+	genericCleanState(storage_base_dir, client_id, "pending")
+}
+
 // CleanState deletes all state files for a given client
 // storage_base_dir is the base directory where state files are stored
 // client_id is the id of the client to delete state files for
 func CleanState(storage_base_dir string, client_id string) {
 	genericCleanState(storage_base_dir, client_id, "state")
 	genericCleanState(storage_base_dir, client_id, "ids")
+	CleanPending(storage_base_dir, client_id)
 }

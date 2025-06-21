@@ -21,6 +21,7 @@ type JoinMovieRatingById struct {
 	client_movies_by_id map[string]map[string]string
 	received_movies     bool
 	storage_base_dir    string
+	pending_ratings     map[string]map[string]string
 }
 
 // ---------------------------------
@@ -55,6 +56,7 @@ func joinMovieWithRating(lines []string, movies_by_id map[string]string) []strin
 func NewJoinMovieRatingById(config JoinMovieRatingByIdConfig, storage_base_dir string) *JoinMovieRatingById {
 	log.Infof("JoinMovieRatingById: %+v", config)
 	grouped_elements, received_movies, _ := common_statefull_worker.GetElements[string](storage_base_dir)
+	pending_ratings, _, _ := common_statefull_worker.GetPending[string](storage_base_dir)
 	worker, err := worker.NewWorker(config.WorkerConfig, 1)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
@@ -66,6 +68,7 @@ func NewJoinMovieRatingById(config JoinMovieRatingByIdConfig, storage_base_dir s
 		client_movies_by_id: grouped_elements,
 		received_movies:     received_movies,
 		storage_base_dir:    storage_base_dir,
+		pending_ratings:     pending_ratings,
 	}
 }
 
@@ -102,10 +105,38 @@ func (f *JoinMovieRatingById) RunWorker(ctx context.Context, starting_message st
 			common_statefull_worker.StoreElements(f.client_movies_by_id[client_id], client_id, f.storage_base_dir)
 			msg.Ack(false)
 
-		} else { // recibiendo credits
+		} else { // recibiendo ratings
 			if !f.received_movies {
-				msg.Nack(false, true)
+				if message_str == worker.MESSAGE_EOF {
+					msg.Nack(false, true)
+				}
+				if _, ok := f.pending_ratings[client_id]; !ok {
+					f.pending_ratings[client_id] = make(map[string]string)
+				}
+				pendings_for_client := f.pending_ratings[client_id]
+				pendings_for_client[message_id] = message_str
+				common_statefull_worker.StorePending(f.pending_ratings[client_id], client_id, f.storage_base_dir)
+				msg.Ack(false)
 				continue
+			}
+
+			if len(f.pending_ratings[client_id]) != 0 {
+				pending_messages := f.pending_ratings[client_id]
+				for _, pending_message := range pending_messages {
+					lines := strings.Split(strings.TrimSpace(pending_message), "\n")
+					result := joinMovieWithRating(lines, f.client_movies_by_id[client_id])
+					message_to_send := strings.Join(result, "\n")
+					if len(message_to_send) != 0 {
+						send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
+						message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message_to_send
+						err := f.Worker.SendMessage(message_to_send, send_queue_key)
+						if err != nil {
+							log.Infof("Error sending message: %s", err.Error())
+						}
+					}
+				}
+				common_statefull_worker.CleanPending(f.storage_base_dir, client_id)
+				delete(f.pending_ratings, client_id)
 			}
 
 			if message_str == worker.MESSAGE_EOF {
