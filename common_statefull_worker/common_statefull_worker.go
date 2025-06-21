@@ -115,6 +115,9 @@ func doWrite(data []byte, file *os.File) error {
 func RestoreStateIfNeeded(last_messages_in_state map[string][]string, last_message_in_ids map[string]string, storage_base_dir string) (bool, error) {
 	var clients_ids_to_restore []string
 	for client_id, last_movies_id := range last_messages_in_state {
+		if len(last_movies_id) == 0 {
+			continue
+		}
 		if last_message_in_ids[client_id] != last_movies_id[len(last_movies_id)-1] {
 			clients_ids_to_restore = append(clients_ids_to_restore, client_id)
 		}
@@ -310,7 +313,9 @@ func StoreElementsWithMessageIds[T any](
 	if err != nil {
 		return err
 	}
-
+	if len(last_message_ids) == 0 {
+		return nil
+	}
 	return appendIds(storage_base_dir, last_message_ids, client_id)
 }
 
