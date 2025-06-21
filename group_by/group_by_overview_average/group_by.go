@@ -25,13 +25,14 @@ type GroupByOverviewAndAvgConfig struct {
 
 type GroupByOverviewAndAvg struct {
 	worker.Worker
-	messages_before_commit int
-	expected_eof           int
-	grouped_elements       map[string]map[string]RevenueBudgetCount
-	eofs                   map[string]int
-	storage_base_dir       string
-	messages_id            map[string][]string
-	messages               map[string][]amqp091.Delivery
+	messages_before_commit    int
+	expected_eof              int
+	grouped_elements          map[string]map[string]RevenueBudgetCount
+	eofs                      map[string]int
+	storage_base_dir          string
+	messages_id               map[string][]string
+	messages                  map[string][]amqp091.Delivery
+	received_messages_counter int
 }
 
 type RevenueBudgetCount struct {
@@ -52,18 +53,26 @@ func (g *GroupByOverviewAndAvg) EnsureClient(client_id string) {
 
 func (g *GroupByOverviewAndAvg) HandleCommit(client_id string, message amqp091.Delivery) error {
 	g.messages[client_id] = append(g.messages[client_id], message)
-	if len(g.messages[client_id]) >= g.messages_before_commit {
-		err := common_statefull_worker.StoreElementsWithMessageIds(g.grouped_elements[client_id],
-			client_id, g.storage_base_dir,
-			g.messages_id[client_id][len(g.messages_id[client_id])-g.messages_before_commit:])
-		if err != nil {
-			return err
+	g.received_messages_counter++
+	if g.received_messages_counter >= g.messages_before_commit {
+		for client_id, element := range g.grouped_elements {
+			err := common_statefull_worker.StoreElementsWithMessageIds(element,
+				client_id, g.storage_base_dir,
+				g.messages_id[client_id][len(g.messages_id[client_id])-len(g.messages[client_id]):])
+
+			if err != nil {
+				return err
+			}
 		}
 
-		for _, message := range g.messages[client_id] {
-			message.Ack(false)
+		for client_id, message_array := range g.messages {
+			for _, message := range message_array {
+				message.Ack(false)
+			}
+			g.messages[client_id] = g.messages[client_id][:0]
 		}
-		g.messages[client_id] = g.messages[client_id][:0]
+		g.received_messages_counter = 0
+
 	}
 	return nil
 }
@@ -160,12 +169,13 @@ func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_befor
 	}
 
 	return &GroupByOverviewAndAvg{
-		Worker:                 *worker,
-		messages_before_commit: messages_before_commit,
-		eofs:                   make(map[string]int),
-		grouped_elements:       grouped_elements,
-		storage_base_dir:       storage_base_dir,
-		messages_id:            messages_id,
-		messages:               make(map[string][]amqp091.Delivery),
+		Worker:                    *worker,
+		messages_before_commit:    messages_before_commit,
+		eofs:                      make(map[string]int),
+		grouped_elements:          grouped_elements,
+		storage_base_dir:          storage_base_dir,
+		messages_id:               messages_id,
+		messages:                  make(map[string][]amqp091.Delivery),
+		received_messages_counter: 0,
 	}
 }
