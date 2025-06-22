@@ -1,6 +1,7 @@
 package filterafter2000
 
 import (
+	buffer "distribuidos-tp1/common/worker/hasher"
 	worker "distribuidos-tp1/common/worker/worker"
 	"strconv"
 	"strings"
@@ -16,6 +17,7 @@ type FilterByAfterYear2000Config struct {
 
 type FilterByAfterYear2000 struct {
 	Worker *worker.Worker
+	buffer *buffer.HasherContainer
 }
 
 func NewFilterByAfterYear2000(config FilterByAfterYear2000Config) *FilterByAfterYear2000 {
@@ -26,8 +28,15 @@ func NewFilterByAfterYear2000(config FilterByAfterYear2000Config) *FilterByAfter
 		return nil
 	}
 
+	dict := make(map[string]int)
+	for nodeType, routingKeys := range config.WorkerConfig.Exchange.OutputRoutingKeys {
+		dict[nodeType] = len(routingKeys)
+	}
+	buffer := buffer.NewHasherContainer(dict)
+
 	return &FilterByAfterYear2000{
 		Worker: worker,
+		buffer: buffer,
 	}
 }
 
@@ -38,43 +47,56 @@ const ID = 0
 const TITLE = 1
 const DATE = 2
 
-func (f *FilterByAfterYear2000) Filter(lines []string) []string {
-	var result []string
+func (f *FilterByAfterYear2000) Filter(lines []string) {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		movie_id, err := strconv.Atoi(parts[0])
+		if err != nil {
+			continue
+		}
 		raw_year := strings.Split(parts[DATE], "-")[0]
 		year, err := strconv.Atoi(raw_year)
 		if err != nil {
 			continue
 		}
 		if year >= 2000 {
-			result = append(result, strings.TrimSpace(parts[ID])+worker.MESSAGE_SEPARATOR+strings.TrimSpace(parts[TITLE]))
+			f.buffer.AddMessage(movie_id, strings.TrimSpace(parts[ID])+worker.MESSAGE_SEPARATOR+strings.TrimSpace(parts[TITLE]))
 		}
 	}
-	return result
 }
 
 func (f *FilterByAfterYear2000) HandleEOF(client_id string, message_id string) error {
-	f.SendMessage([]string{worker.MESSAGE_EOF}, client_id, message_id)
-	return nil
-}
-
-func (f *FilterByAfterYear2000) SendMessage(message_to_send []string, client_id string, message_id string) error {
-	for _, line := range message_to_send {
-		// TODO: clean up commented code, the hasher node is used to send messages
-		// parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
-		if len(message_to_send) != 0 {
-			// id, err := strconv.Atoi(parts[ID])
-			// if err != nil {
-			// 	return err
-			// }
-			send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
-			message := client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + line
-			err := f.Worker.SendMessage(message, send_queue_key)
+	for _, output_routing_keys := range f.Worker.Exchange.OutputRoutingKeys {
+		for _, output_key := range output_routing_keys {
+			message := client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF + "\n"
+			err := f.Worker.SendMessage(message, output_key)
 			if err != nil {
 				return err
 			}
 		}
+	}
+	return nil
+}
+
+func (f *FilterByAfterYear2000) SendMessage(client_id string, message_id string) error {
+	for node_type := range f.Worker.Exchange.OutputRoutingKeys {
+		messages_to_send := f.buffer.GetMessages(node_type)
+		for routing_key_index, message := range messages_to_send {
+			message := strings.SplitSeq(message, "\n")
+			for message := range message {
+				if len(message) != 0 {
+					send_queue_key := f.Worker.Exchange.OutputRoutingKeys[node_type][routing_key_index]
+					message = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message
+					err := f.Worker.SendMessage(message, send_queue_key)
+					if err != nil {
+						return err
+					}
+					log.Debugf("Sent message to output exchange: %s", message)
+				}
+			}
+
+		}
+
 	}
 	return nil
 }
