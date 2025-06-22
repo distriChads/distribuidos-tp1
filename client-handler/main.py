@@ -11,10 +11,13 @@ def main():
     port = config["port"]
     listen_backlog = config["listen_backlog"]
 
-    input_routing_keys = config["CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS"].split(
-        ",")
-    output_routing_keys = config["CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS"].split(
-        ",")
+    routing_keys_input = config["INPUT_ROUTINGKEY"].split(",")
+    routing_keys_output = {
+        "filter_arg": config["filter_arg"],
+        "filter_one_country": config["filter_one_country"],
+        "join_movies_rating": config["join_movies_rating"],
+        "join_movies_credits": config["join_movies_credits"]
+    }
 
     init_log(logging_level)
 
@@ -23,13 +26,13 @@ def main():
         f"listen_backlog: {listen_backlog}\n"
         f"logging_level: {logging_level}\n"
         f"rabbitmq_host: {config['CLI_WORKER_BROKER']}\n"
-        f"input_routing_keys: {input_routing_keys}\n"
-        f"output_routing_keys: {output_routing_keys}\n"
+        f"input_routing_keys: {routing_keys_input}\n"
+        f"output_routing_keys: {routing_keys_output}\n\n"
     )
 
     exchange = ExchangeSpec(
-        input_routing_keys=input_routing_keys,
-        output_routing_keys=output_routing_keys,
+        input_routing_keys=routing_keys_input,
+        output_routing_keys=routing_keys_output,
         queue_name="client_handler_queue"
     )
     message_broker = config["CLI_WORKER_BROKER"]

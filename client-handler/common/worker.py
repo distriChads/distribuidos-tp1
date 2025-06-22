@@ -7,7 +7,9 @@ import uuid
 MESSAGE_SEPARATOR = "|"
 MESSAGE_ARRAY_SEPARATOR = ","
 MESSAGE_EOF = "EOF"
+
 EXCHANGE_NAME = "data_exchange"
+EXCHANGE_TYPE = "direct"
 
 log = logging.getLogger("worker")
 
@@ -42,12 +44,11 @@ class Receiver:
 
 class Worker:
     def __init__(self, config: WorkerConfig):
-        uuid_str = str(uuid.uuid4())
         self.exchange = config.exchange
         self.message_broker = config.message_broker
         self.sender = None
         self.receiver = None
-        self.client_id = uuid_str
+        self.client_id = str(uuid.uuid4())
 
     def _init_connection(self):
         max_retries = 3
@@ -74,7 +75,7 @@ class Worker:
 
         ch.exchange_declare(
             exchange=self.exchange.name,
-            exchange_type='topic',
+            exchange_type=EXCHANGE_TYPE,
             durable=False,
             auto_delete=False
         )
@@ -88,7 +89,7 @@ class Worker:
 
         ch.exchange_declare(
             exchange=self.exchange.name,
-            exchange_type='topic',
+            exchange_type=EXCHANGE_TYPE,
             durable=False,
             auto_delete=False
         )
@@ -112,7 +113,7 @@ class Worker:
     def send_message(self, message: str, routing_key: str):
         if not self.sender:
             raise Exception("Sender not initialized")
-        
+
         identifier = str(uuid.uuid4())
         message = f"{self.client_id}|{identifier}|{message}"
         self.sender.ch.basic_publish(

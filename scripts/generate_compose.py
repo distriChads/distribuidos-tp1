@@ -60,7 +60,8 @@ def get_output_routing_keys_strings(service_name, replicas):
     return ",".join(f"{service_name}.{i}" for i in range(1, replicas + 1))
 
 
-def client_handler_service(broker,
+def client_handler_service(input_routing_key,
+                           broker,
                            logging_level,
                            listen_backlog,
                            filter_arg_replicas,
@@ -82,6 +83,7 @@ def client_handler_service(broker,
         f"LOGGING_LEVEL={logging_level}",
         f"CLI_WORKER_BROKER={broker}",
         f"CLIENT_HANDLER_LISTEN_BACKLOG={listen_backlog}",
+        f"INPUT_ROUTINGKEY={input_routing_key}",
         f"OUTPUT_ROUTINGKEYS_FILTER_ARG={filter_arg_out_routing_keys}",
         f"OUTPUT_ROUTINGKEYS_FILTER_ONE_COUNTRY={filter_one_country_out_routing_keys}",
         f"OUTPUT_ROUTINGKEYS_JOIN_MOVIES_RATING={ratings_join_replicas}",
@@ -163,7 +165,6 @@ def generate_compose(spec_path, output_path):
     }
 
     node_replica_mapping = get_replicas(spec["services"])
-    print("Node replica mapping:", node_replica_mapping)
 
     for service_spec in spec["services"]:
         name = service_spec["name"]
@@ -175,6 +176,7 @@ def generate_compose(spec_path, output_path):
                 "listen_backlog", CLI_HANDLER_BACKLOG)
 
             compose["services"][name] = client_handler_service(
+                input_routing_key=service_spec["input_routing_key"][0],
                 broker=broker,
                 logging_level=logging_level,
                 listen_backlog=listen_backlog,

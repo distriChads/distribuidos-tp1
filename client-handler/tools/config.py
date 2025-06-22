@@ -18,7 +18,7 @@ def init_config() -> dict[str, str | int]:
 def load_environmental_variables(config: ConfigParser, config_params: dict[str, str | int]):
     try:
         setup_client_handler_config_esentials(config, config_params)
-        load_exchange_config(config, config_params)
+        load_exchange_config(config_params)
     except KeyError as e:
         raise KeyError(
             "Key was not found. Error: {} .Aborting client_handler".format(e))
@@ -27,11 +27,15 @@ def load_environmental_variables(config: ConfigParser, config_params: dict[str, 
             "Key could not be parsed. Error: {}. Aborting client_handler".format(e))
 
 
-def load_exchange_config(config, config_params):
-    config_params["CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS"] = os.getenv(
-        'CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS') or config["DEFAULT"]["CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS"]
-    config_params["CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS"] = os.getenv(
-        'CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS') or config["DEFAULT"]["CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS"]
+def load_exchange_config(config_params):
+    config_params["INPUT_ROUTINGKEY"] = os.getenv('INPUT_ROUTINGKEY')
+
+    output_node_names = ["FILTER_ARG",
+                         "FILTER_ONE_COUNTRY", "JOIN_MOVIES_RATING", "JOIN_MOVIES_CREDITS"]
+    for node_name in output_node_names:
+        output_routing_keys = os.getenv(f'OUTPUT_ROUTINGKEYS_{node_name}')
+        output_routing_keys = output_routing_keys.split(",")
+        config_params[node_name.lower()] = output_routing_keys
 
 
 def setup_client_handler_config_esentials(config, config_params):

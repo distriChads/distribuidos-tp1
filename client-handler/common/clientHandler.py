@@ -83,7 +83,8 @@ class ClientHandler:
                         bytes_received, chunck_received)
                     client.send_message_to_workers()
                 except Exception as e:
-                    logging.error(f'Error processing client {client.worker.client_id}: {e}')
+                    logging.error(
+                        f'Error processing client {client.worker.client_id}: {e}')
                     client.send_all_eof()
                     return
 
@@ -101,7 +102,8 @@ class ClientHandler:
             parts = result.split("|", 2)
             client_id, message_id, result = parts
             if message_id in received_messages_id[client_id]:
-                logging.warning(f"Repeated message {message_id} for client {client_id}")
+                logging.warning(
+                    f"Repeated message {message_id} for client {client_id}")
                 continue
             received_messages_id[client_id].append(message_id)
             query_number = method_frame.routing_key.split(".")[0]
@@ -129,7 +131,8 @@ class ClientHandler:
                 try:
                     client.send(result)
                 except Exception as e:
-                    logging.error(f'Error sending result to client {client_id}: {e}')
+                    logging.error(
+                        f'Error sending result to client {client_id}: {e}')
                     continue
 
     def __accept_new_connection(self):

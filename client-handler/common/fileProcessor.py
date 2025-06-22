@@ -3,6 +3,8 @@ import csv
 import io
 import logging
 
+from .hasher import HasherContainer
+
 
 MOVIES_HEADER = "adult,belongs_to_collection,budget,genres,homepage,id,imdb_id,original_language,original_title,overview,popularity,poster_path,production_companies,production_countries,release_date,revenue,runtime,spoken_languages,status,tagline,title,video,vote_average,vote_count"
 CREDITS_HEADER = "cast,crew,id"
@@ -16,15 +18,12 @@ FIELD_SEPARATOR = "|"
 VALUE_SEPARATOR = ","
 LINE_SEPARATOR = "\n"
 
-MAX_BATCH_SIZE = (1024 * 8) - 4  # 4 bytes for the file size
-
 
 class Processor:
-    def __init__(self):
+    def __init__(self, positions_for_hasher):
+        self.container = HasherContainer(positions_for_hasher)
         self.header_length = 0
         self.fields_count = 0
-        self.data_buffer: list[str] = []
-        self.overflow_buffer: list[str] = []
 
         self.bytes_read = 0
         self.read_until = 0
@@ -43,8 +42,6 @@ class Processor:
 
     def process_batch(self, bytes_received: int, chunck_received: str):
         self.bytes_read += bytes_received
-        self.data_buffer.append("".join(self.overflow_buffer))
-        self.overflow_buffer.clear()
         successful_lines_count = 0
         error_count = 0
         reader = csv.reader(io.StringIO(chunck_received))
@@ -56,13 +53,9 @@ class Processor:
                     logging.debug(
                         f"Error processing line, Expected {self.fields_count} fields, got {len(row)}")
                     continue
-                line_processed = self._process_line(row)
+                movie_id, line_processed = self._process_line(row)
                 successful_lines_count += 1
-                if len(self.data_buffer) + len(line_processed) + 1 <= MAX_BATCH_SIZE:
-                    self.data_buffer.append(line_processed + LINE_SEPARATOR)
-                else:
-                    self.overflow_buffer.append(
-                        line_processed + LINE_SEPARATOR)
+                self.container.append_to_node(movie_id, line_processed)
             except Exception as e:
                 error_count += 1
                 logging.debug(f"Error processing line, Error: {e}")
@@ -76,31 +69,7 @@ class Processor:
     def remove_header(self, csv_data: str) -> str:
         return csv_data[self.header_length:]
 
-    def ready_to_send(self) -> bool:
-        # -1 for the \n
-        data_buffer = "".join(self.data_buffer)
-        overflow_buffer = "".join(self.overflow_buffer)
-
-        self.data_buffer.clear()
-        self.overflow_buffer.clear()
-
-        self.data_buffer.append(data_buffer)
-        self.overflow_buffer.append(overflow_buffer)
-
-        return len(data_buffer) + len(overflow_buffer) - 1 >= MAX_BATCH_SIZE
-
-    def get_processed_batch(self) -> str:
-        result = "".join(self.data_buffer)
-        self.data_buffer.clear()
-        return result
-
-    def get_all_data(self) -> str:
-        result = self.data_buffer + self.overflow_buffer
-        self.data_buffer.clear()
-        self.overflow_buffer.clear()
-        return "".join(result)
-
-    def _process_line(self, line: list[str]) -> str:
+    def _process_line(self, line: list[str]) -> list[int, str]:
         raise NotImplementedError(
             "Subclasses should implement this method")
 
@@ -110,17 +79,26 @@ class Processor:
         except (ValueError, SyntaxError):
             return ""
 
+    def convert_movie_id_to_int(self, movie_id: str) -> int:
+        try:
+            return int(movie_id)
+        except ValueError:
+            raise EmptyFieldError(f"Invalid movie_id: {movie_id}")
+
+    def get_processed_batch(self) -> list[list[str]]:
+        return self.container.get_buffers()
+
 
 class MoviesProcessor(Processor):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, positions_for_hasher):
+        super().__init__(positions_for_hasher)
         self.header_length = len(MOVIES_HEADER) + 1  # +1 for the \n
         self.fields_count = FIELDS_COUNT_MOVIES
 
-    def _process_line(self, line: list[str]) -> str:
+    def _process_line(self, line: list[str]) -> list[int, str]:
         budget = line[2]
         genres = line[3]
-        id = line[5]
+        movie_id = line[5]
         prodCountries = line[13]
         releaseDate = line[14]
         title = line[20]
@@ -135,8 +113,8 @@ class MoviesProcessor(Processor):
         prodCountries = self._try_parse_python_structure(prodCountries)
         genres = self._try_parse_python_structure(genres)
 
-        if not id:
-            raise EmptyFieldError("Missing id")
+        if not movie_id:
+            raise EmptyFieldError("Missing movie_id")
         if not title:
             raise EmptyFieldError("Missing title")
         if not releaseDate:
@@ -158,12 +136,13 @@ class MoviesProcessor(Processor):
             [c["iso_3166_1"] for c in prodCountries])
         genres = VALUE_SEPARATOR.join([g["name"] for g in genres])
 
-        return f"{id}{FIELD_SEPARATOR}{title}{FIELD_SEPARATOR}{releaseDate}{FIELD_SEPARATOR}{countries}{FIELD_SEPARATOR}{genres}{FIELD_SEPARATOR}{budget}{FIELD_SEPARATOR}{overview}{FIELD_SEPARATOR}{revenue}"
+        movie_id = self.convert_movie_id_to_int(movie_id)
+        return movie_id, f"{movie_id}{FIELD_SEPARATOR}{title}{FIELD_SEPARATOR}{releaseDate}{FIELD_SEPARATOR}{countries}{FIELD_SEPARATOR}{genres}{FIELD_SEPARATOR}{budget}{FIELD_SEPARATOR}{overview}{FIELD_SEPARATOR}{revenue}{LINE_SEPARATOR}"
 
 
 class CreditsProcessor(Processor):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, positions_for_hasher):
+        super().__init__(positions_for_hasher)
         self.header_length = len(CREDITS_HEADER) + 1  # +1 for the \n
         self.fields_count = FIELDS_COUNT_CREDITS
         self.row_length = 0
@@ -189,39 +168,41 @@ class CreditsProcessor(Processor):
         else:
             self.bytes_read += bytes_received
 
-    def _process_line(self, line: list[str]) -> str:
+    def _process_line(self, line: list[str]) -> list[int, str]:
         cast = line[0]
-        id = line[2]
+        movie_id = line[2]
 
         cast = self._try_parse_python_structure(cast)
         if not cast:
             raise EmptyFieldError("Missing cast")
-        if not id:
-            raise EmptyFieldError("Missing id")
+        if not movie_id:
+            raise EmptyFieldError("Missing movie_id")
 
         cast = VALUE_SEPARATOR.join([c["name"] for c in cast])
-        return f"{id}{FIELD_SEPARATOR}{cast}"
+        movie_id = self.convert_movie_id_to_int(movie_id)
+        return movie_id, f"{movie_id}{FIELD_SEPARATOR}{cast}{LINE_SEPARATOR}"
 
 
 class RatingsProcessor(Processor):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, positions_for_hasher):
+        super().__init__(positions_for_hasher)
         self.header_length = len(RATINGS_HEADER) + 1  # +1 for the \n
         self.fields_count = FIELDS_COUNT_RATINGS
 
-    def _process_line(self, line: list[str]) -> str:
-        movieId = line[1]
+    def _process_line(self, line: list[str]) -> list[int, str]:
+        movie_id = line[1]
         rating = line[2]
         timestamp = line[3]
 
-        if not movieId:
-            raise EmptyFieldError("Missing movieId")
+        if not movie_id:
+            raise EmptyFieldError("Missing movie_id")
         if not rating:
             raise EmptyFieldError("Missing rating")
         if not timestamp:
             raise EmptyFieldError("Missing timestamp")
 
-        return f"{movieId}{FIELD_SEPARATOR}{rating}"
+        movie_id = self.convert_movie_id_to_int(movie_id)
+        return movie_id, f"{movie_id}{FIELD_SEPARATOR}{rating}{LINE_SEPARATOR}"
 
 
 class EmptyFieldError(Exception):
