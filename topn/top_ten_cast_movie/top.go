@@ -63,7 +63,7 @@ func mapToLines(top_ten []TopTenCastCount) string {
 }
 
 func (g *TopTenCastMovie) HandleEOF(client_id string, message_id string) error {
-	err := common_statefull_worker.SendResult(g.Worker, g, client_id)
+	err := common_statefull_worker.SendResult(g.Worker, client_id, g.MapToLines(client_id))
 	if err != nil {
 		return err
 	}
