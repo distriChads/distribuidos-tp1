@@ -76,7 +76,7 @@ func (f *FilterByArgentina) HandleEOF(client_id string, message_id string) error
 	return nil
 }
 
-func (f *FilterByArgentina) SendMessage(message_to_send []string, client_id string, message_id string) error {
+func (f *FilterByArgentina) SendMessage(client_id string, message_id string) error {
 	for node_type := range f.Worker.Exchange.OutputRoutingKeys {
 		messages_to_send := f.buffer.GetMessages(node_type)
 		for routing_key_index, message := range messages_to_send {

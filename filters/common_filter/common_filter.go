@@ -11,9 +11,9 @@ import (
 )
 
 type Filter interface {
-	Filter(lines []string) []string
+	Filter(lines []string)
 	HandleEOF(client_id string, message_id string) error
-	SendMessage(lines []string, client_id string, message_id string) error
+	SendMessage(client_id string, message_id string) error
 }
 
 var log = logging.MustGetLogger("common_filter")
@@ -57,18 +57,14 @@ func RunWorker(f Filter, worker worker.Worker, ctx context.Context, starting_mes
 		}
 
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
-		filtered_lines := f.Filter(lines)
-
-		if len(filtered_lines) != 0 {
-			err = f.SendMessage(filtered_lines, client_id, message_id)
-			if err != nil {
-				log.Infof("Error sending message: %s", err.Error())
-				return err
-			}
-			log.Debugf("Sent message: %s", strings.Join(filtered_lines, "\n"))
-		} else {
-			log.Debugf("No lines to send for client %s", client_id)
+		f.Filter(lines)
+		err = f.SendMessage(client_id, message_id)
+		if err != nil {
+			log.Infof("Error sending message: %s", err.Error())
+			return err
 		}
+		log.Debug("Sent message")
+
 		msg.Ack(false)
 	}
 }
