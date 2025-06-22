@@ -26,15 +26,22 @@ func main() {
 	}
 
 	log_level := v.GetString("log.level")
+	outputRoutingKeysFilterSpain := strings.Split(v.GetString("ROUTINGKEYS_OUTPUT_FILTER-SPAIN-2000"), ",")
+	outputRoutingKeysFilterAfter2000 := strings.Split(v.GetString("ROUTINGKEYS_OUTPUT_FILTER-AFTER-2000"), ",")
+
+	filterRoutingKeysMap := map[string][]string{
+		"filter_spain_2000": outputRoutingKeysFilterSpain,
+		"filter_after_2000": outputRoutingKeysFilterAfter2000,
+	}
 
 	exchangeSpec := worker.ExchangeSpec{
 		InputRoutingKeys:  strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
-		OutputRoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
+		OutputRoutingKeys: filterRoutingKeysMap,
 		QueueName:         "filter_argentina",
 	}
 	messageBroker := v.GetString("worker.broker")
 
-	if exchangeSpec.InputRoutingKeys[0] == "" || exchangeSpec.OutputRoutingKeys[0] == "" || messageBroker == "" {
+	if exchangeSpec.InputRoutingKeys[0] == "" || len(exchangeSpec.OutputRoutingKeys) == 0 || messageBroker == "" {
 		log.Criticalf("Error: one or more environment variables are empty")
 		return
 	}

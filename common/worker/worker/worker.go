@@ -39,7 +39,7 @@ type receiver struct {
 
 type ExchangeSpec struct {
 	InputRoutingKeys  []string
-	OutputRoutingKeys []string
+	OutputRoutingKeys map[string][]string
 	QueueName         string
 }
 

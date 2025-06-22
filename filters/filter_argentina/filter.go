@@ -4,6 +4,8 @@ import (
 	"distribuidos-tp1/common/worker/worker"
 	"strings"
 
+	buffer "distribuidos-tp1/common/worker/hasher"
+
 	"github.com/op/go-logging"
 )
 
@@ -15,6 +17,7 @@ type FilterByArgentinaConfig struct {
 
 type FilterByArgentina struct {
 	Worker *worker.Worker
+	buffer *buffer.HasherContainer
 }
 
 func NewFilterByArgentina(config FilterByArgentinaConfig) *FilterByArgentina {
@@ -25,8 +28,15 @@ func NewFilterByArgentina(config FilterByArgentinaConfig) *FilterByArgentina {
 		return nil
 	}
 
+	dict := make(map[string]int)
+	for nodeType, routingKeys := range config.WorkerConfig.Exchange.OutputRoutingKeys {
+		dict[nodeType] = len(routingKeys)
+	}
+	buffer := buffer.NewHasherContainer(dict)
+
 	return &FilterByArgentina{
 		Worker: worker,
+		buffer: buffer,
 	}
 }
 
@@ -39,8 +49,8 @@ func (f *FilterByArgentina) Filter(lines []string) []string {
 	var result []string
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
-		countries := strings.Split(parts[COUNTRIES], worker.MESSAGE_ARRAY_SEPARATOR)
-		for _, country := range countries {
+		countries := strings.SplitSeq(parts[COUNTRIES], worker.MESSAGE_ARRAY_SEPARATOR)
+		for country := range countries {
 			if strings.TrimSpace(country) == "AR" {
 				result = append(result, strings.TrimSpace(line))
 				break
@@ -59,7 +69,7 @@ func (f *FilterByArgentina) SendMessage(message_to_send []string, client_id stri
 	message := strings.Join(message_to_send, "\n")
 	if len(message) != 0 {
 		send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
-		message = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message
+		message = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message + "\n"
 		err := f.Worker.SendMessage(message, send_queue_key)
 		if err != nil {
 			return err
