@@ -77,15 +77,20 @@ func (f *FilterByArgentina) HandleEOF(client_id string, message_id string) error
 }
 
 func (f *FilterByArgentina) SendMessage(message_to_send []string, client_id string, message_id string) error {
-	message := strings.Join(message_to_send, "\n")
-	if len(message) != 0 {
-		send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
-		message = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message + "\n"
-		err := f.Worker.SendMessage(message, send_queue_key)
-		if err != nil {
-			return err
+	for node_type := range f.Worker.Exchange.OutputRoutingKeys {
+		messages_to_send := f.buffer.GetMessages(node_type)
+		for routing_key_index, message := range messages_to_send {
+			if len(message) != 0 {
+				send_queue_key := f.Worker.Exchange.OutputRoutingKeys[node_type][routing_key_index]
+				message = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message + "\n"
+				err := f.Worker.SendMessage(message, send_queue_key)
+				if err != nil {
+					return err
+				}
+				log.Debugf("Sent message to output exchange: %s", message)
+			}
 		}
-		log.Debugf("Sent message to output exchange: %s", message)
+
 	}
 	return nil
 }
