@@ -2,6 +2,7 @@ package filter_argentina
 
 import (
 	"distribuidos-tp1/common/worker/worker"
+	"strconv"
 	"strings"
 
 	buffer "distribuidos-tp1/common/worker/hasher"
@@ -45,23 +46,33 @@ func NewFilterByArgentina(config FilterByArgentinaConfig) *FilterByArgentina {
 // ---------------------------------
 const COUNTRIES = 3
 
-func (f *FilterByArgentina) Filter(lines []string) []string {
-	var result []string
+func (f *FilterByArgentina) Filter(lines []string) {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
+		movie_id, err := strconv.Atoi(parts[0])
+		if err != nil {
+			continue
+		}
 		countries := strings.SplitSeq(parts[COUNTRIES], worker.MESSAGE_ARRAY_SEPARATOR)
 		for country := range countries {
 			if strings.TrimSpace(country) == "AR" {
-				result = append(result, strings.TrimSpace(line))
+				f.buffer.AddMessage(movie_id, strings.TrimSpace(line))
 				break
 			}
 		}
 	}
-	return result
 }
 
 func (f *FilterByArgentina) HandleEOF(client_id string, message_id string) error {
-	f.SendMessage([]string{worker.MESSAGE_EOF}, client_id, message_id)
+	for _, output_routing_keys := range f.Worker.Exchange.OutputRoutingKeys {
+		for _, output_key := range output_routing_keys {
+			message := client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF + "\n"
+			err := f.Worker.SendMessage(message, output_key)
+			if err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
