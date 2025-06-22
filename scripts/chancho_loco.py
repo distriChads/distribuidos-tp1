@@ -3,8 +3,35 @@ import threading
 import time
 import random
 import sys
+def death_print(name):
+    explosion = [
+        "   *   *   *",
+        f"*   💀 {name} 💀   *",
+        " *   * * *   *"
+    ]
+
+    width = max(len(line) for line in explosion)
+
+    print("\n" + "*" * width)
+    print(explosion[0].center(width))
+    print(explosion[1].center(width))
+    print(explosion[2].center(width))
+    print("*" * width + "\n")
+
+def sad_print(name):
+    message = f"El contenedor {name} no esta corriendo"
+    width = len(message) + 4  # padding
+
+    border = "." * width
+    face = "😢"
+
+    print("\n" + border)
+    print(f". {face} {message} {face} .")
+    print(border + "\n")
 
 class ContainerController:
+
+
     def __init__(self, filename):
         self.containers = self.load_containers_from_file(filename)
         self.auto_thread = None
@@ -27,12 +54,14 @@ class ContainerController:
     def kill_container(self, container_name):
         if self.is_container_running(container_name):
             self.run_cmd(f"docker stop {container_name}")
-            print(f"Contenedor {container_name} matado")
+            death_print(container_name)
         else:
-            print(f"Contenedor {container_name} no esta corriendo")
+            sad_print(container_name)
 
     def kill_all_except_one_heartbeat(self):
         heartbeat_skipped = False
+        print("Matando todos los contenedores en 3..2..1.. 💣💣💣💥💥💥💣💣💣")
+        time.sleep(1)
         for container_name in self.containers:
             if container_name.startswith("hearth-beat") and not heartbeat_skipped:
                 heartbeat_skipped = True
@@ -50,7 +79,7 @@ class ContainerController:
             alive_containers = [container_name for container_name in self.containers if self.is_container_running(container_name)]
             if not alive_containers:
                 print("No hay mas contenedores vivos")
-                break
+                self.stop_auto_kill()
             containers_to_kill = random.sample(alive_containers, min(y, len(alive_containers)))
             for container_name in containers_to_kill:
                 self.kill_container(container_name)
@@ -71,7 +100,6 @@ class ContainerController:
 
     def prompt_loop(self):
         print(f"Contenedores cargados: {self.containers}")
-        print(f"Todos los contenedores corriendo: {self.run_cmd(f"docker ps --format {{{{.Names}}}}")}")
         while True:
             try:
                 cmd = input(">>> ").strip()
@@ -95,6 +123,9 @@ class ContainerController:
             elif cmd.startswith("matar_varios "):
                 _, prefix = cmd.split(maxsplit=1)
                 self.kill_with_prefix(prefix)
+            elif cmd == "mostrar":
+                running_containers = self.run_cmd(f"docker ps --format {{{{.Names}}}}").strip().splitlines()
+                print(f"Contenedores corriendo: {running_containers}")
             else:
                 print("Comando inexistente")
 

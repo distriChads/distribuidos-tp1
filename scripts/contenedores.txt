@@ -2,3 +2,12 @@ group-by-overview-average-1
 filter-only-one-country-1
 filter-after-2000-1
 join-movie-credits-1
+router-1
+first-and-last-1
+master-group-by-country-sum-1
+master-group-by-movie-average-1
+master-group-by-overview-average-1
+machine-learning-1
+group-by-country-sum-1
+master-group-by-actor-count-1
+group-by-movie-average-1
