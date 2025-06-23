@@ -67,7 +67,9 @@ def client_handler_service(input_routing_key,
                            filter_arg_replicas,
                            filter_one_country_replicas,
                            ratings_join_replicas,
-                           credits_join_replicas):
+                           credits_join_replicas,
+                           ml_replicas,
+                           ):
     filter_arg_out_routing_keys = get_output_routing_keys_strings(
         FILTER_ARG, filter_arg_replicas)
     filter_one_country_out_routing_keys = get_output_routing_keys_strings(
@@ -76,6 +78,8 @@ def client_handler_service(input_routing_key,
         "join-ratings", ratings_join_replicas)
     credits_join_replicas = get_output_routing_keys_strings(
         "join-credits", credits_join_replicas)
+    ml_replicas = get_output_routing_keys_strings(
+        MACHINE_LEARNING, ml_replicas)
 
     env = []
     env.extend([
@@ -88,6 +92,7 @@ def client_handler_service(input_routing_key,
         f"OUTPUT_ROUTINGKEYS_FILTER_ONE_COUNTRY={filter_one_country_out_routing_keys}",
         f"OUTPUT_ROUTINGKEYS_JOIN_MOVIES_RATING={ratings_join_replicas}",
         f"OUTPUT_ROUTINGKEYS_JOIN_MOVIES_CREDITS={credits_join_replicas}",
+        f"OUTPUT_ROUTINGKEYS_MACHINE_LEARNING={ml_replicas}",
     ])
 
     return {
@@ -203,6 +208,8 @@ def generate_compose(spec_path, output_path):
                 credits_join_replicas=node_replica_mapping[JOIN_MOVIES_CREDITS.upper().replace(
                     "-", "_")],
                 ratings_join_replicas=node_replica_mapping[JOIN_MOVIES_RATINGS.upper().replace(
+                    "-", "_")],
+                ml_replicas=node_replica_mapping[MACHINE_LEARNING.upper().replace(
                     "-", "_")],
             )
         else:

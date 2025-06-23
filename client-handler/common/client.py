@@ -9,6 +9,7 @@ EOF = "EOF"
 MOVIES_ROUTING_KEYS = ["filter_arg", "filter_one_country"]
 CREDITS_ROUTING_KEYS = "join_movies_credits"
 RATINGS_ROUTING_KEYS = "join_movies_rating"
+ML_ROUTING_KEYS = "machine_learning"
 
 
 class Client:
@@ -17,17 +18,21 @@ class Client:
         self.worker = Worker(config)
         logging.info("Initializing client with output routing keys: %s",
                      self.worker.exchange.output_routing_keys[MOVIES_ROUTING_KEYS[0]])
+
         filter_arg_positions = len(
             self.worker.exchange.output_routing_keys[MOVIES_ROUTING_KEYS[0]])
         filter_only_one_country_positions = len(
             self.worker.exchange.output_routing_keys[MOVIES_ROUTING_KEYS[1]])
+        ml_positions = len(
+            self.worker.exchange.output_routing_keys[ML_ROUTING_KEYS])
+
         positions_for_hasher = {
             MOVIES_ROUTING_KEYS[0]: filter_arg_positions,
             MOVIES_ROUTING_KEYS[1]: filter_only_one_country_positions,
+            ML_ROUTING_KEYS: ml_positions,
         }
-        logging.info(
-            "Initializing batch processor with positions: %s", positions_for_hasher)
         self.batch_processor = MoviesProcessor(positions_for_hasher)
+
         try:
             self.worker.init_senders()
             self.worker.init_receiver()
@@ -80,7 +85,8 @@ class Client:
         routing_keys = []
         if type(self.batch_processor) == MoviesProcessor:
             routing_keys = self.worker.exchange.output_routing_keys[MOVIES_ROUTING_KEYS[0]] + \
-                self.worker.exchange.output_routing_keys[MOVIES_ROUTING_KEYS[1]]
+                self.worker.exchange.output_routing_keys[MOVIES_ROUTING_KEYS[1]] + \
+                self.worker.exchange.output_routing_keys[ML_ROUTING_KEYS]
         elif type(self.batch_processor) == CreditsProcessor:
             routing_keys = self.worker.exchange.output_routing_keys[CREDITS_ROUTING_KEYS]
         elif type(self.batch_processor) == RatingsProcessor:

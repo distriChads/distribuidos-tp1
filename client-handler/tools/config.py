@@ -31,7 +31,7 @@ def load_exchange_config(config_params):
     config_params["INPUT_ROUTINGKEY"] = os.getenv('INPUT_ROUTINGKEY')
 
     output_node_names = ["FILTER_ARG",
-                         "FILTER_ONE_COUNTRY", "JOIN_MOVIES_RATING", "JOIN_MOVIES_CREDITS"]
+                         "FILTER_ONE_COUNTRY", "JOIN_MOVIES_RATING", "JOIN_MOVIES_CREDITS", "MACHINE_LEARNING"]
     for node_name in output_node_names:
         output_routing_keys = os.getenv(f'OUTPUT_ROUTINGKEYS_{node_name}')
         output_routing_keys = output_routing_keys.split(",")

@@ -38,6 +38,7 @@ services:
       - OUTPUT_ROUTINGKEYS_FILTER_ONE_COUNTRY=filter-only-one-country.1,filter-only-one-country.2,filter-only-one-country.3
       - OUTPUT_ROUTINGKEYS_JOIN_MOVIES_RATING=join-ratings.1,join-ratings.2,join-ratings.3
       - OUTPUT_ROUTINGKEYS_JOIN_MOVIES_CREDITS=join-credits.1,join-credits.2,join-credits.3
+      - OUTPUT_ROUTINGKEYS_MACHINE_LEARNING=machine-learning.1,machine-learning.2,machine-learning.3,machine-learning.4,machine-learning.5
   filter-argentina-1:
     build:
       context: .
@@ -436,7 +437,7 @@ services:
     environment:
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLI_LOG_LEVEL=info
-      - EOF_COUNTER=3
+      - EOF_COUNTER=5
       - ROUTINGKEYS_INPUT=group-by-overview-average.1
       - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-OVERVIEW-AVERAGE=master-group-by-overview-average.1
       - CLI_WORKER_STORAGE=/app/storage
@@ -457,7 +458,7 @@ services:
     environment:
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLI_LOG_LEVEL=info
-      - EOF_COUNTER=3
+      - EOF_COUNTER=5
       - ROUTINGKEYS_INPUT=group-by-overview-average.2
       - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-OVERVIEW-AVERAGE=master-group-by-overview-average.1
       - CLI_WORKER_STORAGE=/app/storage
@@ -478,7 +479,7 @@ services:
     environment:
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLI_LOG_LEVEL=info
-      - EOF_COUNTER=3
+      - EOF_COUNTER=5
       - ROUTINGKEYS_INPUT=group-by-overview-average.3
       - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-OVERVIEW-AVERAGE=master-group-by-overview-average.1
       - CLI_WORKER_STORAGE=/app/storage
@@ -616,6 +617,38 @@ services:
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLI_LOG_LEVEL=info
       - ROUTINGKEYS_INPUT=machine-learning.3
+      - ROUTINGKEYS_OUTPUT_GROUP-BY-OVERVIEW-AVERAGE=group-by-overview-average.1,group-by-overview-average.2,group-by-overview-average.3
+    image: machine_learning:latest
+    networks:
+      - movies_net
+  machine-learning-4:
+    build:
+      context: .
+      dockerfile: machine_learning/Dockerfile
+    container_name: machine-learning-4
+    depends_on:
+      - rabbitmq
+    entrypoint: python main.py
+    environment:
+      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+      - CLI_LOG_LEVEL=info
+      - ROUTINGKEYS_INPUT=machine-learning.4
+      - ROUTINGKEYS_OUTPUT_GROUP-BY-OVERVIEW-AVERAGE=group-by-overview-average.1,group-by-overview-average.2,group-by-overview-average.3
+    image: machine_learning:latest
+    networks:
+      - movies_net
+  machine-learning-5:
+    build:
+      context: .
+      dockerfile: machine_learning/Dockerfile
+    container_name: machine-learning-5
+    depends_on:
+      - rabbitmq
+    entrypoint: python main.py
+    environment:
+      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+      - CLI_LOG_LEVEL=info
+      - ROUTINGKEYS_INPUT=machine-learning.5
       - ROUTINGKEYS_OUTPUT_GROUP-BY-OVERVIEW-AVERAGE=group-by-overview-average.1,group-by-overview-average.2,group-by-overview-average.3
     image: machine_learning:latest
     networks:

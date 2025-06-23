@@ -16,7 +16,8 @@ def main():
         "filter_arg": config["filter_arg"],
         "filter_one_country": config["filter_one_country"],
         "join_movies_rating": config["join_movies_rating"],
-        "join_movies_credits": config["join_movies_credits"]
+        "join_movies_credits": config["join_movies_credits"],
+        "machine_learning": config["machine_learning"],
     }
 
     init_log(logging_level)
