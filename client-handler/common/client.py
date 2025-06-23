@@ -2,7 +2,7 @@ import logging
 from common.communication import Socket
 from common.fileProcessor import MoviesProcessor, CreditsProcessor, RatingsProcessor
 from .worker import Worker, WorkerConfig
-
+import uuid
 EOF = "EOF"
 
 MOVIES_ROUTING_KEY_INDEX = 0
@@ -14,6 +14,7 @@ class Client:
     def __init__(self, socket: Socket, config: WorkerConfig):
         self.client_socket = socket
         self.worker = Worker(config)
+        self.client_id = str(uuid.uuid4())
         self.batch_processor = MoviesProcessor()
         try:
             self.worker.init_senders()
@@ -53,7 +54,7 @@ class Client:
         if not routing_key or not exchange:
             raise ValueError("Routing key or exchange is not set.")
 
-        self.worker.send_message(data, routing_key)
+        self.worker.send_message(data, routing_key, self.client_id)
 
     def set_next_processor(self):
         if type(self.batch_processor) == MoviesProcessor:

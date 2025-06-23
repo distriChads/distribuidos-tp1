@@ -63,7 +63,7 @@ class ClientHandler:
     def __handle_client(self, client_socket: Socket):
         client = Client(client_socket, self.client_handler_config)
         with self.clients_lock:
-            self.clients[client.worker.client_id] = client
+            self.clients[client.client_id] = client
         self.__receive_datasets(client)
 
     def __receive_datasets(self, client: Client):
@@ -83,7 +83,7 @@ class ClientHandler:
                         bytes_received, chunck_received)
                     client.send_message_to_workers()
                 except Exception as e:
-                    logging.error(f'Error processing client {client.worker.client_id}: {e}')
+                    logging.error(f'Error processing client {client.client_id}: {e}')
                     client.send_all_eof()
                     return
 
