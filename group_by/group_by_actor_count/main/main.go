@@ -16,7 +16,7 @@ import (
 	"github.com/op/go-logging"
 )
 
-var log = logging.MustGetLogger("master_group_by_actor_count")
+var log = logging.MustGetLogger("group_by_actor_count")
 
 func main() {
 	v, err := utils.InitConfig()
@@ -26,10 +26,10 @@ func main() {
 	}
 
 	log_level := v.GetString("cli.log.level")
-	outputRoutingKeysTopTen := strings.Split(v.GetString("ROUTINGKEYS_OUTPUT_TOP-TEN-CAST-MOVIE"), ",")
+	outputRoutingKeysActorCount := strings.Split(v.GetString("ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-ACTOR-COUNT"), ",")
 
 	filterRoutingKeysMap := map[string][]string{
-		"top_ten": outputRoutingKeysTopTen,
+		"actor_count": outputRoutingKeysActorCount,
 	}
 
 	exchangeSpec := worker.ExchangeSpec{
@@ -59,7 +59,11 @@ func main() {
 			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
 		},
-	}, maxMessages, storage_base_dir)
+	}, maxMessages, storage_base_dir, expectedEof)
+	if group_by == nil {
+		log.Critical("Failed to create GroupByActorAndCount instance")
+		return
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -71,16 +75,16 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		common_statefull_worker.RunWorker(master_group_by, ctx, master_group_by.Worker, "starting master group by actor count")
+		common_statefull_worker.RunWorker(group_by, ctx, group_by.Worker, "Starting group by actor count")
 		done <- true
 	}()
 
 	select {
 	case sig := <-sigChan:
 		log.Infof("Signal received: %s. Shutting down...", sig)
-		cancel()                      // Graceful shutdown
-		<-done                        // Esperamos que termine el worker
-		master_group_by.CloseWorker() // Limpiamos recursos
+		cancel()
+		<-done
+		group_by.CloseWorker()
 		log.Info("Worker shut down successfully")
 	case <-done:
 		log.Info("Worker finished successfully")

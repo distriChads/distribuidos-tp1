@@ -286,6 +286,7 @@ func (w *Worker) ReceivedMessages(ctx context.Context) (amqp.Delivery, int, erro
 	}
 
 	msg := recv.Interface().(amqp.Delivery)
+	log.Infof("Received message: %s", msg.Body)
 	return msg, chosen - 1, nil // -1 porque el 0 era el ctx.Done()
 }
 

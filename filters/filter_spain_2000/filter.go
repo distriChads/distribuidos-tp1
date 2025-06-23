@@ -80,7 +80,7 @@ func (f *FilterBySpainAndOf2000) Filter(lines []string) bool {
 func (f *FilterBySpainAndOf2000) HandleEOF(client_id string, message_id string) error {
 	for _, output_routing_keys := range f.Worker.Exchange.OutputRoutingKeys {
 		for _, output_key := range output_routing_keys {
-			message := client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF + "\n"
+			message := client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
 			err := f.Worker.SendMessage(message, output_key)
 			if err != nil {
 				return err
