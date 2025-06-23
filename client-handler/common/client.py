@@ -98,7 +98,7 @@ class Client:
             return
 
         for routing_key in routing_keys:
-            self.worker.send_message(EOF, routing_key)
+            self.worker.send_message(EOF, routing_key, self.client_id)
 
     def send_all_eof(self):
         while self.batch_processor:
