@@ -1,6 +1,7 @@
 package common_join
 
 import (
+	buffer "distribuidos-tp1/common/worker/hasher"
 	"distribuidos-tp1/common/worker/worker"
 	"distribuidos-tp1/common_statefull_worker"
 	"slices"
@@ -17,6 +18,7 @@ type CommonJoin struct {
 	Pending             map[string]map[string]string
 	eofs                map[string]map[string][]string
 	expected_eof        int
+	Buffer              *buffer.HasherContainer
 }
 
 var log = logging.MustGetLogger("common_join")
@@ -32,6 +34,12 @@ func NewCommonJoin(config worker.WorkerConfig, storage_base_dir string, eofCount
 		return nil
 	}
 
+	dict := make(map[string]int)
+	for nodeType, routingKeys := range config.Exchange.OutputRoutingKeys {
+		dict[nodeType] = len(routingKeys)
+	}
+	buffer := buffer.NewHasherContainer(dict)
+
 	return &CommonJoin{
 		Worker:              *worker,
 		Client_movies_by_id: grouped_elements,
@@ -40,6 +48,7 @@ func NewCommonJoin(config worker.WorkerConfig, storage_base_dir string, eofCount
 		expected_eof:        eofCounter,
 		Storage_base_dir:    storage_base_dir,
 		Pending:             pending,
+		Buffer:              buffer,
 	}
 }
 
@@ -56,6 +65,7 @@ func (f *CommonJoin) HandleJoiningEOF(client_id string, message_id string) error
 	}
 
 	delete(f.Client_movies_by_id, client_id)
+	delete(f.eofs, client_id)
 	common_statefull_worker.CleanState(f.Storage_base_dir, client_id)
 
 	return nil
@@ -114,16 +124,24 @@ func (f *CommonJoin) HandlePending(client_id string, message_id string, message_
 
 }
 
-func (f *CommonJoin) HandleLine(client_id string, message_id string, line string, join_function func(lines []string, movies_by_id map[string]string) []string) {
+func (f *CommonJoin) HandleLine(client_id string, message_id string, line string, join_function func(lines []string, movies_by_id map[string]string)) error {
 	lines := strings.Split(strings.TrimSpace(line), "\n")
-	result := join_function(lines, f.Client_movies_by_id[client_id])
-	message_to_send := strings.Join(result, "\n")
-	if len(message_to_send) != 0 {
-		send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
-		message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message_to_send
-		err := f.Worker.SendMessage(message_to_send, send_queue_key)
-		if err != nil {
-			log.Infof("Error sending message: %s", err.Error())
+	join_function(lines, f.Client_movies_by_id[client_id])
+
+	for node_type := range f.Worker.Exchange.OutputRoutingKeys {
+		messages_to_send := f.Buffer.GetMessages(node_type)
+		for routing_key_index, message := range messages_to_send {
+			if len(message) != 0 {
+				routing_key := f.Worker.Exchange.OutputRoutingKeys[node_type][routing_key_index]
+				message = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message
+				err := f.Worker.SendMessage(message, routing_key)
+				if err != nil {
+					return err
+				}
+				log.Debugf("Sent message to output exchange: %s", message)
+			}
 		}
+
 	}
+	return nil
 }

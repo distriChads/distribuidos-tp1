@@ -6,6 +6,7 @@ import (
 	"distribuidos-tp1/common_statefull_worker"
 	"distribuidos-tp1/joins/common_join"
 	"errors"
+	"strconv"
 	"strings"
 
 	"github.com/op/go-logging"
@@ -37,21 +38,24 @@ func storeMovieWithId(line string, movies_by_id map[string]string) {
 // MESSAGE FORMAT: MOVIE_ID|SCORE
 // ---------------------------------
 
-func joinMovieWithRating(lines []string, movies_by_id map[string]string) []string {
-	var result []string
+func (f *JoinMovieRatingById) joinMovieWithRating(lines []string, movies_by_id map[string]string) {
+
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
 		movie_data := movies_by_id[parts[ID]]
 		if movie_data == "" {
 			continue
 		}
-		result = append(result, movie_data+worker.MESSAGE_SEPARATOR+parts[SCORE])
+		id, err := strconv.Atoi(parts[ID])
+		if err != nil {
+			continue
+		}
+		f.Buffer.AddMessage(id, movie_data+worker.MESSAGE_SEPARATOR+parts[SCORE])
 	}
-	return result
 }
 
-func NewJoinMovieRatingById(config JoinMovieRatingByIdConfig, storage_base_dir string) *JoinMovieRatingById {
-	join := common_join.NewCommonJoin(config.WorkerConfig, storage_base_dir)
+func NewJoinMovieRatingById(config JoinMovieRatingByIdConfig, storage_base_dir string, eofCounter int) *JoinMovieRatingById {
+	join := common_join.NewCommonJoin(config.WorkerConfig, storage_base_dir, eofCounter)
 	return &JoinMovieRatingById{
 		CommonJoin: join,
 	}
@@ -107,7 +111,10 @@ func (f *JoinMovieRatingById) RunWorker(ctx context.Context, starting_message st
 			if len(f.Pending[client_id]) != 0 {
 				pending_messages := f.Pending[client_id]
 				for _, pending_message := range pending_messages {
-					f.HandleLine(client_id, message_id, pending_message, joinMovieWithRating)
+					err := f.HandleLine(client_id, message_id, pending_message, f.joinMovieWithRating)
+					if err != nil {
+						return err
+					}
 				}
 				common_statefull_worker.CleanPending(f.Storage_base_dir, client_id)
 				delete(f.Pending, client_id)
@@ -122,7 +129,10 @@ func (f *JoinMovieRatingById) RunWorker(ctx context.Context, starting_message st
 				continue
 			}
 
-			f.HandleLine(client_id, message_id, message_str, joinMovieWithRating)
+			err = f.HandleLine(client_id, message_id, message_str, f.joinMovieWithRating)
+			if err != nil {
+				return err
+			}
 			msg.Ack(false)
 		}
 
