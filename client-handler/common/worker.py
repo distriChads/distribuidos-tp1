@@ -9,7 +9,7 @@ MESSAGE_ARRAY_SEPARATOR = ","
 MESSAGE_EOF = "EOF"
 
 EXCHANGE_NAME = "data_exchange"
-EXCHANGE_TYPE = "direct"
+EXCHANGE_TYPE = "topic"
 
 log = logging.getLogger("worker")
 
@@ -19,7 +19,6 @@ class ExchangeSpec:
         self.name = EXCHANGE_NAME
         self.input_routing_keys = input_routing_keys
         self.output_routing_keys = output_routing_keys
-        self.queue_name = queue_name
 
 
 class WorkerConfig:
@@ -95,7 +94,7 @@ class Worker:
         )
 
         result = ch.queue_declare(
-            queue=self.exchange.queue_name, exclusive=False, auto_delete=False
+            queue=self.exchange.input_routing_keys[0], exclusive=False, auto_delete=False
         )
         queue_name = result.method.queue
 

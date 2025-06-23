@@ -46,7 +46,8 @@ func NewFilterByArgentina(config FilterByArgentinaConfig) *FilterByArgentina {
 // ---------------------------------
 const COUNTRIES = 3
 
-func (f *FilterByArgentina) Filter(lines []string) {
+func (f *FilterByArgentina) Filter(lines []string) bool {
+	argMovie := false
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
 		movie_id, err := strconv.Atoi(parts[0])
@@ -57,10 +58,12 @@ func (f *FilterByArgentina) Filter(lines []string) {
 		for country := range countries {
 			if strings.TrimSpace(country) == "AR" {
 				f.buffer.AddMessage(movie_id, strings.TrimSpace(line))
+				argMovie = true
 				break
 			}
 		}
 	}
+	return argMovie
 }
 
 func (f *FilterByArgentina) HandleEOF(client_id string, message_id string) error {

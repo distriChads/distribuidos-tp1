@@ -25,7 +25,7 @@ func main() {
 		return
 	}
 
-	log_level := v.GetString("log.level")
+	log_level := v.GetString("cli.log.level")
 	outputRoutingKeysFilterSpain := strings.Split(v.GetString("ROUTINGKEYS_OUTPUT_FILTER-SPAIN-2000"), ",")
 	outputRoutingKeysFilterAfter2000 := strings.Split(v.GetString("ROUTINGKEYS_OUTPUT_FILTER-AFTER-2000"), ",")
 
@@ -35,14 +35,15 @@ func main() {
 	}
 
 	exchangeSpec := worker.ExchangeSpec{
-		InputRoutingKeys:  strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
+		InputRoutingKeys:  strings.Split(v.GetString("routingkeys.input"), ","),
 		OutputRoutingKeys: filterRoutingKeysMap,
 		QueueName:         "filter_argentina",
 	}
-	messageBroker := v.GetString("worker.broker")
+	messageBroker := v.GetString("cli.worker.broker")
 
 	if exchangeSpec.InputRoutingKeys[0] == "" || len(exchangeSpec.OutputRoutingKeys) == 0 || messageBroker == "" {
-		log.Criticalf("Error: one or more environment variables are empty")
+		log.Criticalf("Error: one or more environment variables are empty --- message_broker: %s, input_routing_keys: %v, output_routing_keys: %v",
+			messageBroker, exchangeSpec.InputRoutingKeys, filterRoutingKeysMap)
 		return
 	}
 

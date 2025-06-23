@@ -32,13 +32,15 @@ func (hc *HasherContainer) AddMessage(movieId int, message string) {
 	}
 }
 
-func (hc *HasherContainer) GetMessages(nodeType string) []string {
+func (hc *HasherContainer) GetMessages(nodeType string) map[int]string {
 	if messages, exists := hc.buffer[nodeType]; exists {
-		hc.clearMessages(nodeType)
-		results := make([]string, len(messages))
+		results := make(map[int]string)
 		for i, msg := range messages {
-			results[i] = strings.Join(msg, worker.MESSAGE_SEPARATOR)
+			if len(msg) > 0 {
+				results[i] = strings.Join(msg, worker.MESSAGE_SEPARATOR)
+			}
 		}
+		hc.clearMessages(nodeType)
 		return results
 	}
 	return nil

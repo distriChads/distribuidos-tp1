@@ -3,7 +3,6 @@ package worker
 import (
 	"context"
 	"errors"
-	"fmt"
 	"reflect"
 	"time"
 
@@ -17,6 +16,7 @@ const (
 	MESSAGE_EOF             = "EOF"
 
 	EXCHANGE_NAME = "data_exchange"
+	EXCHANGE_TYPE = "topic"
 
 	INPUTS_COMMON_NODES = 1
 	INPUTS_JOINER_NODES = 2
@@ -119,7 +119,7 @@ func (w *Worker) initSender() error {
 
 	err = ch.ExchangeDeclare(
 		EXCHANGE_NAME, // name
-		"topic",       // type
+		EXCHANGE_TYPE, // type
 		false,         // durable
 		false,         // auto-deleted
 		false,         // internal
@@ -161,7 +161,7 @@ func (w *Worker) initReceiver(prefetch_count int) error {
 
 	err = ch.ExchangeDeclare(
 		EXCHANGE_NAME, // name
-		"topic",       // type
+		EXCHANGE_TYPE, // type
 		false,         // durable
 		false,         // auto-deleted
 		false,         // internal
@@ -176,14 +176,13 @@ func (w *Worker) initReceiver(prefetch_count int) error {
 	var messages []<-chan amqp.Delivery
 
 	for _, routingKey := range w.Exchange.InputRoutingKeys {
-		queueName := fmt.Sprintf("%s_%s", w.Exchange.QueueName, routingKey)
 		q, err := ch.QueueDeclare(
-			queueName, // name
-			false,     // durable
-			false,     // delete when unused
-			false,     // exclusive
-			false,     // no-wait
-			nil,       // arguments
+			routingKey, // name
+			false,      // durable
+			false,      // delete when unused
+			false,      // exclusive
+			false,      // no-wait
+			nil,        // arguments
 		)
 		if err != nil {
 			return err

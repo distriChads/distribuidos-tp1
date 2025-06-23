@@ -11,7 +11,7 @@ import (
 )
 
 type Filter interface {
-	Filter(lines []string)
+	Filter(lines []string) bool
 	HandleEOF(client_id string, message_id string) error
 	SendMessage(client_id string, message_id string) error
 }
@@ -57,13 +57,15 @@ func RunWorker(f Filter, worker worker.Worker, ctx context.Context, starting_mes
 		}
 
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
-		f.Filter(lines)
-		err = f.SendMessage(client_id, message_id)
-		if err != nil {
-			log.Infof("Error sending message: %s", err.Error())
-			return err
+		hasMessageToSend := f.Filter(lines)
+		if hasMessageToSend {
+			err = f.SendMessage(client_id, message_id)
+			if err != nil {
+				log.Infof("Error sending message: %s", err.Error())
+				return err
+			}
+			log.Debug("Sent message")
 		}
-		log.Debug("Sent message")
 
 		msg.Ack(false)
 	}

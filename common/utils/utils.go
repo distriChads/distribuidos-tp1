@@ -19,18 +19,15 @@ func InitConfig() (*viper.Viper, error) {
 
 	// Configure viper to read env variables with the CLI_ prefix
 	v.AutomaticEnv()
-	v.SetEnvPrefix("cli")
 	// Use a replacer to replace env variables underscores with points. This let us
 	// use nested configurations in the config file and at the same time define
 	// env variables for the nested configurations
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	// Add env variables supported
-	v.BindEnv("log", "level")
-	v.BindEnv("worker", "exchange", "input", "routingkeys")
-	v.BindEnv("worker", "exchange", "output", "routingkeys")
-	v.BindEnv("worker", "broker")
-	v.BindEnv("worker", "maxmessages")
+	v.BindEnv("cli", "log", "level")
+	v.BindEnv("cli", "worker", "broker")
+	v.BindEnv("cli", "worker", "maxmessages")
 	// Try to read configuration from config file. If config file
 	// does not exists then ReadInConfig will fail but configuration
 	// can be loaded from the environment variables so we shouldn't
