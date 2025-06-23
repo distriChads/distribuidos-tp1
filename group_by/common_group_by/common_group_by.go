@@ -9,7 +9,7 @@ import (
 	"github.com/rabbitmq/amqp091-go"
 )
 
-var log = logging.MustGetLogger("group_by_actor_count")
+var log = logging.MustGetLogger("common_group_by")
 
 type CommonGroupBy[T any] struct {
 	worker.Worker
@@ -76,6 +76,7 @@ func (g *CommonGroupBy[T]) HandleEOF(client_id string, message_id string, lines 
 	}
 	g.eofs[client_id][client_id] = append(g.eofs[client_id][client_id], message_id)
 	if len(g.eofs[client_id][client_id]) >= g.expected_eof {
+		log.Warning("MOMENTO DE ENVIAR FLACO")
 		err := common_statefull_worker.SendResult(g.Worker, client_id, lines)
 		if err != nil {
 			return err
@@ -91,6 +92,7 @@ func (g *CommonGroupBy[T]) HandleEOF(client_id string, message_id string, lines 
 		for _, message := range g.messages[client_id] {
 			message.Ack(false)
 		}
+		g.messages[client_id] = g.messages[client_id][:0]
 		delete(g.messages, client_id)
 		delete(g.Grouped_elements, client_id)
 		delete(g.eofs, client_id)
@@ -109,6 +111,7 @@ func (g *CommonGroupBy[T]) HandleEOF(client_id string, message_id string, lines 
 	for _, message := range g.messages[client_id] {
 		message.Ack(false)
 	}
+	g.messages[client_id] = g.messages[client_id][:0]
 
 	return nil
 }

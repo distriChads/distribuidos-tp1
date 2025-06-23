@@ -87,7 +87,7 @@ func (f *FilterByAfterYear2000) SendMessage(client_id string, message_id string)
 		for routing_key_index, message := range messages_to_send {
 			if len(message) != 0 {
 				routing_key := f.Worker.Exchange.OutputRoutingKeys[node_type][routing_key_index]
-				message = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message + "\n"
+				message = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message
 				err := f.Worker.SendMessage(message, routing_key)
 				if err != nil {
 					return err
