@@ -1,7 +1,6 @@
 package hasher
 
 import (
-	"distribuidos-tp1/common/worker/worker"
 	"strings"
 )
 
@@ -37,7 +36,7 @@ func (hc *HasherContainer) GetMessages(nodeType string) map[int]string {
 		results := make(map[int]string)
 		for i, msg := range messages {
 			if len(msg) > 0 {
-				results[i] = strings.Join(msg, worker.MESSAGE_SEPARATOR)
+				results[i] = strings.Join(msg, "\n")
 			}
 		}
 		hc.clearMessages(nodeType)

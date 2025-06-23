@@ -4,7 +4,7 @@
         {
             "name": "client-handler",
             "log_level": "info",
-            "replicas": 1,
+            "replicas": 3,
             "input_routing_key": ["*.results"],
             "movies_output_nodes": ["filter-argentina", "filter-only-one-country"],
             "ratings_output_nodes": ["join-movie-ratings"],
@@ -13,31 +13,31 @@
         },
         {
             "name": "filter-argentina",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
             "output_nodes": ["filter-spain-2000", "filter-after-2000"]
         },
         {
             "name": "filter-spain-2000",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
             "output_routing_key": ["query1.results"]
         },
         {
             "name": "filter-only-one-country",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
             "output_nodes": ["group-by-country-sum"]
         },
         {
             "name": "filter-after-2000",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
             "output_nodes": ["join-movie-ratings", "join-movie-credits"]
         },
         {
             "name": "group-by-country-sum",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
             "output_nodes": ["master-group-by-country-sum"],
             "storage": ".local-storage",
@@ -45,7 +45,7 @@
         },
         {
             "name": "group-by-movie-average",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
             "output_nodes": ["master-group-by-movie-average"],
             "storage": ".local-storage",
@@ -53,7 +53,7 @@
         },
         {
             "name": "group-by-actor-count",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
             "output_nodes": ["master-group-by-actor-count"],
             "storage": ".local-storage",
@@ -61,7 +61,7 @@
         },
         {
             "name": "group-by-overview-average",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
             "output_nodes": ["master-group-by-overview-average"],
             "storage": ".local-storage",
@@ -101,7 +101,7 @@
         },
         {
             "name": "machine-learning",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
             "output_nodes": ["group-by-overview-average"]
         },
@@ -123,14 +123,14 @@
         },
         {
             "name": "join-movie-ratings",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
             "output_nodes": ["group-by-movie-average"],
             "storage": ".local-storage"
         },
         {
             "name": "join-movie-credits",
-            "replicas": 1,
+            "replicas": 3,
             "log_level": "info",
             "output_nodes": ["group-by-actor-count"],
             "storage": ".local-storage"
