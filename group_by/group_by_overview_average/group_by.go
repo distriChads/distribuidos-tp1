@@ -2,13 +2,11 @@ package group_by_overview_average
 
 import (
 	worker "distribuidos-tp1/common/worker/worker"
-	"distribuidos-tp1/common_statefull_worker"
+	"distribuidos-tp1/group_by/common_group_by"
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 
-	"github.com/op/go-logging"
 	"github.com/rabbitmq/amqp091-go"
 )
 
@@ -24,14 +22,7 @@ type GroupByOverviewAndAvgConfig struct {
 }
 
 type GroupByOverviewAndAvg struct {
-	worker.Worker
-	messages_before_commit int
-	expected_eof           int
-	grouped_elements       map[string]map[string]RevenueBudgetCount
-	eofs                   map[string]int
-	storage_base_dir       string
-	messages_id            map[string][]string
-	messages               map[string][]amqp091.Delivery
+	*common_group_by.CommonGroupBy[RevenueBudgetCount]
 }
 
 type RevenueBudgetCount struct {
@@ -39,37 +30,16 @@ type RevenueBudgetCount struct {
 	Sum_revenue_average float64
 }
 
-var log = logging.MustGetLogger("group_by_overview_average")
-
 func (g *GroupByOverviewAndAvg) EnsureClient(client_id string) {
-	if _, ok := g.grouped_elements[client_id]; !ok {
-		g.grouped_elements[client_id] = make(map[string]RevenueBudgetCount)
-	}
-	if _, ok := g.eofs[client_id]; !ok {
-		g.eofs[client_id] = 0
-	}
+	g.CommonGroupBy.EnsureClient(client_id)
 }
 
 func (g *GroupByOverviewAndAvg) HandleCommit(client_id string, message amqp091.Delivery) error {
-	g.messages[client_id] = append(g.messages[client_id], message)
-	if len(g.messages[client_id]) >= g.messages_before_commit {
-		err := common_statefull_worker.StoreElementsWithMessageIds(g.grouped_elements[client_id],
-			client_id, g.storage_base_dir,
-			g.messages_id[client_id][len(g.messages_id[client_id])-g.messages_before_commit:])
-		if err != nil {
-			return err
-		}
-
-		for _, message := range g.messages[client_id] {
-			message.Ack(false)
-		}
-		g.messages[client_id] = g.messages[client_id][:0]
-	}
-	return nil
+	return g.CommonGroupBy.HandleCommit(client_id, message)
 }
 
 func (g *GroupByOverviewAndAvg) MapToLines(client_id string) string {
-	return mapToLines(g.grouped_elements[client_id])
+	return mapToLines(g.CommonGroupBy.Grouped_elements[client_id])
 }
 
 func mapToLines(grouped_elements map[string]RevenueBudgetCount) string {
@@ -83,40 +53,13 @@ func mapToLines(grouped_elements map[string]RevenueBudgetCount) string {
 }
 
 func (g *GroupByOverviewAndAvg) HandleEOF(client_id string, message_id string) error {
-	// g.eofs[client_id]++
-	// if g.eofs[client_id] >= g.expected_eof {
-	// 	err := common_statefull_worker.SendResult(g.Worker, g, client_id)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	delete(g.grouped_elements, client_id)
-	// 	delete(g.eofs, client_id)
-	// }
-
-	for _, message := range g.messages[client_id] {
-		message.Ack(false)
-	}
-
-	err := common_statefull_worker.SendResult(g.Worker, g, client_id)
-	if err != nil {
-		return err
-	}
-	common_statefull_worker.StoreElementsWithMessageIds(g.grouped_elements[client_id], client_id, g.storage_base_dir, []string{message_id})
-
-	delete(g.messages, client_id)
-	delete(g.grouped_elements, client_id)
-	delete(g.eofs, client_id)
-	common_statefull_worker.CleanState(g.storage_base_dir, client_id)
-	return nil
+	return g.CommonGroupBy.HandleEOF(client_id, message_id, g.MapToLines(client_id))
 }
 
 func (g *GroupByOverviewAndAvg) UpdateState(lines []string, client_id string, message_id string) {
-	if slices.Contains(g.messages_id[client_id], message_id) {
-		log.Warning("Mensaje repetido")
-		return
+	if !g.CommonGroupBy.VerifyRepeatedMessage(client_id, message_id) {
+		groupByOverviewAndUpdate(lines, g.CommonGroupBy.Grouped_elements[client_id])
 	}
-	g.messages_id[client_id] = append(g.messages_id[client_id], message_id)
-	groupByOverviewAndUpdate(lines, g.grouped_elements[client_id])
 }
 
 func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]RevenueBudgetCount) {
@@ -140,32 +83,8 @@ func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]Revenu
 }
 
 func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_before_commit int, storage_base_dir string) *GroupByOverviewAndAvg {
-	log.Infof("GroupByOverviewAndAvg: %+v", config)
-
-	grouped_elements, _, last_messages_in_state := common_statefull_worker.GetElements[RevenueBudgetCount](storage_base_dir)
-	messages_id, last_message_in_id := common_statefull_worker.GetIds(storage_base_dir)
-
-	need_to_update, err := common_statefull_worker.RestoreStateIfNeeded(last_messages_in_state, last_message_in_id, storage_base_dir)
-	if err != nil {
-		log.Errorf("Error restoring state: %s", err)
-		return nil
-	}
-	if need_to_update {
-		messages_id, _ = common_statefull_worker.GetIds(storage_base_dir)
-	}
-	worker, err := worker.NewWorker(config.WorkerConfig, messages_before_commit)
-	if err != nil {
-		log.Errorf("Error creating worker: %s", err)
-		return nil
-	}
-
+	group_by := common_group_by.NewCommonGroupBy[RevenueBudgetCount](config.WorkerConfig, messages_before_commit, storage_base_dir)
 	return &GroupByOverviewAndAvg{
-		Worker:                 *worker,
-		messages_before_commit: messages_before_commit,
-		eofs:                   make(map[string]int),
-		grouped_elements:       grouped_elements,
-		storage_base_dir:       storage_base_dir,
-		messages_id:            messages_id,
-		messages:               make(map[string][]amqp091.Delivery),
+		CommonGroupBy: group_by,
 	}
 }

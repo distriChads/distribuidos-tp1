@@ -30,14 +30,14 @@ type StatefullWorker interface {
 
 var log = logging.MustGetLogger("common_group_by")
 
-func SendResult(w worker.Worker, s StatefullWorker, client_id string) error {
+func SendResult(w worker.Worker, client_id string, lines string) error {
 	send_queue_key := w.Exchange.OutputRoutingKeys[0]
 	message_id, err := uuid.NewRandom()
 	if err != nil {
 		log.Errorf("Error generating uuid: %s", err.Error())
 		return err
 	}
-	message_to_send := client_id + worker.MESSAGE_SEPARATOR + message_id.String() + worker.MESSAGE_SEPARATOR + s.MapToLines(client_id)
+	message_to_send := client_id + worker.MESSAGE_SEPARATOR + message_id.String() + worker.MESSAGE_SEPARATOR + lines
 	err = w.SendMessage(message_to_send, send_queue_key)
 	if err != nil {
 		log.Errorf("Error sending message: %s", err.Error())
@@ -115,6 +115,9 @@ func doWrite(data []byte, file *os.File) error {
 func RestoreStateIfNeeded(last_messages_in_state map[string][]string, last_message_in_ids map[string]string, storage_base_dir string) (bool, error) {
 	var clients_ids_to_restore []string
 	for client_id, last_movies_id := range last_messages_in_state {
+		if len(last_movies_id) == 0 {
+			continue
+		}
 		if last_message_in_ids[client_id] != last_movies_id[len(last_movies_id)-1] {
 			clients_ids_to_restore = append(clients_ids_to_restore, client_id)
 		}
@@ -237,6 +240,10 @@ func GetPending[T any](storage_base_dir string) (map[string]map[string]T, bool, 
 	return genericGetElements[T](storage_base_dir, "pending")
 }
 
+func GetEofs[T any](storage_base_dir string) (map[string]map[string]T, bool, map[string][]string) {
+	return genericGetElements[T](storage_base_dir, "eofs")
+}
+
 func GetElements[T any](storage_base_dir string) (map[string]map[string]T, bool, map[string][]string) {
 	return genericGetElements[T](storage_base_dir, "state")
 }
@@ -310,7 +317,9 @@ func StoreElementsWithMessageIds[T any](
 	if err != nil {
 		return err
 	}
-
+	if len(last_message_ids) == 0 {
+		return nil
+	}
 	return appendIds(storage_base_dir, last_message_ids, client_id)
 }
 
@@ -327,6 +336,10 @@ func StoreElementsWithBoolean[T any](
 
 	return genericStoreElements(results, client_id, storage_base_dir, after_write_function, "state")
 
+}
+
+func StoreEofsWithId[T any](results map[string]T, client_id, storage_base_dir string) error {
+	return genericStoreElements(results, client_id, storage_base_dir, nil, "eofs")
 }
 
 func StoreElements[T any](results map[string]T, client_id, storage_base_dir string) error {
@@ -417,5 +430,6 @@ func CleanPending(storage_base_dir string, client_id string) {
 func CleanState(storage_base_dir string, client_id string) {
 	genericCleanState(storage_base_dir, client_id, "state")
 	genericCleanState(storage_base_dir, client_id, "ids")
+	genericCleanState(storage_base_dir, client_id, "eofs")
 	CleanPending(storage_base_dir, client_id)
 }
