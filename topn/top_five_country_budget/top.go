@@ -73,8 +73,9 @@ func (g *TopFiveCountryBudget) HandleEOF(client_id string, message_id string) er
 	return nil
 }
 
-func (g *TopFiveCountryBudget) UpdateState(lines []string, client_id string, message_id string) {
+func (g *TopFiveCountryBudget) UpdateState(lines []string, client_id string, message_id string) bool {
 	g.top_five[client_id][client_id] = updateTopFive(lines, g.top_five[client_id][client_id])
+	return false
 }
 
 // ---------------------------------
