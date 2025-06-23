@@ -16,7 +16,7 @@ import (
 	"github.com/op/go-logging"
 )
 
-var log = logging.MustGetLogger("group_by_actor_count")
+var log = logging.MustGetLogger("master_group_by_actor_count")
 
 func main() {
 	v, err := utils.InitConfig()
@@ -25,18 +25,23 @@ func main() {
 		return
 	}
 
-	log_level := v.GetString("log.level")
-	queue_name := strings.Split(v.GetString("worker.exchange.input.routingkeys"), ",")[0]
+	log_level := v.GetString("cli.log.level")
+	outputRoutingKeysTopTen := strings.Split(v.GetString("ROUTINGKEYS_OUTPUT_TOP-TEN-CAST-MOVIE"), ",")
+
+	filterRoutingKeysMap := map[string][]string{
+		"top_ten": outputRoutingKeysTopTen,
+	}
 
 	exchangeSpec := worker.ExchangeSpec{
-		InputRoutingKeys:  strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
-		OutputRoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
-		QueueName:         queue_name,
+		InputRoutingKeys:  strings.Split(v.GetString("routingkeys.input"), ","),
+		OutputRoutingKeys: filterRoutingKeysMap,
+		QueueName:         "filter_after_2000",
 	}
-	messageBroker := v.GetString("worker.broker")
+	messageBroker := v.GetString("cli.worker.broker")
 
-	if exchangeSpec.InputRoutingKeys[0] == "" || exchangeSpec.OutputRoutingKeys[0] == "" || messageBroker == "" {
-		log.Criticalf("Error: one or more environment variables are empty")
+	if exchangeSpec.InputRoutingKeys[0] == "" || len(exchangeSpec.OutputRoutingKeys) == 0 || messageBroker == "" {
+		log.Criticalf("Error: one or more environment variables are empty --- message_broker: %s, input_routing_keys: %v, output_routing_keys: %v",
+			messageBroker, exchangeSpec.InputRoutingKeys, filterRoutingKeysMap)
 		return
 	}
 
@@ -45,12 +50,10 @@ func main() {
 		return
 	}
 
-	maxMessages := v.GetInt("worker.maxmessages")
-	if maxMessages == 0 {
-		maxMessages = 10
-	}
+	maxMessages := v.GetInt("cli.worker.maxmessages")
+	expectedEof := v.GetInt("EOF_COUNTER")
+	storage_base_dir := v.GetString("cli.worker.storage")
 
-	storage_base_dir := v.GetString("worker.storage")
 	group_by := group_by.NewGroupByActorAndCount(group_by.GroupByActorAndCountConfig{
 		WorkerConfig: worker.WorkerConfig{
 			Exchange:      exchangeSpec,
@@ -68,16 +71,16 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		common_statefull_worker.RunWorker(group_by, ctx, group_by.Worker, "Starting group by actor count")
+		common_statefull_worker.RunWorker(master_group_by, ctx, master_group_by.Worker, "starting master group by actor count")
 		done <- true
 	}()
 
 	select {
 	case sig := <-sigChan:
 		log.Infof("Signal received: %s. Shutting down...", sig)
-		cancel() // cancelamos el contexto → avisa al worker que debe salir
-		<-done   // esperamos que termine
-		group_by.CloseWorker()
+		cancel()                      // Graceful shutdown
+		<-done                        // Esperamos que termine el worker
+		master_group_by.CloseWorker() // Limpiamos recursos
 		log.Info("Worker shut down successfully")
 	case <-done:
 		log.Info("Worker finished successfully")

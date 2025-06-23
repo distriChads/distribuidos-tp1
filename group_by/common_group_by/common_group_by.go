@@ -113,7 +113,7 @@ func (g *CommonGroupBy[T]) HandleEOF(client_id string, message_id string, lines 
 	return nil
 }
 
-func NewCommonGroupBy[T any](config worker.WorkerConfig, messages_before_commit int, storage_base_dir string) *CommonGroupBy[T] {
+func NewCommonGroupBy[T any](config worker.WorkerConfig, messages_before_commit int, storage_base_dir string, expected_eof int) *CommonGroupBy[T] {
 	log.Infof("New group by: %+v", config)
 	grouped_elements, _, last_messages_in_state := common_statefull_worker.GetElements[T](storage_base_dir)
 	messages_id, last_message_in_id := common_statefull_worker.GetIds(storage_base_dir)
@@ -136,7 +136,7 @@ func NewCommonGroupBy[T any](config worker.WorkerConfig, messages_before_commit 
 		messages_before_commit:    messages_before_commit,
 		Grouped_elements:          grouped_elements,
 		eofs:                      eofs,
-		expected_eof:              1,
+		expected_eof:              expected_eof,
 		storage_base_dir:          storage_base_dir,
 		messages_id:               messages_id,
 		messages:                  make(map[string][]amqp091.Delivery),
