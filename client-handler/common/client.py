@@ -1,4 +1,5 @@
 import logging
+from time import sleep
 from common.communication import Socket
 from common.fileProcessor import MoviesProcessor, CreditsProcessor, RatingsProcessor
 from .worker import Worker, WorkerConfig
@@ -44,48 +45,15 @@ class Client:
     def send(self, data: str):
         return self.client_socket.send(data)
 
-    def send_message(self, data_list: list[list[str]]):
-        routing_keys = []
-
-        # TODO: we have only one routing key now for working queue, change worker with it
-        if type(self.batch_processor) == MoviesProcessor:
-            routing_keys_filter_arg = self.worker.exchange.output_routing_keys[
-                MOVIES_ROUTING_KEYS[0]]
-            routing_keys_filter_one_country = self.worker.exchange.output_routing_keys[
-                MOVIES_ROUTING_KEYS[1]]
-
-            data_filter_arg = data_list[0]
-            data_filter_one_country = data_list[1]
-
-            self.send_messages_with_routing(
-                routing_keys_filter_arg, data_filter_arg)
-            self.send_messages_with_routing(
-                routing_keys_filter_one_country, data_filter_one_country)
-
-        elif type(self.batch_processor) == CreditsProcessor:
-            routing_keys = self.worker.exchange.output_routing_keys[CREDITS_ROUTING_KEYS]
-            data_to_send = data_list[0]
-
-            self.send_messages_with_routing(routing_keys, data_to_send)
-
-        elif type(self.batch_processor) == RatingsProcessor:
-            routing_keys = self.worker.exchange.output_routing_keys[RATINGS_ROUTING_KEYS]
-            data_to_send = data_list[0]
-
-            self.send_messages_with_routing(routing_keys, data_to_send)
-
-        else:
-            logging.error(
-                f"Invalid batch processor: {type(self.batch_processor)}")
-            return
-
-    def send_messages_with_routing(self, routing_keys_list, messages_to_send):
-        for i in range(len(routing_keys_list)):
-            routing_key = routing_keys_list[i]
-            data_to_send = messages_to_send[i]
-            if not data_to_send:
+    def send_message(self, data_list: dict[str, dict[int, str]]):
+        for routing_key, dict_positions in data_list.items():
+            routing_keys = self.worker.exchange.output_routing_keys[routing_key]
+            if not dict_positions:
                 continue
-            self.worker.send_message(data_to_send, routing_key)
+            for position, data in dict_positions.items():
+                if not data:
+                    continue
+                self.worker.send_message(data, routing_keys[position])
 
     def set_next_processor(self):
         if type(self.batch_processor) == MoviesProcessor:

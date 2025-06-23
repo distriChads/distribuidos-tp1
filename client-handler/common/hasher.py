@@ -1,5 +1,8 @@
+from collections import defaultdict
+
+
 class HasherContainer:
-    def __init__(self, dict_node_type_positions: int):
+    def __init__(self, dict_node_type_positions: dict[str, int]):
         self.buffers = {}
         for node_type, positions in dict_node_type_positions.items():
             self.buffers[node_type] = [[] for _ in range(positions)]
@@ -9,13 +12,14 @@ class HasherContainer:
             shard_idx = movie_id % len(self.buffers[node_type])
             self.buffers[node_type][shard_idx].append(data)
 
-    def get_buffers(self) -> list[list[str]]:
-        results = []
-        for _, lists in self.buffers.items():
-            node_result = []
-            for i in range(len(lists)):
-                routing_key_result = "".join(lists[i])
-                node_result.append(routing_key_result)
-                lists[i] = []
-            results.append(node_result)
-        return results
+    def get_buffers(self) -> dict[str, dict[int, str]]:
+        results = defaultdict(dict)
+
+        for node_type, lists in self.buffers.items():
+            for i, shard in enumerate(lists):
+                if not shard:
+                    continue
+                results[node_type][i] = "".join(shard)
+                self.buffers[node_type][i] = []
+
+        return dict(results)

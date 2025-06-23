@@ -34,10 +34,10 @@ services:
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLIENT_HANDLER_LISTEN_BACKLOG=5
       - INPUT_ROUTINGKEY=*.results
-      - OUTPUT_ROUTINGKEYS_FILTER_ARG=filter-argentina.1,filter-argentina.2,filter-argentina.3
-      - OUTPUT_ROUTINGKEYS_FILTER_ONE_COUNTRY=filter-only-one-country.1,filter-only-one-country.2,filter-only-one-country.3
-      - OUTPUT_ROUTINGKEYS_JOIN_MOVIES_RATING=join-ratings.1,join-ratings.2,join-ratings.3
-      - OUTPUT_ROUTINGKEYS_JOIN_MOVIES_CREDITS=join-credits.1,join-credits.2,join-credits.3
+      - OUTPUT_ROUTINGKEYS_FILTER_ARG=filter-argentina.1
+      - OUTPUT_ROUTINGKEYS_FILTER_ONE_COUNTRY=filter-only-one-country.1
+      - OUTPUT_ROUTINGKEYS_JOIN_MOVIES_RATING=join-ratings.1
+      - OUTPUT_ROUTINGKEYS_JOIN_MOVIES_CREDITS=join-credits.1
   filter-argentina-1:
     build:
       context: .
@@ -50,42 +50,8 @@ services:
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLI_LOG_LEVEL=info
       - ROUTINGKEYS_INPUT=filter-argentina.1
-      - ROUTINGKEYS_OUTPUT_FILTER-SPAIN-2000=filter-spain-2000.1,filter-spain-2000.2,filter-spain-2000.3
-      - ROUTINGKEYS_OUTPUT_FILTER-AFTER-2000=filter-after-2000.1,filter-after-2000.2,filter-after-2000.3
-    image: filter_argentina:latest
-    networks:
-      - movies_net
-  filter-argentina-2:
-    build:
-      context: .
-      dockerfile: filters/filter_argentina/Dockerfile
-    container_name: filter-argentina-2
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - ROUTINGKEYS_INPUT=filter-argentina.2
-      - ROUTINGKEYS_OUTPUT_FILTER-SPAIN-2000=filter-spain-2000.1,filter-spain-2000.2,filter-spain-2000.3
-      - ROUTINGKEYS_OUTPUT_FILTER-AFTER-2000=filter-after-2000.1,filter-after-2000.2,filter-after-2000.3
-    image: filter_argentina:latest
-    networks:
-      - movies_net
-  filter-argentina-3:
-    build:
-      context: .
-      dockerfile: filters/filter_argentina/Dockerfile
-    container_name: filter-argentina-3
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - ROUTINGKEYS_INPUT=filter-argentina.3
-      - ROUTINGKEYS_OUTPUT_FILTER-SPAIN-2000=filter-spain-2000.1,filter-spain-2000.2,filter-spain-2000.3
-      - ROUTINGKEYS_OUTPUT_FILTER-AFTER-2000=filter-after-2000.1,filter-after-2000.2,filter-after-2000.3
+      - ROUTINGKEYS_OUTPUT_FILTER-SPAIN-2000=filter-spain-2000.1
+      - ROUTINGKEYS_OUTPUT_FILTER-AFTER-2000=filter-after-2000.1
     image: filter_argentina:latest
     networks:
       - movies_net
@@ -105,38 +71,6 @@ services:
     image: filter_spain_2000:latest
     networks:
       - movies_net
-  filter-spain-2000-2:
-    build:
-      context: .
-      dockerfile: filters/filter_spain_2000/Dockerfile
-    container_name: filter-spain-2000-2
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - ROUTINGKEYS_INPUT=filter-spain-2000.2
-      - ROUTINGKEYS_OUTPUT_OUTPUT_ROUTINGKEY=query1.results
-    image: filter_spain_2000:latest
-    networks:
-      - movies_net
-  filter-spain-2000-3:
-    build:
-      context: .
-      dockerfile: filters/filter_spain_2000/Dockerfile
-    container_name: filter-spain-2000-3
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - ROUTINGKEYS_INPUT=filter-spain-2000.3
-      - ROUTINGKEYS_OUTPUT_OUTPUT_ROUTINGKEY=query1.results
-    image: filter_spain_2000:latest
-    networks:
-      - movies_net
   filter-only-one-country-1:
     build:
       context: .
@@ -149,39 +83,7 @@ services:
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLI_LOG_LEVEL=info
       - ROUTINGKEYS_INPUT=filter-only-one-country.1
-      - ROUTINGKEYS_OUTPUT_GROUP-BY-COUNTRY-SUM=group-by-country-sum.1,group-by-country-sum.2,group-by-country-sum.3
-    image: filter_only_one_country:latest
-    networks:
-      - movies_net
-  filter-only-one-country-2:
-    build:
-      context: .
-      dockerfile: filters/filter_only_one_country/Dockerfile
-    container_name: filter-only-one-country-2
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - ROUTINGKEYS_INPUT=filter-only-one-country.2
-      - ROUTINGKEYS_OUTPUT_GROUP-BY-COUNTRY-SUM=group-by-country-sum.1,group-by-country-sum.2,group-by-country-sum.3
-    image: filter_only_one_country:latest
-    networks:
-      - movies_net
-  filter-only-one-country-3:
-    build:
-      context: .
-      dockerfile: filters/filter_only_one_country/Dockerfile
-    container_name: filter-only-one-country-3
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - ROUTINGKEYS_INPUT=filter-only-one-country.3
-      - ROUTINGKEYS_OUTPUT_GROUP-BY-COUNTRY-SUM=group-by-country-sum.1,group-by-country-sum.2,group-by-country-sum.3
+      - ROUTINGKEYS_OUTPUT_GROUP-BY-COUNTRY-SUM=group-by-country-sum.1
     image: filter_only_one_country:latest
     networks:
       - movies_net
@@ -197,42 +99,8 @@ services:
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLI_LOG_LEVEL=info
       - ROUTINGKEYS_INPUT=filter-after-2000.1
-      - ROUTINGKEYS_OUTPUT_JOIN-MOVIE-RATINGS=join-movie-ratings.1,join-movie-ratings.2,join-movie-ratings.3
-      - ROUTINGKEYS_OUTPUT_JOIN-MOVIE-CREDITS=join-movie-credits.1,join-movie-credits.2,join-movie-credits.3
-    image: filter_after_2000:latest
-    networks:
-      - movies_net
-  filter-after-2000-2:
-    build:
-      context: .
-      dockerfile: filters/filter_after_2000/Dockerfile
-    container_name: filter-after-2000-2
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - ROUTINGKEYS_INPUT=filter-after-2000.2
-      - ROUTINGKEYS_OUTPUT_JOIN-MOVIE-RATINGS=join-movie-ratings.1,join-movie-ratings.2,join-movie-ratings.3
-      - ROUTINGKEYS_OUTPUT_JOIN-MOVIE-CREDITS=join-movie-credits.1,join-movie-credits.2,join-movie-credits.3
-    image: filter_after_2000:latest
-    networks:
-      - movies_net
-  filter-after-2000-3:
-    build:
-      context: .
-      dockerfile: filters/filter_after_2000/Dockerfile
-    container_name: filter-after-2000-3
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - ROUTINGKEYS_INPUT=filter-after-2000.3
-      - ROUTINGKEYS_OUTPUT_JOIN-MOVIE-RATINGS=join-movie-ratings.1,join-movie-ratings.2,join-movie-ratings.3
-      - ROUTINGKEYS_OUTPUT_JOIN-MOVIE-CREDITS=join-movie-credits.1,join-movie-credits.2,join-movie-credits.3
+      - ROUTINGKEYS_OUTPUT_JOIN-MOVIE-RATINGS=join-movie-ratings.1
+      - ROUTINGKEYS_OUTPUT_JOIN-MOVIE-CREDITS=join-movie-credits.1
     image: filter_after_2000:latest
     networks:
       - movies_net
@@ -247,7 +115,7 @@ services:
     environment:
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLI_LOG_LEVEL=info
-      - EOF_COUNTER=3
+      - EOF_COUNTER=1
       - ROUTINGKEYS_INPUT=group-by-country-sum.1
       - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-COUNTRY-SUM=master-group-by-country-sum.1
       - CLI_WORKER_STORAGE=/app/storage
@@ -257,48 +125,6 @@ services:
       - movies_net
     volumes:
       - .local-storage/group-by-country-sum-1:/app/storage
-  group-by-country-sum-2:
-    build:
-      context: .
-      dockerfile: group_by/group_by_country_sum/Dockerfile
-    container_name: group-by-country-sum-2
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - EOF_COUNTER=3
-      - ROUTINGKEYS_INPUT=group-by-country-sum.2
-      - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-COUNTRY-SUM=master-group-by-country-sum.1
-      - CLI_WORKER_STORAGE=/app/storage
-      - CLI_WORKER_MAXMESSAGES=10
-    image: group_by_country_sum:latest
-    networks:
-      - movies_net
-    volumes:
-      - .local-storage/group-by-country-sum-2:/app/storage
-  group-by-country-sum-3:
-    build:
-      context: .
-      dockerfile: group_by/group_by_country_sum/Dockerfile
-    container_name: group-by-country-sum-3
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - EOF_COUNTER=3
-      - ROUTINGKEYS_INPUT=group-by-country-sum.3
-      - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-COUNTRY-SUM=master-group-by-country-sum.1
-      - CLI_WORKER_STORAGE=/app/storage
-      - CLI_WORKER_MAXMESSAGES=10
-    image: group_by_country_sum:latest
-    networks:
-      - movies_net
-    volumes:
-      - .local-storage/group-by-country-sum-3:/app/storage
   group-by-movie-average-1:
     build:
       context: .
@@ -310,7 +136,7 @@ services:
     environment:
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLI_LOG_LEVEL=info
-      - EOF_COUNTER=3
+      - EOF_COUNTER=1
       - ROUTINGKEYS_INPUT=group-by-movie-average.1
       - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-MOVIE-AVERAGE=master-group-by-movie-average.1
       - CLI_WORKER_STORAGE=/app/storage
@@ -320,48 +146,6 @@ services:
       - movies_net
     volumes:
       - .local-storage/group-by-movie-average-1:/app/storage
-  group-by-movie-average-2:
-    build:
-      context: .
-      dockerfile: group_by/group_by_movie_average/Dockerfile
-    container_name: group-by-movie-average-2
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - EOF_COUNTER=3
-      - ROUTINGKEYS_INPUT=group-by-movie-average.2
-      - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-MOVIE-AVERAGE=master-group-by-movie-average.1
-      - CLI_WORKER_STORAGE=/app/storage
-      - CLI_WORKER_MAXMESSAGES=10
-    image: group_by_movie_average:latest
-    networks:
-      - movies_net
-    volumes:
-      - .local-storage/group-by-movie-average-2:/app/storage
-  group-by-movie-average-3:
-    build:
-      context: .
-      dockerfile: group_by/group_by_movie_average/Dockerfile
-    container_name: group-by-movie-average-3
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - EOF_COUNTER=3
-      - ROUTINGKEYS_INPUT=group-by-movie-average.3
-      - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-MOVIE-AVERAGE=master-group-by-movie-average.1
-      - CLI_WORKER_STORAGE=/app/storage
-      - CLI_WORKER_MAXMESSAGES=10
-    image: group_by_movie_average:latest
-    networks:
-      - movies_net
-    volumes:
-      - .local-storage/group-by-movie-average-3:/app/storage
   group-by-actor-count-1:
     build:
       context: .
@@ -373,7 +157,7 @@ services:
     environment:
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLI_LOG_LEVEL=info
-      - EOF_COUNTER=3
+      - EOF_COUNTER=1
       - ROUTINGKEYS_INPUT=group-by-actor-count.1
       - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-ACTOR-COUNT=master-group-by-actor-count.1
       - CLI_WORKER_STORAGE=/app/storage
@@ -383,48 +167,6 @@ services:
       - movies_net
     volumes:
       - .local-storage/group-by-actor-count-1:/app/storage
-  group-by-actor-count-2:
-    build:
-      context: .
-      dockerfile: group_by/group_by_actor_count/Dockerfile
-    container_name: group-by-actor-count-2
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - EOF_COUNTER=3
-      - ROUTINGKEYS_INPUT=group-by-actor-count.2
-      - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-ACTOR-COUNT=master-group-by-actor-count.1
-      - CLI_WORKER_STORAGE=/app/storage
-      - CLI_WORKER_MAXMESSAGES=10
-    image: group_by_actor_count:latest
-    networks:
-      - movies_net
-    volumes:
-      - .local-storage/group-by-actor-count-2:/app/storage
-  group-by-actor-count-3:
-    build:
-      context: .
-      dockerfile: group_by/group_by_actor_count/Dockerfile
-    container_name: group-by-actor-count-3
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - EOF_COUNTER=3
-      - ROUTINGKEYS_INPUT=group-by-actor-count.3
-      - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-ACTOR-COUNT=master-group-by-actor-count.1
-      - CLI_WORKER_STORAGE=/app/storage
-      - CLI_WORKER_MAXMESSAGES=10
-    image: group_by_actor_count:latest
-    networks:
-      - movies_net
-    volumes:
-      - .local-storage/group-by-actor-count-3:/app/storage
   group-by-overview-average-1:
     build:
       context: .
@@ -436,7 +178,7 @@ services:
     environment:
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLI_LOG_LEVEL=info
-      - EOF_COUNTER=3
+      - EOF_COUNTER=1
       - ROUTINGKEYS_INPUT=group-by-overview-average.1
       - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-OVERVIEW-AVERAGE=master-group-by-overview-average.1
       - CLI_WORKER_STORAGE=/app/storage
@@ -446,48 +188,6 @@ services:
       - movies_net
     volumes:
       - .local-storage/group-by-overview-average-1:/app/storage
-  group-by-overview-average-2:
-    build:
-      context: .
-      dockerfile: group_by/group_by_overview_average/Dockerfile
-    container_name: group-by-overview-average-2
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - EOF_COUNTER=3
-      - ROUTINGKEYS_INPUT=group-by-overview-average.2
-      - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-OVERVIEW-AVERAGE=master-group-by-overview-average.1
-      - CLI_WORKER_STORAGE=/app/storage
-      - CLI_WORKER_MAXMESSAGES=10
-    image: group_by_overview_average:latest
-    networks:
-      - movies_net
-    volumes:
-      - .local-storage/group-by-overview-average-2:/app/storage
-  group-by-overview-average-3:
-    build:
-      context: .
-      dockerfile: group_by/group_by_overview_average/Dockerfile
-    container_name: group-by-overview-average-3
-    depends_on:
-      - rabbitmq
-    entrypoint: ./run_worker
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - EOF_COUNTER=3
-      - ROUTINGKEYS_INPUT=group-by-overview-average.3
-      - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-OVERVIEW-AVERAGE=master-group-by-overview-average.1
-      - CLI_WORKER_STORAGE=/app/storage
-      - CLI_WORKER_MAXMESSAGES=10
-    image: group_by_overview_average:latest
-    networks:
-      - movies_net
-    volumes:
-      - .local-storage/group-by-overview-average-3:/app/storage
   master-group-by-country-sum-1:
     build:
       context: .
@@ -499,7 +199,7 @@ services:
     environment:
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLI_LOG_LEVEL=info
-      - EOF_COUNTER=3
+      - EOF_COUNTER=1
       - ROUTINGKEYS_INPUT=master-group-by-country-sum.1
       - ROUTINGKEYS_OUTPUT_TOP-FIVE-COUNTRY-BUDGET=top-five-country-budget.1
       - CLI_WORKER_STORAGE=/app/storage
@@ -520,7 +220,7 @@ services:
     environment:
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLI_LOG_LEVEL=info
-      - EOF_COUNTER=3
+      - EOF_COUNTER=1
       - ROUTINGKEYS_INPUT=master-group-by-movie-average.1
       - ROUTINGKEYS_OUTPUT_FIRST-AND-LAST=first-and-last.1
       - CLI_WORKER_STORAGE=/app/storage
@@ -541,7 +241,7 @@ services:
     environment:
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLI_LOG_LEVEL=info
-      - EOF_COUNTER=3
+      - EOF_COUNTER=1
       - ROUTINGKEYS_INPUT=master-group-by-actor-count.1
       - ROUTINGKEYS_OUTPUT_TOP-TEN-CAST-MOVIE=top-ten-cast-movie.1
       - CLI_WORKER_STORAGE=/app/storage
@@ -562,7 +262,7 @@ services:
     environment:
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLI_LOG_LEVEL=info
-      - EOF_COUNTER=3
+      - EOF_COUNTER=1
       - ROUTINGKEYS_INPUT=master-group-by-overview-average.1
       - ROUTINGKEYS_OUTPUT_OUTPUT_ROUTINGKEY=query5.results
       - CLI_WORKER_STORAGE=/app/storage
@@ -584,39 +284,7 @@ services:
       - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
       - CLI_LOG_LEVEL=info
       - ROUTINGKEYS_INPUT=machine-learning.1
-      - ROUTINGKEYS_OUTPUT_GROUP-BY-OVERVIEW-AVERAGE=group-by-overview-average.1,group-by-overview-average.2,group-by-overview-average.3
-    image: machine_learning:latest
-    networks:
-      - movies_net
-  machine-learning-2:
-    build:
-      context: .
-      dockerfile: machine_learning/Dockerfile
-    container_name: machine-learning-2
-    depends_on:
-      - rabbitmq
-    entrypoint: python main.py
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - ROUTINGKEYS_INPUT=machine-learning.2
-      - ROUTINGKEYS_OUTPUT_GROUP-BY-OVERVIEW-AVERAGE=group-by-overview-average.1,group-by-overview-average.2,group-by-overview-average.3
-    image: machine_learning:latest
-    networks:
-      - movies_net
-  machine-learning-3:
-    build:
-      context: .
-      dockerfile: machine_learning/Dockerfile
-    container_name: machine-learning-3
-    depends_on:
-      - rabbitmq
-    entrypoint: python main.py
-    environment:
-      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-      - CLI_LOG_LEVEL=info
-      - ROUTINGKEYS_INPUT=machine-learning.3
-      - ROUTINGKEYS_OUTPUT_GROUP-BY-OVERVIEW-AVERAGE=group-by-overview-average.1,group-by-overview-average.2,group-by-overview-average.3
+      - ROUTINGKEYS_OUTPUT_GROUP-BY-OVERVIEW-AVERAGE=group-by-overview-average.1
     image: machine_learning:latest
     networks:
       - movies_net
@@ -671,55 +339,15 @@ services:
   #   environment:
   #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
   #     - CLI_LOG_LEVEL=info
-  #     - EOF_COUNTER=9
+  #     - EOF_COUNTER=1
   #     - ROUTINGKEYS_INPUT=join-movie-ratings.1,join-ratings.1
-  #     - ROUTINGKEYS_OUTPUT_GROUP-BY-MOVIE-AVERAGE=group-by-movie-average.1,group-by-movie-average.2,group-by-movie-average.3
+  #     - ROUTINGKEYS_OUTPUT_GROUP-BY-MOVIE-AVERAGE=group-by-movie-average.1
   #     - CLI_WORKER_STORAGE=/app/storage
   #   image: join_movie_ratings:latest
   #   networks:
   #     - movies_net
   #   volumes:
   #     - .local-storage/join-movie-ratings-1:/app/storage
-  # join-movie-ratings-2:
-  #   build:
-  #     context: .
-  #     dockerfile: joins/join_movie_ratings/Dockerfile
-  #   container_name: join-movie-ratings-2
-  #   depends_on:
-  #     - rabbitmq
-  #   entrypoint: ./run_worker
-  #   environment:
-  #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-  #     - CLI_LOG_LEVEL=info
-  #     - EOF_COUNTER=9
-  #     - ROUTINGKEYS_INPUT=join-movie-ratings.2,join-ratings.2
-  #     - ROUTINGKEYS_OUTPUT_GROUP-BY-MOVIE-AVERAGE=group-by-movie-average.1,group-by-movie-average.2,group-by-movie-average.3
-  #     - CLI_WORKER_STORAGE=/app/storage
-  #   image: join_movie_ratings:latest
-  #   networks:
-  #     - movies_net
-  #   volumes:
-  #     - .local-storage/join-movie-ratings-2:/app/storage
-  # join-movie-ratings-3:
-  #   build:
-  #     context: .
-  #     dockerfile: joins/join_movie_ratings/Dockerfile
-  #   container_name: join-movie-ratings-3
-  #   depends_on:
-  #     - rabbitmq
-  #   entrypoint: ./run_worker
-  #   environment:
-  #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-  #     - CLI_LOG_LEVEL=info
-  #     - EOF_COUNTER=9
-  #     - ROUTINGKEYS_INPUT=join-movie-ratings.3,join-ratings.3
-  #     - ROUTINGKEYS_OUTPUT_GROUP-BY-MOVIE-AVERAGE=group-by-movie-average.1,group-by-movie-average.2,group-by-movie-average.3
-  #     - CLI_WORKER_STORAGE=/app/storage
-  #   image: join_movie_ratings:latest
-  #   networks:
-  #     - movies_net
-  #   volumes:
-  #     - .local-storage/join-movie-ratings-3:/app/storage
   # join-movie-credits-1:
   #   build:
   #     context: .
@@ -731,55 +359,15 @@ services:
   #   environment:
   #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
   #     - CLI_LOG_LEVEL=info
-  #     - EOF_COUNTER=9
+  #     - EOF_COUNTER=1
   #     - ROUTINGKEYS_INPUT=join-movie-credits.1,join-credits.1
-  #     - ROUTINGKEYS_OUTPUT_GROUP-BY-ACTOR-COUNT=group-by-actor-count.1,group-by-actor-count.2,group-by-actor-count.3
+  #     - ROUTINGKEYS_OUTPUT_GROUP-BY-ACTOR-COUNT=group-by-actor-count.1
   #     - CLI_WORKER_STORAGE=/app/storage
   #   image: join_movie_credits:latest
   #   networks:
   #     - movies_net
   #   volumes:
   #     - .local-storage/join-movie-credits-1:/app/storage
-  # join-movie-credits-2:
-  #   build:
-  #     context: .
-  #     dockerfile: joins/join_movie_credits/Dockerfile
-  #   container_name: join-movie-credits-2
-  #   depends_on:
-  #     - rabbitmq
-  #   entrypoint: ./run_worker
-  #   environment:
-  #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-  #     - CLI_LOG_LEVEL=info
-  #     - EOF_COUNTER=9
-  #     - ROUTINGKEYS_INPUT=join-movie-credits.2,join-credits.2
-  #     - ROUTINGKEYS_OUTPUT_GROUP-BY-ACTOR-COUNT=group-by-actor-count.1,group-by-actor-count.2,group-by-actor-count.3
-  #     - CLI_WORKER_STORAGE=/app/storage
-  #   image: join_movie_credits:latest
-  #   networks:
-  #     - movies_net
-  #   volumes:
-  #     - .local-storage/join-movie-credits-2:/app/storage
-  # join-movie-credits-3:
-  #   build:
-  #     context: .
-  #     dockerfile: joins/join_movie_credits/Dockerfile
-  #   container_name: join-movie-credits-3
-  #   depends_on:
-  #     - rabbitmq
-  #   entrypoint: ./run_worker
-  #   environment:
-  #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-  #     - CLI_LOG_LEVEL=info
-  #     - EOF_COUNTER=9
-  #     - ROUTINGKEYS_INPUT=join-movie-credits.3,join-credits.3
-  #     - ROUTINGKEYS_OUTPUT_GROUP-BY-ACTOR-COUNT=group-by-actor-count.1,group-by-actor-count.2,group-by-actor-count.3
-  #     - CLI_WORKER_STORAGE=/app/storage
-  #   image: join_movie_credits:latest
-  #   networks:
-  #     - movies_net
-  #   volumes:
-  #     - .local-storage/join-movie-credits-3:/app/storage
   first-and-last-1:
     build:
       context: .

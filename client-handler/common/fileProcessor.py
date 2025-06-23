@@ -85,7 +85,7 @@ class Processor:
         except ValueError:
             raise EmptyFieldError(f"Invalid movie_id: {movie_id}")
 
-    def get_processed_batch(self) -> list[list[str]]:
+    def get_processed_batch(self) -> dict[str, dict[int, str]]:
         return self.container.get_buffers()
 
 
