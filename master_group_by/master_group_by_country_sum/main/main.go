@@ -73,6 +73,14 @@ func main() {
 	// Lanzar worker en goroutine
 	done := make(chan bool)
 	wg := sync.WaitGroup{}
+
+	heartbeat_port := v.GetInt("heartbeat.port")
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		utils.HeartBeat(ctx, heartbeat_port)
+	}()
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()

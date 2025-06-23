@@ -3,6 +3,8 @@ from common.worker import ExchangeSpec
 from tools.config import load_config, config_string
 from tools.logger import init_log
 import logging
+from common.heartbeat import heartbeat
+import threading
 
 log = logging.getLogger(__name__)
 
@@ -17,6 +19,7 @@ def main():
     input_routing_keys = config["worker.exchange.input.routingkeys"]
     output_routing_keys = config["worker.exchange.output.routingkeys"]
     queue_name = "machine_learning_queue"
+    port = int(config["heartbeat.port"])
 
     input_exchange_spec = ExchangeSpec(
         routing_keys=input_routing_keys,
@@ -35,13 +38,17 @@ def main():
     )
 
     worker = MachineLearning(filter_config, output_routing_keys)
+    ctx = threading.Event()
+    heartbeat_thread = threading.Thread(target=heartbeat, args=(port, ctx))
 
     try:
+        heartbeat_thread.start()
         worker.run_worker()
     except Exception as e:
         log.error(f"Exception when running worker: {e}")
-    # finally:
-    #     worker.worker.close_worker()
+    finally:
+        ctx.set()
+        heartbeat_thread.join()
 
 
 if __name__ == "__main__":

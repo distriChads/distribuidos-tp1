@@ -25,6 +25,7 @@ def load_config(config_file="./config.ini"):
         "worker.exchange.output.name",
         "worker.broker",
         "worker.queue.name",
+        "heartbeat.port",
     ]
 
     final_config["worker.exchange.input.routingkeys"] = load_worker_routingkeys(

@@ -43,3 +43,5 @@ def setup_client_handler_config_esentials(config, config_params):
         'LOGGING_LEVEL') or config["DEFAULT"]["LOGGING_LEVEL"]
     config_params["CLI_WORKER_BROKER"] = os.getenv(
         'CLI_WORKER_BROKER') or config["DEFAULT"]["CLI_WORKER_BROKER"]
+    config_params["heartbeat_port"] = int(
+        os.getenv('HEARTBEAT_PORT') or config["DEFAULT"]["HEARTBEAT_PORT"])

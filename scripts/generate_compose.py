@@ -29,7 +29,8 @@ def client_handler_service(broker,
                            logging_level,
                            listen_backlog,
                            input_routing_keys,
-                           output_routing_keys):
+                           output_routing_keys,
+                           heartbeat_port):
     input_routing_keys = ",".join(input_routing_keys)
     output_routing_keys = ",".join(output_routing_keys)
 
@@ -40,7 +41,8 @@ def client_handler_service(broker,
         f"CLI_WORKER_BROKER={broker}",
         f"CLIENT_HANDLER_LISTEN_BACKLOG={listen_backlog}",
         f"CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS={input_routing_keys}",
-        f"CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS={output_routing_keys}"
+        f"CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS={output_routing_keys}",
+        f"HEARTBEAT_PORT={heartbeat_port}"
     ])
 
     return {
@@ -63,6 +65,7 @@ def router_service(spec, replicas, replicas_services, replica_index):
         f"CLI_LOG_LEVEL={spec['log_level']}",
         f"CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS={','.join(spec['input_routing_keys'])}",
         f"CLI_WORKER_BROKER={spec.get('broker', DEFAULT_BROKER)}",
+        f"CLI_HEARTBEAT_PORT={spec.get('heartbeat_port', 4444)}"
     ]
 
     for service in replicas_services:
@@ -86,6 +89,36 @@ def router_service(spec, replicas, replicas_services, replica_index):
         "environment": env
     }
 
+def health_checker_services(spec, services_to_monitor, replicas):
+    services = []
+    for i in range(replicas):
+        _services = []
+        for j in range(len(services_to_monitor)):
+            if j % replicas == i:
+                _services.append(services_to_monitor[j])
+        if replicas > 1:
+            _services.append(f"health-checker-{((i+1) % replicas) + 1}:{spec.get('heartbeat_port', 4444)}")
+        env = [
+            f"CLI_LOGGING_LEVEL={spec['log_level']}",
+            f"CLI_SERVICES={','.join(_services)}",
+            f"CLI_PING_INTERVAL={spec['ping_interval']}",
+            f"CLI_HEARTBEAT_PORT={spec.get('heartbeat_port', 4444)}",
+            f"CLI_MAX_CONCURRENT_HEALTH_CHECKS={spec.get('max_concurrent_health_checks', 10)}",
+            f"CLI_GRACE_PERIOD={spec.get('grace_period', 30)}"
+        ]
+        services.append({
+            "container_name": f"health-checker-{i+1}",
+            "build": {
+                "context": ".",
+                "dockerfile": "health-checker/Dockerfile"
+            },
+            "image": "health-checker:latest",
+            "entrypoint": "python main.py",
+            "networks": COMMON_NETWORKS,
+            "volumes": [f"/var/run/docker.sock:/var/run/docker.sock", f"docker-compose.yaml:/app/docker-compose.yaml"],
+            "environment": env
+        })
+    return services
 
 def generic_worker_service(name, dockerfile_path, replica, spec, entrypoint):
     broker = spec.get("broker", DEFAULT_BROKER)
@@ -100,7 +133,8 @@ def generic_worker_service(name, dockerfile_path, replica, spec, entrypoint):
         f"CLI_WORKER_BROKER={broker}",
         f"CLI_LOG_LEVEL={spec['log_level']}",
         f"CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS={','.join(input_routing_keys)}",
-        f"CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS={','.join(spec['output_routing_keys'])}"
+        f"CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS={','.join(spec['output_routing_keys'])}",
+        f"CLI_HEARTBEAT_PORT={spec.get('heartbeat_port', 4444)}"
     ]
 
     if "storage" in spec:
@@ -162,7 +196,8 @@ def generate_compose(spec_path, output_path):
                 logging_level=logging_level,
                 listen_backlog=listen_backlog,
                 input_routing_keys=input_routing_keys,
-                output_routing_keys=output_routing_keys
+                output_routing_keys=output_routing_keys,
+                heartbeat_port=service_spec.get("heartbeat_port", 4444)
             )
 
         elif name == "router":
@@ -177,6 +212,18 @@ def generate_compose(spec_path, output_path):
                 compose["services"][name_with_index] = router_service(
                     service_spec, replicas_for_nodes, replicas_services, i
                 )
+
+        elif name == "health-checker":
+            services_to_monitor = [
+                f"{service['name']}-{i+1}:{service.get('heartbeat_port', 4444)}" 
+                for service in spec["services"] if service["name"] not in ["health-checker", "client-handler"]
+                for i in range(service["replicas"])
+            ]
+            ch_spec = next(s for s in spec["services"] if s["name"] == "client-handler")
+            services_to_monitor.append(f"client-handler:{ch_spec.get('heartbeat_port', 4444)}")
+            health_checkers = health_checker_services(service_spec, services_to_monitor, replicas)
+            for i in range(replicas):
+                compose["services"][f"{name}-{i+1}"] = health_checkers[i]
 
         else:
             prefix = ""

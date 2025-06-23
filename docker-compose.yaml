@@ -30,11 +30,12 @@ services:
     - rabbitmq
     environment:
     - CLIENT_HANDLER_PORT=3000
-    - LOGGING_LEVEL=warning
+    - LOGGING_LEVEL=info
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLIENT_HANDLER_LISTEN_BACKLOG=5
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=*.results
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.client_handler,ratings.client-handler.router,credits.client-handler.router
+    - HEARTBEAT_PORT=4444
   filter-argentina-1:
     build:
       context: .
@@ -45,9 +46,10 @@ services:
     entrypoint: ./run_worker
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-    - CLI_LOG_LEVEL=warning
+    - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.client_handler
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.argentina
+    - CLI_HEARTBEAT_PORT=4444
     image: filter_argentina:latest
     networks:
     - movies_net
@@ -61,9 +63,10 @@ services:
     entrypoint: ./run_worker
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-    - CLI_LOG_LEVEL=warning
+    - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.argentina
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query1.results
+    - CLI_HEARTBEAT_PORT=4444
     image: filter_spain_2000:latest
     networks:
     - movies_net
@@ -77,9 +80,10 @@ services:
     entrypoint: ./run_worker
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-    - CLI_LOG_LEVEL=warning
+    - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.client_handler
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.filter_only_one_country.router
+    - CLI_HEARTBEAT_PORT=4444
     image: filter_only_one_country:latest
     networks:
     - movies_net
@@ -93,9 +97,10 @@ services:
     entrypoint: ./run_worker
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-    - CLI_LOG_LEVEL=warning
+    - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.argentina
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.after_2000
+    - CLI_HEARTBEAT_PORT=4444
     image: filter_after_2000:latest
     networks:
     - movies_net
@@ -109,9 +114,10 @@ services:
     entrypoint: ./run_worker
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-    - CLI_LOG_LEVEL=warning
+    - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=group-by-country-sum.1
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.group_by_country_sum
+    - CLI_HEARTBEAT_PORT=4444
     - CLI_WORKER_STORAGE=/app/storage
     - CLI_WORKER_MAXMESSAGES=10
     image: group_by_country_sum:latest
@@ -129,9 +135,10 @@ services:
     entrypoint: ./run_worker
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-    - CLI_LOG_LEVEL=warning
+    - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=group-by-movie-average.1
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.group_by_movie_average
+    - CLI_HEARTBEAT_PORT=4444
     - CLI_WORKER_STORAGE=/app/storage
     - CLI_WORKER_MAXMESSAGES=10
     image: group_by_movie_average:latest
@@ -149,9 +156,10 @@ services:
     entrypoint: ./run_worker
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-    - CLI_LOG_LEVEL=warning
+    - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=group-by-actor-count.1
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.group_by_actor_count
+    - CLI_HEARTBEAT_PORT=4444
     - CLI_WORKER_STORAGE=/app/storage
     - CLI_WORKER_MAXMESSAGES=10
     image: group_by_actor_count:latest
@@ -169,9 +177,10 @@ services:
     entrypoint: ./run_worker
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-    - CLI_LOG_LEVEL=warning
+    - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=group-by-overview-average.1
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.group_by_overview_average
+    - CLI_HEARTBEAT_PORT=4444
     - CLI_WORKER_STORAGE=/app/storage
     - CLI_WORKER_MAXMESSAGES=10
     image: group_by_overview_average:latest
@@ -189,9 +198,10 @@ services:
     entrypoint: ./run_worker
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-    - CLI_LOG_LEVEL=warning
+    - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.group_by_country_sum
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=master.country_sum
+    - CLI_HEARTBEAT_PORT=4444
     - CLI_WORKER_STORAGE=/app/storage
     - CLI_WORKER_MAXMESSAGES=1
     image: master_group_by_country_sum:latest
@@ -209,9 +219,10 @@ services:
     entrypoint: ./run_worker
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-    - CLI_LOG_LEVEL=warning
+    - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.group_by_movie_average
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=master.movie_average
+    - CLI_HEARTBEAT_PORT=4444
     - CLI_WORKER_STORAGE=/app/storage
     - CLI_WORKER_MAXMESSAGES=1
     image: master_group_by_movie_average:latest
@@ -229,9 +240,10 @@ services:
     entrypoint: ./run_worker
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-    - CLI_LOG_LEVEL=warning
+    - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.group_by_actor_count
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=master.actor_count
+    - CLI_HEARTBEAT_PORT=4444
     - CLI_WORKER_STORAGE=/app/storage
     - CLI_WORKER_MAXMESSAGES=1
     image: master_group_by_actor_count:latest
@@ -249,9 +261,10 @@ services:
     entrypoint: ./run_worker
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-    - CLI_LOG_LEVEL=warning
+    - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.group_by_overview_average
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query5.results
+    - CLI_HEARTBEAT_PORT=4444
     - CLI_WORKER_STORAGE=/app/storage
     - CLI_WORKER_MAXMESSAGES=1
     image: master_group_by_overview_average:latest
@@ -269,9 +282,10 @@ services:
     entrypoint: python main.py
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-    - CLI_LOG_LEVEL=warning
+    - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.client_handler
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=movies.ml.router
+    - CLI_HEARTBEAT_PORT=4444
     image: machine_learning:latest
     networks:
     - movies_net
@@ -285,9 +299,10 @@ services:
     entrypoint: ./run_worker
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-    - CLI_LOG_LEVEL=warning
+    - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=master.country_sum
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query2.results
+    - CLI_HEARTBEAT_PORT=4444
     - CLI_WORKER_STORAGE=/app/storage
     - CLI_WORKER_MAXMESSAGES=10
     image: top_five_country_budget:latest
@@ -305,9 +320,10 @@ services:
     entrypoint: ./run_worker
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-    - CLI_LOG_LEVEL=warning
+    - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=master.actor_count
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query4.results
+    - CLI_HEARTBEAT_PORT=4444
     - CLI_WORKER_STORAGE=/app/storage
     - CLI_WORKER_MAXMESSAGES=10
     image: top_ten_cast_movie:latest
@@ -325,9 +341,10 @@ services:
     entrypoint: ./run_worker
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-    - CLI_LOG_LEVEL=warning
+    - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=join-movie-ratings.1,join-ratings.1
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join_movie_ratings.router
+    - CLI_HEARTBEAT_PORT=4444
     - CLI_WORKER_STORAGE=/app/storage
     image: join_movie_ratings:latest
     networks:
@@ -344,9 +361,10 @@ services:
     entrypoint: ./run_worker
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-    - CLI_LOG_LEVEL=warning
+    - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=join-movie-credits.1,join-credits.1
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=join_movie_credits.router
+    - CLI_HEARTBEAT_PORT=4444
     - CLI_WORKER_STORAGE=/app/storage
     image: join_movie_credits:latest
     networks:
@@ -363,9 +381,10 @@ services:
     entrypoint: ./run_worker
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-    - CLI_LOG_LEVEL=warning
+    - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=master.movie_average
     - CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS=query3.results
+    - CLI_HEARTBEAT_PORT=4444
     - CLI_WORKER_STORAGE=/app/storage
     - CLI_WORKER_MAXMESSAGES=10
     image: first_and_last:latest
@@ -384,14 +403,31 @@ services:
     depends_on:
     - rabbitmq
     environment:
-    - CLI_LOG_LEVEL=warning
+    - CLI_LOG_LEVEL=info
     - CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS=movies.after_2000,ratings.client-handler.router,credits.client-handler.router,movies.filter_only_one_country.router,movies.ml.router,join_movie_ratings.router,join_movie_credits.router
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+    - CLI_HEARTBEAT_PORT=4444
     - CLI_WORKER_OUTPUT_ROUTINGKEYS_JOIN-MOVIE-CREDITS=join-movie-credits.1
     - CLI_WORKER_OUTPUT_ROUTINGKEYS_JOIN-MOVIE-RATINGS=join-movie-ratings.1
-    - CLI_WORKER_OUTPUT_ROUTINGKEYS_JOIN-CREDITS=join-credits.1
-    - CLI_WORKER_OUTPUT_ROUTINGKEYS_JOIN-RATINGS=join-ratings.1
     - CLI_WORKER_OUTPUT_ROUTINGKEYS_GROUP-BY-OVERVIEW-AVERAGE=group-by-overview-average.1
     - CLI_WORKER_OUTPUT_ROUTINGKEYS_GROUP-BY-ACTOR-COUNT=group-by-actor-count.1
     - CLI_WORKER_OUTPUT_ROUTINGKEYS_GROUP-BY-MOVIE-AVERAGE=group-by-movie-average.1
     - CLI_WORKER_OUTPUT_ROUTINGKEYS_GROUP-BY-COUNTRY-SUM=group-by-country-sum.1
+  health-checker-1:
+    container_name: health-checker-1
+    build:
+      context: .
+      dockerfile: health-checker/Dockerfile
+    image: health-checker:latest
+    entrypoint: python main.py
+    networks: *id001
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    - ./docker-compose.yaml:/app/docker-compose.yaml
+    environment:
+    - CLI_LOGGING_LEVEL=info
+    - CLI_SERVICES=filter-argentina-1:4444,filter-spain-2000-1:4444,filter-only-one-country-1:4444,filter-after-2000-1:4444,group-by-country-sum-1:4444,group-by-movie-average-1:4444,group-by-actor-count-1:4444,group-by-overview-average-1:4444,master-group-by-country-sum-1:4444,master-group-by-movie-average-1:4444,master-group-by-actor-count-1:4444,master-group-by-overview-average-1:4444,machine-learning-1:4444,top-five-country-budget-1:4444,top-ten-cast-movie-1:4444,join-movie-ratings-1:4444,join-movie-credits-1:4444,first-and-last-1:4444,router-1:4444,client-handler:4444
+    - CLI_PING_INTERVAL=5
+    - CLI_HEARTBEAT_PORT=4444
+    - CLI_MAX_CONCURRENT_HEALTH_CHECKS=10
+    - CLI_GRACE_PERIOD=10

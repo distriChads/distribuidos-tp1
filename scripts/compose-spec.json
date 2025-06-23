@@ -7,6 +7,7 @@
             "replicas": 1,
             "input_routing_keys": ["*.results"],
             "output_routing_keys": ["movies.client_handler", "ratings.client-handler.router", "credits.client-handler.router"],
+            "heartbeat_port": 4444,
             "listen_backlog": 5
         },
         {
@@ -14,6 +15,7 @@
             "replicas": 1,
             "log_level": "info",
             "input_routing_keys": ["movies.client_handler"],
+            "heartbeat_port": 4444,
             "output_routing_keys": ["movies.argentina"]
         },
         {
@@ -21,6 +23,7 @@
             "replicas": 1,
             "log_level": "info",
             "input_routing_keys": ["movies.argentina"],
+            "heartbeat_port": 4444,
             "output_routing_keys": ["query1.results"]
         },
         {
@@ -28,6 +31,7 @@
             "replicas": 1,
             "log_level": "info",
             "input_routing_keys": ["movies.client_handler"],
+            "heartbeat_port": 4444,
             "output_routing_keys": ["movies.filter_only_one_country.router"]
         },
         {
@@ -35,6 +39,7 @@
             "replicas": 1,
             "log_level": "info",
             "input_routing_keys": ["movies.argentina"],
+            "heartbeat_port": 4444,
             "output_routing_keys": ["movies.after_2000"]
         },
         {
@@ -44,6 +49,7 @@
             "input_routing_keys": ["group-by-country-sum"],
             "output_routing_keys": ["movies.group_by_country_sum"],
             "storage": ".local-storage",
+            "heartbeat_port": 4444,
             "messages_per_commit": 10
         },
         {
@@ -53,6 +59,7 @@
             "input_routing_keys": ["group-by-movie-average"],
             "output_routing_keys": ["movies.group_by_movie_average"],
             "storage": ".local-storage",
+            "heartbeat_port": 4444,
             "messages_per_commit": 10
         },
         {
@@ -62,6 +69,7 @@
             "input_routing_keys": ["group-by-actor-count"],
             "output_routing_keys": ["movies.group_by_actor_count"],
             "storage": ".local-storage",
+            "heartbeat_port": 4444,
             "messages_per_commit": 10
         },
         {
@@ -71,6 +79,7 @@
             "input_routing_keys": ["group-by-overview-average"],
             "output_routing_keys": ["movies.group_by_overview_average"],
             "storage": ".local-storage",
+            "heartbeat_port": 4444,
             "messages_per_commit": 10
         },
         {
@@ -80,6 +89,7 @@
             "input_routing_keys": ["movies.group_by_country_sum"],
             "output_routing_keys": ["master.country_sum"],
             "storage": ".local-storage",
+            "heartbeat_port": 4444,
             "messages_per_commit": 1
         },
         {
@@ -89,6 +99,7 @@
             "input_routing_keys": ["movies.group_by_movie_average"],
             "output_routing_keys": ["master.movie_average"],
             "storage": ".local-storage",
+            "heartbeat_port": 4444,
             "messages_per_commit": 1
         },
         {
@@ -98,6 +109,7 @@
             "input_routing_keys": ["movies.group_by_actor_count"],
             "output_routing_keys": ["master.actor_count"],
             "storage": ".local-storage",
+            "heartbeat_port": 4444,
             "messages_per_commit": 1
         },
         {
@@ -107,6 +119,7 @@
             "input_routing_keys": ["movies.group_by_overview_average"],
             "output_routing_keys": ["query5.results"],
             "storage": ".local-storage",
+            "heartbeat_port": 4444,
             "messages_per_commit": 1
         },
         {
@@ -114,6 +127,7 @@
             "replicas": 1,
             "log_level": "info",
             "input_routing_keys": ["movies.client_handler"],
+            "heartbeat_port": 4444,
             "output_routing_keys": ["movies.ml.router"]
         },
         {
@@ -123,6 +137,7 @@
             "input_routing_keys": ["master.country_sum"],
             "output_routing_keys": ["query2.results"],
             "storage": ".local-storage",
+            "heartbeat_port": 4444,
             "messages_per_commit": 10
         },
         {
@@ -132,6 +147,7 @@
             "input_routing_keys": ["master.actor_count"],
             "output_routing_keys": ["query4.results"],
             "storage": ".local-storage",
+            "heartbeat_port": 4444,
             "messages_per_commit": 10
         },
         {
@@ -140,6 +156,7 @@
             "log_level": "info",
             "input_routing_keys": ["join-movie-ratings", "join-ratings"],
             "output_routing_keys": ["join_movie_ratings.router"],
+            "heartbeat_port": 4444,
             "storage": ".local-storage"
         },
         {
@@ -148,6 +165,7 @@
             "log_level": "info",
             "input_routing_keys": ["join-movie-credits", "join-credits"],
             "output_routing_keys": ["join_movie_credits.router"],
+            "heartbeat_port": 4444,
             "storage": ".local-storage"
         },
         {
@@ -157,13 +175,24 @@
             "input_routing_keys": ["master.movie_average"],
             "output_routing_keys": ["query3.results"],
             "storage": ".local-storage",
+            "heartbeat_port": 4444,
             "messages_per_commit": 10
         },
         {
             "name": "router",
             "replicas": 1,
             "log_level": "info",
+            "heartbeat_port": 4444,
             "input_routing_keys": ["movies.after_2000", "ratings.client-handler.router", "credits.client-handler.router", "movies.filter_only_one_country.router", "movies.ml.router", "join_movie_ratings.router", "join_movie_credits.router"]
+        },
+        {
+            "name": "health-checker",
+            "replicas": 1,
+            "log_level": "info",
+            "ping_interval": 5,
+            "grace_period": 10,
+            "heartbeat_port": 4444,
+            "max_concurrent_health_checks": 10
         }
     ]
 }

@@ -1,6 +1,8 @@
 import logging
+import threading
 from common.clientHandler import ClientHandler, ClientHandlerConfig
 from common.worker import ExchangeSpec
+from common.heartbeat import heartbeat
 from tools.logger import init_log
 from tools.config import init_config
 
@@ -10,7 +12,7 @@ def main():
     logging_level = config["logging_level"].upper()
     port = config["port"]
     listen_backlog = config["listen_backlog"]
-
+    heartbeat_port = config["heartbeat_port"]
     input_routing_keys = config["CLI_WORKER_EXCHANGE_INPUT_ROUTINGKEYS"].split(
         ",")
     output_routing_keys = config["CLI_WORKER_EXCHANGE_OUTPUT_ROUTINGKEYS"].split(
@@ -45,10 +47,17 @@ def main():
         client_handler_config=client_handler_config,
     )
 
+    ctx = threading.Event()
+    heartbeat_thread = threading.Thread(target=heartbeat, args=(heartbeat_port, ctx))
+
     try:
+        heartbeat_thread.start()
         worker.run()
     except Exception as e:
         logging.critical(f"Failed client handler: {e}")
+    finally:
+        ctx.set()
+        heartbeat_thread.join()
 
 
 if __name__ == "__main__":

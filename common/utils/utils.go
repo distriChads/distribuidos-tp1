@@ -1,13 +1,18 @@
 package utils
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 )
+
+var logger *logging.Logger
 
 // InitConfig Function that uses viper library to parse configuration parameters.
 // Viper is configured to read variables from both environment variables and the
@@ -27,6 +32,7 @@ func InitConfig() (*viper.Viper, error) {
 
 	// Add env variables supported
 	v.BindEnv("log", "level")
+	v.BindEnv("heartbeat", "port")
 	v.BindEnv("worker", "exchange", "input", "routingkeys")
 	v.BindEnv("worker", "exchange", "output", "routingkeys")
 	v.BindEnv("worker", "broker")
@@ -70,5 +76,67 @@ func InitLogger(logLevel string) error {
 
 	// Set the backends to be used.
 	logging.SetBackend(backendLeveled)
+	logger = logging.MustGetLogger("utils")
 	return nil
+}
+
+func HeartBeat(ctx context.Context, port int) {
+	if logger == nil {
+		fmt.Println("Logger not initialized")
+		return
+	}
+
+	// Create UDP connection
+	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: port})
+	if err != nil {
+		logger.Fatal("Error listening on UDP port:", err)
+	}
+	defer conn.Close()
+
+	logger.Infof("HeartBeat server listening on port %d", port)
+
+	// Buffer to read incoming messages
+	buffer := make([]byte, 1024)
+
+	for {
+		// Set read timeout to 1 second
+		conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+
+		select {
+		case <-ctx.Done():
+			logger.Info("HeartBeat server shutting down")
+			return
+		default:
+		}
+		// Read message from UDP connection
+		n, remoteAddr, err := conn.ReadFromUDP(buffer)
+		if err != nil {
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				// Ignore timeout errors
+				continue
+			}
+			logger.Errorf("Error reading from UDP: %v", err)
+			continue
+		}
+
+		// Print received message
+		message := string(buffer[:n])
+		logger.Infof("Received from %v: %s", remoteAddr, message)
+
+		// Send "OK" response back to the sender
+		response := []byte("OK")
+		for i := range 3 {
+			_, err = conn.WriteToUDP(response, remoteAddr)
+			if err != nil {
+				logger.Errorf("Error sending response (attempt %d): %v", i+1, err)
+				if i == 2 {
+					logger.Errorf("Failed to send response after 3 attempts")
+				}
+				time.Sleep(time.Duration(2+float64(i)*1.2) * time.Second)
+			} else {
+				logger.Infof("Sent response to %v", remoteAddr)
+				break
+			}
+		}
+	}
 }
