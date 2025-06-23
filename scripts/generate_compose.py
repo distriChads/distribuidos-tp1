@@ -11,14 +11,14 @@ FILTER_ONE_COUNTRY = "filter-only-one-country"
 FILTER_AFTER_2000 = "filter-after-2000"
 
 GROUP_BY_COUNTRY_SUM = "group-by-country-sum"
-GROUP_BY_MOVIE_AVG = "group-by-movie-avg"
+GROUP_BY_MOVIE_AVG = "group-by-movie-average"
 GROUP_BY_ACTOR_COUNT = "group-by-actor-count"
-GROUP_BY_OVERVIEW_AVG = "group-by-overview-avg"
+GROUP_BY_OVERVIEW_AVG = "group-by-overview-average"
 
 MASTER_GROUP_BY_COUNTRY_SUM = "master-group-by-country-sum"
-MASTER_GROUP_BY_MOVIE_AVG = "master-group-by-movie-avg"
+MASTER_GROUP_BY_MOVIE_AVG = "master-group-by-movie-average"
 MASTER_GROUP_BY_ACTOR_COUNT = "master-group-by-actor-count"
-MASTER_GROUP_BY_OVERVIEW_AVG = "master-group-by-overview-avg"
+MASTER_GROUP_BY_OVERVIEW_AVG = "master-group-by-overview-average"
 
 MACHINE_LEARNING = "machine-learning"
 
@@ -117,6 +117,8 @@ def generic_worker_service(name,
         f"CLI_WORKER_BROKER={broker}",
         f"CLI_LOG_LEVEL={spec['log_level']}",
     ]
+    if eof_counter > 0:
+        env.append(f"EOF_COUNTER={eof_counter}")
     input_routing_keys = ""
 
     if name == JOIN_MOVIES_CREDITS or name == JOIN_MOVIES_RATINGS:
@@ -125,7 +127,6 @@ def generic_worker_service(name,
             input_routing_keys += f"join-credits.{replica}"
         else:
             input_routing_keys += f"join-ratings.{replica}"
-        env.append(f"EOF_COUNTER={eof_counter}")
     else:
         input_routing_keys = f"{name}.{replica}"
 
@@ -238,12 +239,33 @@ def generate_compose(spec_path, output_path):
 
             for i in range(1, node_replica_mapping[name.upper().replace("-", "_")] + 1):
                 eof_counter = 0
+
                 if name == JOIN_MOVIES_CREDITS or name == JOIN_MOVIES_RATINGS:
                     replicas_filter_arg = node_replica_mapping[FILTER_ARG.upper().replace(
                         "-", "_")]
                     replicas_filter_after_2000 = node_replica_mapping[FILTER_AFTER_2000.upper(
                     ).replace("-", "_")]
                     eof_counter = replicas_filter_arg * replicas_filter_after_2000
+
+                if name.startswith("master-group-by"):
+                    group_by = name.split("-")
+                    group_by = group_by[1:]
+                    group_by = "-".join(group_by)
+                    eof_counter = node_replica_mapping[group_by.upper().replace(
+                        "-", "_")]
+
+                if name == GROUP_BY_COUNTRY_SUM:
+                    eof_counter = node_replica_mapping[FILTER_ONE_COUNTRY.upper().replace(
+                        "-", "_")]
+                if name == GROUP_BY_MOVIE_AVG:
+                    eof_counter = node_replica_mapping[JOIN_MOVIES_RATINGS.upper().replace(
+                        "-", "_")]
+                if name == GROUP_BY_ACTOR_COUNT:
+                    eof_counter = node_replica_mapping[JOIN_MOVIES_CREDITS.upper().replace(
+                        "-", "_")]
+                if name == GROUP_BY_OVERVIEW_AVG:
+                    eof_counter = node_replica_mapping[MACHINE_LEARNING.upper().replace(
+                        "-", "_")]
 
                 instance_name = f"{name}-{i}"
                 compose["services"][instance_name] = generic_worker_service(

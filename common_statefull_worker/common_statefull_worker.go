@@ -31,7 +31,16 @@ type StatefullWorker interface {
 var log = logging.MustGetLogger("common_group_by")
 
 func SendResult(w worker.Worker, client_id string, lines string) error {
-	send_queue_key := w.Exchange.OutputRoutingKeys[0]
+	var onlyRoutingKeys []string
+	for _, keys := range w.Exchange.OutputRoutingKeys {
+		onlyRoutingKeys = keys
+	}
+	if len(onlyRoutingKeys) != 1 {
+		log.Errorf("Error: expected exactly one output routing key, got %d", len(onlyRoutingKeys))
+		return fmt.Errorf("expected exactly one output routing key, got %d", len(onlyRoutingKeys))
+	}
+
+	send_queue_key := onlyRoutingKeys[0]
 	message_id, err := uuid.NewRandom()
 	if err != nil {
 		log.Errorf("Error generating uuid: %s", err.Error())

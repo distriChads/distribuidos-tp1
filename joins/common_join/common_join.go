@@ -37,24 +37,27 @@ func NewCommonJoin(config worker.WorkerConfig, storage_base_dir string, eofCount
 		Client_movies_by_id: grouped_elements,
 		Received_movies:     received_movies,
 		eofs:                eofs,
-		expected_eof:        1,
+		expected_eof:        eofCounter,
 		Storage_base_dir:    storage_base_dir,
 		Pending:             pending,
 	}
 }
 
 func (f *CommonJoin) HandleJoiningEOF(client_id string, message_id string) error {
-	log.Warning("RECIBO EOF DE LOS RATINGS")
-	send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
-	message_to_send := client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
-	err := f.Worker.SendMessage(message_to_send, send_queue_key)
-	if err != nil {
-		log.Infof("Error sending message: %s", err.Error())
-		return err
+	log.Warning("EOF RECEIVED FOR RATINGS")
+	for _, output_routing_keys := range f.Worker.Exchange.OutputRoutingKeys {
+		for _, output_key := range output_routing_keys {
+			message := client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF + "\n"
+			err := f.Worker.SendMessage(message, output_key)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	delete(f.Client_movies_by_id, client_id)
 	common_statefull_worker.CleanState(f.Storage_base_dir, client_id)
+
 	return nil
 }
 

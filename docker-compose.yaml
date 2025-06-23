@@ -247,6 +247,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_LOG_LEVEL=info
+    - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=group-by-country-sum.1
     - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-COUNTRY-SUM=master-group-by-country-sum.1
     - CLI_WORKER_STORAGE=/app/storage
@@ -267,6 +268,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_LOG_LEVEL=info
+    - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=group-by-country-sum.2
     - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-COUNTRY-SUM=master-group-by-country-sum.1
     - CLI_WORKER_STORAGE=/app/storage
@@ -287,6 +289,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_LOG_LEVEL=info
+    - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=group-by-country-sum.3
     - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-COUNTRY-SUM=master-group-by-country-sum.1
     - CLI_WORKER_STORAGE=/app/storage
@@ -307,6 +310,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_LOG_LEVEL=info
+    - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=group-by-movie-average.1
     - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-MOVIE-AVERAGE=master-group-by-movie-average.1
     - CLI_WORKER_STORAGE=/app/storage
@@ -327,6 +331,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_LOG_LEVEL=info
+    - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=group-by-movie-average.2
     - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-MOVIE-AVERAGE=master-group-by-movie-average.1
     - CLI_WORKER_STORAGE=/app/storage
@@ -347,6 +352,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_LOG_LEVEL=info
+    - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=group-by-movie-average.3
     - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-MOVIE-AVERAGE=master-group-by-movie-average.1
     - CLI_WORKER_STORAGE=/app/storage
@@ -367,6 +373,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_LOG_LEVEL=info
+    - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=group-by-actor-count.1
     - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-ACTOR-COUNT=master-group-by-actor-count.1
     - CLI_WORKER_STORAGE=/app/storage
@@ -387,6 +394,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_LOG_LEVEL=info
+    - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=group-by-actor-count.2
     - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-ACTOR-COUNT=master-group-by-actor-count.1
     - CLI_WORKER_STORAGE=/app/storage
@@ -407,6 +415,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_LOG_LEVEL=info
+    - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=group-by-actor-count.3
     - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-ACTOR-COUNT=master-group-by-actor-count.1
     - CLI_WORKER_STORAGE=/app/storage
@@ -427,6 +436,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_LOG_LEVEL=info
+    - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=group-by-overview-average.1
     - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-OVERVIEW-AVERAGE=master-group-by-overview-average.1
     - CLI_WORKER_STORAGE=/app/storage
@@ -447,6 +457,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_LOG_LEVEL=info
+    - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=group-by-overview-average.2
     - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-OVERVIEW-AVERAGE=master-group-by-overview-average.1
     - CLI_WORKER_STORAGE=/app/storage
@@ -467,6 +478,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_LOG_LEVEL=info
+    - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=group-by-overview-average.3
     - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-OVERVIEW-AVERAGE=master-group-by-overview-average.1
     - CLI_WORKER_STORAGE=/app/storage
@@ -487,6 +499,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_LOG_LEVEL=info
+    - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=master-group-by-country-sum.1
     - ROUTINGKEYS_OUTPUT_TOP-FIVE-COUNTRY-BUDGET=top-five-country-budget.1
     - CLI_WORKER_STORAGE=/app/storage
@@ -507,6 +520,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_LOG_LEVEL=info
+    - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=master-group-by-movie-average.1
     - ROUTINGKEYS_OUTPUT_FIRST-AND-LAST=first-and-last.1
     - CLI_WORKER_STORAGE=/app/storage
@@ -527,6 +541,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_LOG_LEVEL=info
+    - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=master-group-by-actor-count.1
     - ROUTINGKEYS_OUTPUT_TOP-TEN-CAST-MOVIE=top-ten-cast-movie.1
     - CLI_WORKER_STORAGE=/app/storage
@@ -547,6 +562,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_LOG_LEVEL=info
+    - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=master-group-by-overview-average.1
     - ROUTINGKEYS_OUTPUT_OUTPUT_ROUTINGKEY=query5.results
     - CLI_WORKER_STORAGE=/app/storage
