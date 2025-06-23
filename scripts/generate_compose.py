@@ -73,9 +73,9 @@ def client_handler_service(input_routing_key,
     filter_one_country_out_routing_keys = get_output_routing_keys_strings(
         FILTER_ONE_COUNTRY, filter_one_country_replicas)
     ratings_join_replicas = get_output_routing_keys_strings(
-        JOIN_MOVIES_RATINGS, ratings_join_replicas)
+        "join-ratings", ratings_join_replicas)
     credits_join_replicas = get_output_routing_keys_strings(
-        JOIN_MOVIES_CREDITS, credits_join_replicas)
+        "join-credits", credits_join_replicas)
 
     env = []
     env.extend([
@@ -105,16 +105,31 @@ def client_handler_service(input_routing_key,
     }
 
 
-def generic_worker_service(name, dockerfile_path, replica, spec, entrypoint, output_routing_keys):
+def generic_worker_service(name,
+                           dockerfile_path,
+                           replica,
+                           spec,
+                           entrypoint,
+                           output_routing_keys,
+                           eof_counter):
     broker = spec.get("broker", DEFAULT_BROKER)
-
-    input_routing_keys = f"{name}.{replica}"
-
     env = [
         f"CLI_WORKER_BROKER={broker}",
         f"CLI_LOG_LEVEL={spec['log_level']}",
-        f"ROUTINGKEYS_INPUT={input_routing_keys}",
     ]
+    input_routing_keys = ""
+
+    if name == JOIN_MOVIES_CREDITS or name == JOIN_MOVIES_RATINGS:
+        input_routing_keys = f"{name}.{replica},"
+        if "credits" in name:
+            input_routing_keys += f"join-credits.{replica}"
+        else:
+            input_routing_keys += f"join-ratings.{replica}"
+        env.append(f"EOF_COUNTER={eof_counter}")
+    else:
+        input_routing_keys = f"{name}.{replica}"
+
+    env.append(f"ROUTINGKEYS_INPUT={input_routing_keys}",)
 
     for key, value in output_routing_keys.items():
         env.append(f"ROUTINGKEYS_OUTPUT_{key.upper()}={value}")
@@ -222,9 +237,17 @@ def generate_compose(spec_path, output_path):
             dockerfile_path = f"{prefix}{name.replace('-', '_')}/Dockerfile"
 
             for i in range(1, node_replica_mapping[name.upper().replace("-", "_")] + 1):
+                eof_counter = 0
+                if name == JOIN_MOVIES_CREDITS or name == JOIN_MOVIES_RATINGS:
+                    replicas_filter_arg = node_replica_mapping[FILTER_ARG.upper().replace(
+                        "-", "_")]
+                    replicas_filter_after_2000 = node_replica_mapping[FILTER_AFTER_2000.upper(
+                    ).replace("-", "_")]
+                    eof_counter = replicas_filter_arg * replicas_filter_after_2000
+
                 instance_name = f"{name}-{i}"
                 compose["services"][instance_name] = generic_worker_service(
-                    name, dockerfile_path, i, service_spec, entrypoint, output_routing_keys
+                    name, dockerfile_path, i, service_spec, entrypoint, output_routing_keys, eof_counter
                 )
 
     with open(output_path, "w") as f:

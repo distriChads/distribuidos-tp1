@@ -21,7 +21,7 @@ type CommonJoin struct {
 
 var log = logging.MustGetLogger("common_join")
 
-func NewCommonJoin(config worker.WorkerConfig, storage_base_dir string) *CommonJoin {
+func NewCommonJoin(config worker.WorkerConfig, storage_base_dir string, eofCounter int) *CommonJoin {
 	log.Infof("New join: %+v", config)
 	grouped_elements, received_movies, _ := common_statefull_worker.GetElements[string](storage_base_dir)
 	pending, _, _ := common_statefull_worker.GetPending[string](storage_base_dir)

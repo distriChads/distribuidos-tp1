@@ -53,8 +53,14 @@ func joinMovieWithCredits(lines []string, movies_by_id map[string]string) []stri
 	return result
 }
 
-func NewJoinMovieCreditsById(config JoinMovieCreditsByIdConfig, storage_base_dir string) *JoinMovieCreditsById {
-	join := common_join.NewCommonJoin(config.WorkerConfig, storage_base_dir)
+func NewJoinMovieCreditsById(config JoinMovieCreditsByIdConfig, storageBaseDir string, eofCounter int) *JoinMovieCreditsById {
+	join := common_join.NewCommonJoin(config.WorkerConfig, storageBaseDir, eofCounter)
+
+	dict := make(map[string]int)
+	for nodeType, routingKeys := range config.WorkerConfig.Exchange.OutputRoutingKeys {
+		dict[nodeType] = len(routingKeys)
+	}
+
 	return &JoinMovieCreditsById{
 		CommonJoin: join,
 	}
@@ -129,6 +135,5 @@ func (f *JoinMovieCreditsById) RunWorker(ctx context.Context, starting_message s
 			f.HandleLine(client_id, message_id, message_str, joinMovieWithCredits)
 			msg.Ack(false)
 		}
-
 	}
 }
