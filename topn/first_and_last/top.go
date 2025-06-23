@@ -79,8 +79,9 @@ func (g *FirstAndLast) HandleEOF(client_id string, message_id string) error {
 	return nil
 }
 
-func (g *FirstAndLast) UpdateState(lines []string, client_id string, message_id string) {
+func (g *FirstAndLast) UpdateState(lines []string, client_id string, message_id string) bool {
 	g.first_and_last_movies[client_id][client_id] = updateFirstAndLast(lines, g.first_and_last_movies[client_id][client_id])
+	return false
 }
 
 // ---------------------------------

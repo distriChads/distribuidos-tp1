@@ -56,10 +56,12 @@ func (g *GroupByOverviewAndAvg) HandleEOF(client_id string, message_id string) e
 	return g.CommonGroupBy.HandleEOF(client_id, message_id, g.MapToLines(client_id))
 }
 
-func (g *GroupByOverviewAndAvg) UpdateState(lines []string, client_id string, message_id string) {
-	if !g.CommonGroupBy.VerifyRepeatedMessage(client_id, message_id) {
+func (g *GroupByOverviewAndAvg) UpdateState(lines []string, client_id string, message_id string) bool {
+	repeated_message := g.CommonGroupBy.VerifyRepeatedMessage(client_id, message_id)
+	if !repeated_message {
 		groupByOverviewAndUpdate(lines, g.CommonGroupBy.Grouped_elements[client_id])
 	}
+	return repeated_message
 }
 
 func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]RevenueBudgetCount) {

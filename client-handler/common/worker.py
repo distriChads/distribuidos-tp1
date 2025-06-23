@@ -47,7 +47,6 @@ class Worker:
         self.message_broker = config.message_broker
         self.sender = None
         self.receiver = None
-        self.client_id = str(uuid.uuid4())
 
     def _init_connection(self):
         max_retries = 3
@@ -109,12 +108,12 @@ class Worker:
         self.receiver = Receiver(conn, ch, queue_name, messages)
         log.info("Receiver initialized")
 
-    def send_message(self, message: str, routing_key: str):
+    def send_message(self, message: str, routing_key: str, client_id: str):
         if not self.sender:
             raise Exception("Sender not initialized")
 
         identifier = str(uuid.uuid4())
-        message = f"{self.client_id}|{identifier}|{message}"
+        message = f"{client_id}|{identifier}|{message}"
         self.sender.ch.basic_publish(
             exchange=self.exchange.name,
             routing_key=routing_key,

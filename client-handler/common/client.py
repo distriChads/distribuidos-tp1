@@ -3,7 +3,7 @@ from time import sleep
 from common.communication import Socket
 from common.fileProcessor import MoviesProcessor, CreditsProcessor, RatingsProcessor
 from .worker import Worker, WorkerConfig
-
+import uuid
 EOF = "EOF"
 
 MOVIES_ROUTING_KEYS = ["filter_arg", "filter_one_country"]
@@ -16,6 +16,7 @@ class Client:
     def __init__(self, socket: Socket, config: WorkerConfig):
         self.client_socket = socket
         self.worker = Worker(config)
+        self.client_id = str(uuid.uuid4())
         logging.info("Initializing client with output routing keys: %s",
                      self.worker.exchange.output_routing_keys[MOVIES_ROUTING_KEYS[0]])
 
@@ -58,7 +59,7 @@ class Client:
             for position, data in dict_positions.items():
                 if not data:
                     continue
-                self.worker.send_message(data, routing_keys[position])
+                self.worker.send_message(data, routing_keys[position], self.client_id)
 
     def set_next_processor(self):
         if type(self.batch_processor) == MoviesProcessor:
