@@ -48,7 +48,8 @@ const DATE = 2
 const COUNTRIES = 3
 const GENRES = 4
 
-func (f *FilterBySpainAndOf2000) Filter(lines []string) {
+func (f *FilterBySpainAndOf2000) Filter(lines []string) bool {
+	anyMoviesFound := false
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
 		movie_id, err := strconv.Atoi(parts[0])
@@ -67,11 +68,13 @@ func (f *FilterBySpainAndOf2000) Filter(lines []string) {
 		for _, country := range countries {
 			if strings.TrimSpace(country) == "ES" {
 				f.buffer.AddMessage(movie_id, strings.TrimSpace(parts[TITLE])+worker.MESSAGE_SEPARATOR+strings.TrimSpace(parts[GENRES]))
+				anyMoviesFound = true
 				break
 			}
 		}
 
 	}
+	return anyMoviesFound
 }
 
 func (f *FilterBySpainAndOf2000) HandleEOF(client_id string, message_id string) error {

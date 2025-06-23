@@ -248,7 +248,7 @@ func (w *Worker) SendMessage(message string, routingKey string) error {
 	if err != nil {
 		return err
 	}
-	log.Debugf("Sent message to (routing key: %s): %s", routingKey, message)
+	log.Infof("Sent message to (routing key: %s): %s", routingKey, message)
 
 	return nil
 }

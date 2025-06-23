@@ -45,7 +45,8 @@ func NewFilterByOnlyOneCountry(config FilterByOnlyOneCountryConfig) *FilterByOnl
 // ---------------------------------
 const COUNTRIES = 3
 
-func (f *FilterByOnlyOneCountry) Filter(lines []string) {
+func (f *FilterByOnlyOneCountry) Filter(lines []string) bool {
+	anyMoviesFound := false
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
 		movie_id, err := strconv.Atoi(parts[0])
@@ -55,8 +56,10 @@ func (f *FilterByOnlyOneCountry) Filter(lines []string) {
 		countries := strings.Split(parts[COUNTRIES], worker.MESSAGE_ARRAY_SEPARATOR)
 		if len(countries) == 1 {
 			f.buffer.AddMessage(movie_id, strings.TrimSpace(line))
+			anyMoviesFound = true
 		}
 	}
+	return anyMoviesFound
 }
 
 func (f *FilterByOnlyOneCountry) HandleEOF(client_id string, message_id string) error {

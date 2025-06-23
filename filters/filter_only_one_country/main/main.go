@@ -25,17 +25,23 @@ func main() {
 		return
 	}
 
-	log_level := v.GetString("log.level")
+	log_level := v.GetString("cli.log.level")
+	outputRoutingKeysGroupBy := strings.Split(v.GetString("ROUTINGKEYS_OUTPUT_GROUP-BY-COUNTRY-SUM"), ",")
+
+	filterRoutingKeysMap := map[string][]string{
+		"group_by": outputRoutingKeysGroupBy,
+	}
 
 	exchangeSpec := worker.ExchangeSpec{
-		InputRoutingKeys:  strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
-		OutputRoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
+		InputRoutingKeys:  strings.Split(v.GetString("routingkeys.input"), ","),
+		OutputRoutingKeys: filterRoutingKeysMap,
 		QueueName:         "filter_only_one_country",
 	}
-	messageBroker := v.GetString("worker.broker")
+	messageBroker := v.GetString("cli.worker.broker")
 
-	if exchangeSpec.InputRoutingKeys[0] == "" || exchangeSpec.OutputRoutingKeys[0] == "" || messageBroker == "" {
-		log.Criticalf("Error: one or more environment variables are empty")
+	if exchangeSpec.InputRoutingKeys[0] == "" || len(exchangeSpec.OutputRoutingKeys) == 0 || messageBroker == "" {
+		log.Criticalf("Error: one or more environment variables are empty --- message_broker: %s, input_routing_keys: %v, output_routing_keys: %v",
+			messageBroker, exchangeSpec.InputRoutingKeys, filterRoutingKeysMap)
 		return
 	}
 
@@ -64,7 +70,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		common_filter.RunWorker(filter, *filter.Worker, ctx, "Starting filter for only one country")
+		common_filter.RunWorker(filter, *filter.Worker, ctx, "Starting filter by after 2000")
 		done <- true
 	}()
 

@@ -47,7 +47,8 @@ const ID = 0
 const TITLE = 1
 const DATE = 2
 
-func (f *FilterByAfterYear2000) Filter(lines []string) {
+func (f *FilterByAfterYear2000) Filter(lines []string) bool {
+	anyMoviesFound := false
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
 		movie_id, err := strconv.Atoi(parts[0])
@@ -61,8 +62,10 @@ func (f *FilterByAfterYear2000) Filter(lines []string) {
 		}
 		if year >= 2000 {
 			f.buffer.AddMessage(movie_id, strings.TrimSpace(parts[ID])+worker.MESSAGE_SEPARATOR+strings.TrimSpace(parts[TITLE]))
+			anyMoviesFound = true
 		}
 	}
+	return anyMoviesFound
 }
 
 func (f *FilterByAfterYear2000) HandleEOF(client_id string, message_id string) error {
@@ -82,19 +85,15 @@ func (f *FilterByAfterYear2000) SendMessage(client_id string, message_id string)
 	for node_type := range f.Worker.Exchange.OutputRoutingKeys {
 		messages_to_send := f.buffer.GetMessages(node_type)
 		for routing_key_index, message := range messages_to_send {
-			message := strings.SplitSeq(message, "\n")
-			for message := range message {
-				if len(message) != 0 {
-					send_queue_key := f.Worker.Exchange.OutputRoutingKeys[node_type][routing_key_index]
-					message = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message
-					err := f.Worker.SendMessage(message, send_queue_key)
-					if err != nil {
-						return err
-					}
-					log.Debugf("Sent message to output exchange: %s", message)
+			if len(message) != 0 {
+				routing_key := f.Worker.Exchange.OutputRoutingKeys[node_type][routing_key_index]
+				message = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message + "\n"
+				err := f.Worker.SendMessage(message, routing_key)
+				if err != nil {
+					return err
 				}
+				log.Debugf("Sent message to output exchange: %s", message)
 			}
-
 		}
 
 	}

@@ -84,9 +84,9 @@ func (f *FilterByArgentina) SendMessage(client_id string, message_id string) err
 		messages_to_send := f.buffer.GetMessages(node_type)
 		for routing_key_index, message := range messages_to_send {
 			if len(message) != 0 {
-				send_queue_key := f.Worker.Exchange.OutputRoutingKeys[node_type][routing_key_index]
+				routing_key := f.Worker.Exchange.OutputRoutingKeys[node_type][routing_key_index]
 				message = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message + "\n"
-				err := f.Worker.SendMessage(message, send_queue_key)
+				err := f.Worker.SendMessage(message, routing_key)
 				if err != nil {
 					return err
 				}
