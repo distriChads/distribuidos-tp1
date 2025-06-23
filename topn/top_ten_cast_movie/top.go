@@ -72,8 +72,9 @@ func (g *TopTenCastMovie) HandleEOF(client_id string, message_id string) error {
 	return nil
 }
 
-func (g *TopTenCastMovie) UpdateState(lines []string, client_id string, message_id string) {
+func (g *TopTenCastMovie) UpdateState(lines []string, client_id string, message_id string) bool {
 	g.top_ten[client_id][client_id] = updateTopTen(lines, g.top_ten[client_id][client_id])
+	return false
 }
 
 // ---------------------------------

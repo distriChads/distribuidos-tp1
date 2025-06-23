@@ -44,10 +44,12 @@ func (g *GroupByCountryAndSum) HandleEOF(client_id string, message_id string) er
 
 }
 
-func (g *GroupByCountryAndSum) UpdateState(lines []string, client_id string, message_id string) {
-	if !g.CommonGroupBy.VerifyRepeatedMessage(client_id, message_id) {
+func (g *GroupByCountryAndSum) UpdateState(lines []string, client_id string, message_id string) bool {
+	repeated_message := g.CommonGroupBy.VerifyRepeatedMessage(client_id, message_id)
+	if !repeated_message {
 		groupByCountryAndSum(lines, g.CommonGroupBy.Grouped_elements[client_id])
 	}
+	return repeated_message
 }
 
 // ---------------------------------

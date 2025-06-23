@@ -72,6 +72,7 @@ func (g *CommonGroupBy[T]) VerifyRepeatedMessage(client_id string, message_id st
 
 func (g *CommonGroupBy[T]) HandleEOF(client_id string, message_id string, lines string) error {
 	if slices.Contains(g.eofs[client_id][client_id], message_id) {
+		log.Warning("EOF REPETIDO")
 		return nil
 	}
 	g.eofs[client_id][client_id] = append(g.eofs[client_id][client_id], message_id)

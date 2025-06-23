@@ -19,7 +19,7 @@ import (
 
 type StatefullWorker interface {
 	// Updates the internal in-memory state with the given lines for the specified client
-	UpdateState(lines []string, client_id string, message_id string)
+	UpdateState(lines []string, client_id string, message_id string) bool
 	// Handles EOF message processing for the specified client
 	HandleEOF(client_id string, message_id string) error
 	// Converts the current state for the specified client to a string representation
@@ -88,7 +88,11 @@ func RunWorker(s StatefullWorker, ctx context.Context, w worker.Worker, starting
 		}
 
 		lines := strings.Split(strings.TrimSpace(message_str), "\n")
-		s.UpdateState(lines, client_id, message_id)
+		repeated_message := s.UpdateState(lines, client_id, message_id)
+		if repeated_message {
+			message.Ack(false)
+			continue
+		}
 		err = s.HandleCommit(client_id, message)
 		if err != nil {
 			log.Warningf("Error while commiting")
