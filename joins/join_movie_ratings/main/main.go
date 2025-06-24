@@ -4,7 +4,7 @@ import (
 	"context"
 	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
-	"distribuidos-tp1/joins/join_movie_credits"
+	"distribuidos-tp1/joins/join_movie_ratings"
 	"os"
 	"os/signal"
 	"strings"
@@ -51,7 +51,7 @@ func main() {
 		return
 	}
 
-	join := join_movie_credits.NewJoinMovieCreditsById(join_movie_credits.JoinMovieCreditsByIdConfig{
+	join := join_movie_ratings.NewJoinMovieRatingById(join_movie_ratings.JoinMovieRatingByIdConfig{
 		WorkerConfig: worker.WorkerConfig{
 			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
