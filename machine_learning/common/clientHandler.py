@@ -51,32 +51,9 @@ class MachineLearning:
             log.error(f"Error initializing worker: {e}")
             return e
 
-        self._running = True
-        self.messages_queue: queue.Queue[str] = queue.Queue()
-        self.thread = threading.Thread(
-            target=self.__receive_messages, daemon=True)
-        self.thread.start()
-
     def __shutdown(self):
         log.info("Shutting down MachineLearning worker")
-        self._running = False
-        if self.thread.is_alive():
-            self.thread.join(timeout=5)
-            log.info("Receiver thread stopped")
-        self.worker.close_worker()
-
-    def __receive_messages(self):
-        log.info("Starting message receiver thread")
-        movies_received = 0
-        try:
-            for _method_frame, _properties, body in self.worker.received_messages():
-                if not self._running:
-                    break
-                message = body.decode("utf-8")
-                movies_received += 1
-                self.messages_queue.put(message)
-        except Exception as e:
-            log.error(f"Receive thread crashed: {e}")
+        self.worker.close_worker()        
 
     def __process_batch(self, client_id: str):
         sentiments: list[dict[str, str]] = []
@@ -127,8 +104,9 @@ class MachineLearning:
     def run_worker(self):
         log.info("Starting MachineLearning worker")
         try:
-            while True:
-                raw_msg = self.messages_queue.get()
+            for method_frame, _properties, body in self.worker.received_messages():
+                raw_msg = body.decode("utf-8")
+                delivery_tag = method_frame.delivery_tag
                 raw_msg = raw_msg.strip()
                 if not raw_msg:
                     continue
@@ -143,6 +121,7 @@ class MachineLearning:
                     continue
 
                 self.use_all_messages_up(client_id, message)
+                self.worker.send_ack(delivery_tag)
 
         except Exception as e:
             log.error(f"Error during message processing: {e}")

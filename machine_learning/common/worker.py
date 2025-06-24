@@ -103,9 +103,12 @@ class Worker:
             routing_key=self.exchange.input_routing_key,
         )
 
-        messages = ch.consume(queue=queue_name, auto_ack=True)
+        messages = ch.consume(queue=queue_name, auto_ack=False)
         self.receiver = Receiver(conn, ch, queue_name, messages)
         log.info("Receiver initialized")
+
+    def send_ack(self, delivery_tag):
+        self.receiver.ch.basic_ack(delivery_tag=delivery_tag, multiple=False)
 
     def send_message(self, message: str, routing_key: str):
         if not self.sender:
