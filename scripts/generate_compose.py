@@ -69,6 +69,7 @@ def client_handler_service(input_routing_key,
                            ratings_join_replicas,
                            credits_join_replicas,
                            ml_replicas,
+                           eof_expected,
                            ):
     filter_arg_out_routing_keys = get_output_routing_keys_strings(
         FILTER_ARG, filter_arg_replicas)
@@ -93,6 +94,7 @@ def client_handler_service(input_routing_key,
         f"OUTPUT_ROUTINGKEYS_JOIN_MOVIES_RATING={ratings_join_replicas}",
         f"OUTPUT_ROUTINGKEYS_JOIN_MOVIES_CREDITS={credits_join_replicas}",
         f"OUTPUT_ROUTINGKEYS_MACHINE_LEARNING={ml_replicas}",
+        f"EOF_EXPECTED={eof_expected}",
     ])
 
     return {
@@ -196,6 +198,12 @@ def generate_compose(spec_path, output_path):
             listen_backlog = service_spec.get(
                 "listen_backlog", CLI_HANDLER_BACKLOG)
 
+            filter_arg_replicas = node_replica_mapping[FILTER_ARG.upper().replace(
+                "-", "_")]
+            filter_2000_spain_replicas = node_replica_mapping[FILTER_SPAIN_2000.upper().replace(
+                "-", "_")]
+            eof_expected = 4 + filter_arg_replicas * filter_2000_spain_replicas
+
             compose["services"][name] = client_handler_service(
                 input_routing_key=service_spec["input_routing_key"][0],
                 broker=broker,
@@ -211,6 +219,7 @@ def generate_compose(spec_path, output_path):
                     "-", "_")],
                 ml_replicas=node_replica_mapping[MACHINE_LEARNING.upper().replace(
                     "-", "_")],
+                eof_expected=eof_expected
             )
         else:
             prefix = ""

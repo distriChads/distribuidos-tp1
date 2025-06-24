@@ -10,7 +10,6 @@ from collections import defaultdict
 from common.communication import Socket
 
 FILES_TO_RECEIVE = 3
-QUERIES_NUMBER = 5
 EOF = "EOF"
 
 
@@ -23,6 +22,7 @@ class ClientHandler:
                  port: int,
                  client_handler_config: ClientHandlerConfig,
                  listen_backlog: int,
+                 eof_expected: int,
                  ):
         self._cli_hand_socket = socket.socket(
             socket.AF_INET, socket.SOCK_STREAM)
@@ -36,6 +36,8 @@ class ClientHandler:
 
         self.client_handler_config = client_handler_config
         self.worker = Worker(client_handler_config)
+
+        self.eof_expected = eof_expected
 
         try:
             self.worker.init_receiver()
@@ -113,15 +115,15 @@ class ClientHandler:
             if result == EOF or len(result) == 0:
                 self.eof_per_client[client_id] = self.eof_per_client.get(
                     client_id, 0) + 1
-                if self.eof_per_client[client_id] >= QUERIES_NUMBER:
+                if self.eof_per_client[client_id] >= self.eof_expected:
                     with self.clients_lock:
                         client = self.clients.pop(client_id)
+                    logging.info(
+                        f"EOF received for client {client_id} - closing connection")
                     client.send(EOF)
                     client.close()
                     if client_id in received_messages_id:
                         del received_messages_id[client_id]
-                    logging.info(
-                        f"EOF received for client {client_id} - closing connection")
                 continue
 
             result = f"{client_id}/{query_number}/{result}\n"
