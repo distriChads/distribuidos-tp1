@@ -119,9 +119,9 @@ func (g *CommonGroupBy[T]) HandleEOF(client_id string, message_id string, lines 
 
 func NewCommonGroupBy[T any](config worker.WorkerConfig, messages_before_commit int, storage_base_dir string, expected_eof int) *CommonGroupBy[T] {
 	log.Infof("New group by: %+v", config)
-	grouped_elements, _, last_messages_in_state := common_statefull_worker.GetElements[T](storage_base_dir)
+	grouped_elements, last_messages_in_state := common_statefull_worker.GetElements[T](storage_base_dir)
 	messages_id, last_message_in_id := common_statefull_worker.GetIds(storage_base_dir)
-	eofs, _, _ := common_statefull_worker.GetEofs[[]string](storage_base_dir)
+	eofs, _ := common_statefull_worker.GetEofs[[]string](storage_base_dir)
 	need_to_update, err := common_statefull_worker.RestoreStateIfNeeded(last_messages_in_state, last_message_in_id, storage_base_dir)
 	if err != nil {
 		log.Errorf("Error restoring state: %s", err)

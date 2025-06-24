@@ -115,7 +115,7 @@ func updateFirstAndLast(lines []string, firstAndLastMovies FirstAndLastMovies) F
 
 func NewFirstAndLast(config FirstAndLastConfig, messages_before_commit int, storage_base_dir string) *FirstAndLast {
 	log.Infof("FirstAndLast: %+v", config)
-	grouped_elements, _, _ := common_statefull_worker.GetElements[FirstAndLastMovies](storage_base_dir)
+	grouped_elements, _ := common_statefull_worker.GetElements[FirstAndLastMovies](storage_base_dir)
 	worker, err := worker.NewWorker(config.WorkerConfig, 1)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)

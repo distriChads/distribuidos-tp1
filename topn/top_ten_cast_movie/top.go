@@ -120,7 +120,7 @@ func updateTopTen(lines []string, top_ten []TopTenCastCount) []TopTenCastCount {
 
 func NewTopTenCastMovie(config TopTenCastMovieConfig, messages_before_commit int, storage_base_dir string) *TopTenCastMovie {
 	log.Infof("TopTenCastMovie: %+v", config)
-	grouped_elements, _, _ := common_statefull_worker.GetElements[[]TopTenCastCount](storage_base_dir)
+	grouped_elements, _ := common_statefull_worker.GetElements[[]TopTenCastCount](storage_base_dir)
 	worker, err := worker.NewWorker(config.WorkerConfig, 1)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)

@@ -117,7 +117,7 @@ func updateTopFive(lines []string, top_five []CountrByBudget) []CountrByBudget {
 
 func NewTopFiveCountryBudget(config TopFiveCountryBudgetConfig, messages_before_commit int, storage_base_dir string) *TopFiveCountryBudget {
 	log.Infof("TopFiveCountryBudget: %+v", config)
-	grouped_elements, _, _ := common_statefull_worker.GetElements[[]CountrByBudget](storage_base_dir)
+	grouped_elements, _ := common_statefull_worker.GetElements[[]CountrByBudget](storage_base_dir)
 	worker, err := worker.NewWorker(config.WorkerConfig, 1)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)

@@ -24,9 +24,9 @@ var log = logging.MustGetLogger("common_join")
 
 func NewCommonJoin(config worker.WorkerConfig, storage_base_dir string, eofCounter int) *CommonJoin {
 	log.Infof("New join: %+v", config)
-	grouped_elements, _, _ := common_statefull_worker.GetElements[string](storage_base_dir)
-	pending, _, _ := common_statefull_worker.GetPending[string](storage_base_dir)
-	eofs, _, _ := common_statefull_worker.GetEofs[[]string](storage_base_dir)
+	grouped_elements, _ := common_statefull_worker.GetElements[string](storage_base_dir)
+	pending, _ := common_statefull_worker.GetPending[string](storage_base_dir)
+	eofs, _ := common_statefull_worker.GetEofs[[]string](storage_base_dir)
 	worker, err := worker.NewWorker(config, 1)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
