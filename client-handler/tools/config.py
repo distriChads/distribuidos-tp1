@@ -39,6 +39,8 @@ def load_exchange_config(config_params):
 
 
 def setup_client_handler_config_esentials(config, config_params):
+    config_params["eof_expected"] = int(
+        os.getenv('EOF_EXPECTED') or config["DEFAULT"]["EOF_EXPECTED"])
     config_params["port"] = int(
         os.getenv('CLIENT_HANDLER_PORT') or config["DEFAULT"]["CLIENT_HANDLER_PORT"])
     config_params["listen_backlog"] = int(

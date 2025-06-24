@@ -10,6 +10,7 @@ def main():
     logging_level = config["logging_level"].upper()
     port = config["port"]
     listen_backlog = config["listen_backlog"]
+    eof_expected = config["eof_expected"]
 
     routing_keys_input = config["INPUT_ROUTINGKEY"].split(",")
     routing_keys_output = {
@@ -47,6 +48,7 @@ def main():
         port=config["port"],
         listen_backlog=listen_backlog,
         client_handler_config=client_handler_config,
+        eof_expected=eof_expected
     )
 
     try:
