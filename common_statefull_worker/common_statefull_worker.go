@@ -11,7 +11,6 @@ import (
 
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/op/go-logging"
 	"github.com/rabbitmq/amqp091-go"
 )
@@ -29,7 +28,7 @@ type StatefullWorker interface {
 
 var log = logging.MustGetLogger("common_group_by")
 
-func SendResult(w worker.Worker, client_id string, lines string) error {
+func SendResult(w worker.Worker, client_id string, lines string, message_id string, eof_id string) error {
 	var onlyRoutingKeys []string
 	for _, keys := range w.Exchange.OutputRoutingKeys {
 		onlyRoutingKeys = keys
@@ -38,28 +37,17 @@ func SendResult(w worker.Worker, client_id string, lines string) error {
 		log.Errorf("Error: expected exactly one output routing key, got %d", len(onlyRoutingKeys))
 		return fmt.Errorf("expected exactly one output routing key, got %d", len(onlyRoutingKeys))
 	}
-
 	send_queue_key := onlyRoutingKeys[0]
-	message_id, err := uuid.NewRandom()
-	if err != nil {
-		log.Errorf("Error generating uuid: %s", err.Error())
-		return err
-	}
 	if len(lines) != 0 {
-		message_to_send := client_id + worker.MESSAGE_SEPARATOR + message_id.String() + worker.MESSAGE_SEPARATOR + lines
-		err = w.SendMessage(message_to_send, send_queue_key)
+		message_to_send := client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + lines
+		err := w.SendMessage(message_to_send, send_queue_key)
 		if err != nil {
 			log.Errorf("Error sending message: %s", err.Error())
 			return err
 		}
 	}
-	message_id, err = uuid.NewRandom()
-	if err != nil {
-		log.Errorf("Error generating uuid: %s", err.Error())
-		return err
-	}
-	message_to_send := client_id + worker.MESSAGE_SEPARATOR + message_id.String() + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
-	err = w.SendMessage(message_to_send, send_queue_key)
+	message_to_send := client_id + worker.MESSAGE_SEPARATOR + eof_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
+	err := w.SendMessage(message_to_send, send_queue_key)
 	if err != nil {
 		log.Errorf("Error sending message: %s", err.Error())
 		return err
@@ -168,8 +156,8 @@ func RestoreStateIfNeeded(last_messages_in_state map[string][]string, last_messa
 // si el archivo ya existe y esta todo bien, pudo o no haber pasado error de tipo 2), no lo sabemos...
 // la solucion que se me ocurre es quiza mandar los timestamps en los mensajes? quiza podemos rescatar algo de eso
 
-func appendIds(storage_base_dir string, last_message_ids []string, client_id string) error {
-	dir := filepath.Join(storage_base_dir, "ids")
+func genericAppendIds(storage_base_dir string, last_message_ids []string, client_id string, dir_name string) error {
+	dir := filepath.Join(storage_base_dir, dir_name)
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		return err
@@ -189,6 +177,14 @@ func appendIds(storage_base_dir string, last_message_ids []string, client_id str
 		}
 	}
 	return err
+}
+
+func appendIds(storage_base_dir string, last_message_ids []string, client_id string) error {
+	return genericAppendIds(storage_base_dir, last_message_ids, client_id, "ids")
+}
+
+func AppendMyId(storage_base_dir string, last_message_ids []string, client_id string) error {
+	return genericAppendIds(storage_base_dir, last_message_ids, client_id, "node")
 }
 
 func genericGetElements[T any](storage_base_dir string, dir_name string) (map[string]map[string]T, map[string][]string) {
@@ -256,11 +252,11 @@ func GetElements[T any](storage_base_dir string) (map[string]map[string]T, map[s
 	return genericGetElements[T](storage_base_dir, "state")
 }
 
-func GetIds(storage_base_dir string) (map[string][]string, map[string]string) {
+func genericGetIds(storage_base_dir string, dir_name string) (map[string][]string, map[string]string) {
 	grouped := make(map[string][]string)
 	last_messages := make(map[string]string)
 
-	dir := fmt.Sprintf("%s/ids", storage_base_dir)
+	dir := fmt.Sprintf("%s/%s", storage_base_dir, dir_name)
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		return grouped, last_messages // si no existia el directorio, te devuelvo las cosas como vacios
@@ -298,6 +294,14 @@ func GetIds(storage_base_dir string) (map[string][]string, map[string]string) {
 	}
 
 	return grouped, last_messages
+}
+
+func GetIds(storage_base_dir string) (map[string][]string, map[string]string) {
+	return genericGetIds(storage_base_dir, "ids")
+}
+
+func GetMyId(storage_base_dir string) (map[string][]string, map[string]string) {
+	return genericGetIds(storage_base_dir, "node")
 }
 
 // StoreElements stores the state for a given client in the given storage base directory
@@ -424,5 +428,6 @@ func CleanState(storage_base_dir string, client_id string) {
 	genericCleanState(storage_base_dir, client_id, "state")
 	genericCleanState(storage_base_dir, client_id, "ids")
 	genericCleanState(storage_base_dir, client_id, "eofs")
+	genericCleanState(storage_base_dir, client_id, "node")
 	CleanPending(storage_base_dir, client_id)
 }

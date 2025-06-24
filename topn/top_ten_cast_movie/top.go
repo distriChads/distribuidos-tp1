@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/op/go-logging"
 	"github.com/rabbitmq/amqp091-go"
 )
@@ -22,6 +23,8 @@ type TopTenCastMovie struct {
 	top_ten                map[string]map[string][]TopTenCastCount
 	messages_before_commit int
 	storage_base_dir       string
+	eof_id                 map[string]string
+	node_id                map[string]string
 }
 
 type TopTenCastCount struct {
@@ -37,6 +40,25 @@ func (g *TopTenCastMovie) EnsureClient(client_id string) {
 	}
 	if _, ok := g.top_ten[client_id][client_id]; !ok {
 		g.top_ten[client_id][client_id] = make([]TopTenCastCount, 0)
+	}
+
+	if _, ok := g.eof_id[client_id]; !ok {
+		ids_to_append := make([]string, 2)
+		message_id, err := uuid.NewRandom()
+		if err != nil {
+			log.Errorf("Error generating uuid: %s", err.Error())
+			return
+		}
+		ids_to_append[0] = message_id.String()
+		g.eof_id[client_id] = message_id.String()
+		message_id, err = uuid.NewRandom()
+		if err != nil {
+			log.Errorf("Error generating uuid: %s", err.Error())
+			return
+		}
+		ids_to_append[1] = message_id.String()
+		g.node_id[client_id] = message_id.String()
+		common_statefull_worker.AppendMyId(g.storage_base_dir, ids_to_append, client_id)
 	}
 }
 
@@ -63,7 +85,7 @@ func mapToLines(top_ten []TopTenCastCount) string {
 }
 
 func (g *TopTenCastMovie) HandleEOF(client_id string, message_id string) error {
-	err := common_statefull_worker.SendResult(g.Worker, client_id, g.MapToLines(client_id))
+	err := common_statefull_worker.SendResult(g.Worker, client_id, g.MapToLines(client_id), g.node_id[client_id], g.eof_id[client_id])
 	if err != nil {
 		return err
 	}
@@ -121,6 +143,17 @@ func updateTopTen(lines []string, top_ten []TopTenCastCount) []TopTenCastCount {
 func NewTopTenCastMovie(config TopTenCastMovieConfig, messages_before_commit int, storage_base_dir string) *TopTenCastMovie {
 	log.Infof("TopTenCastMovie: %+v", config)
 	grouped_elements, _ := common_statefull_worker.GetElements[[]TopTenCastCount](storage_base_dir)
+
+	my_id, _ := common_statefull_worker.GetMyId(storage_base_dir)
+	eof_id := make(map[string]string)
+	node_id := make(map[string]string)
+	for key, val := range my_id {
+		if len(val) == 2 {
+			eof_id[key] = val[0]
+			node_id[key] = val[1]
+		}
+	}
+
 	worker, err := worker.NewWorker(config.WorkerConfig, 1)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)

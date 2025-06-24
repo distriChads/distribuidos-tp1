@@ -5,6 +5,7 @@ import (
 	"distribuidos-tp1/common_statefull_worker"
 	"slices"
 
+	"github.com/google/uuid"
 	"github.com/op/go-logging"
 	"github.com/rabbitmq/amqp091-go"
 )
@@ -21,6 +22,8 @@ type CommonGroupBy[T any] struct {
 	messages_id               map[string][]string
 	messages                  map[string][]amqp091.Delivery
 	received_messages_counter int
+	eof_id                    map[string]string
+	node_id                   map[string]string
 }
 
 func (g *CommonGroupBy[T]) EnsureClient(client_id string) {
@@ -33,6 +36,25 @@ func (g *CommonGroupBy[T]) EnsureClient(client_id string) {
 	if _, ok := g.eofs[client_id][client_id]; !ok {
 		g.eofs[client_id][client_id] = make([]string, 0)
 	}
+	if _, ok := g.eof_id[client_id]; !ok {
+		ids_to_append := make([]string, 2)
+		message_id, err := uuid.NewRandom()
+		if err != nil {
+			log.Errorf("Error generating uuid: %s", err.Error())
+			return
+		}
+		ids_to_append[0] = message_id.String()
+		g.eof_id[client_id] = message_id.String()
+		message_id, err = uuid.NewRandom()
+		if err != nil {
+			log.Errorf("Error generating uuid: %s", err.Error())
+			return
+		}
+		ids_to_append[1] = message_id.String()
+		g.node_id[client_id] = message_id.String()
+		common_statefull_worker.AppendMyId(g.storage_base_dir, ids_to_append, client_id)
+	}
+
 }
 
 func (g *CommonGroupBy[T]) HandleCommit(client_id string, message amqp091.Delivery) error {
@@ -78,7 +100,7 @@ func (g *CommonGroupBy[T]) HandleEOF(client_id string, message_id string, lines 
 	g.eofs[client_id][client_id] = append(g.eofs[client_id][client_id], message_id)
 	if len(g.eofs[client_id][client_id]) >= g.expected_eof {
 		log.Warning("MOMENTO DE ENVIAR FLACO")
-		err := common_statefull_worker.SendResult(g.Worker, client_id, lines)
+		err := common_statefull_worker.SendResult(g.Worker, client_id, lines, g.node_id[client_id], g.eof_id[client_id])
 		if err != nil {
 			return err
 		}
@@ -130,6 +152,17 @@ func NewCommonGroupBy[T any](config worker.WorkerConfig, messages_before_commit 
 	if need_to_update {
 		messages_id, _ = common_statefull_worker.GetIds(storage_base_dir)
 	}
+
+	my_id, _ := common_statefull_worker.GetMyId(storage_base_dir)
+	eof_id := make(map[string]string)
+	node_id := make(map[string]string)
+	for key, val := range my_id {
+		if len(val) == 2 {
+			eof_id[key] = val[0]
+			node_id[key] = val[1]
+		}
+	}
+
 	worker, err := worker.NewWorker(config, messages_before_commit)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
@@ -145,5 +178,7 @@ func NewCommonGroupBy[T any](config worker.WorkerConfig, messages_before_commit 
 		messages_id:               messages_id,
 		messages:                  make(map[string][]amqp091.Delivery),
 		received_messages_counter: 0,
+		eof_id:                    eof_id,
+		node_id:                   node_id,
 	}
 }

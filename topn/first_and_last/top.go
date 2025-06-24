@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/op/go-logging"
 	"github.com/rabbitmq/amqp091-go"
 )
@@ -20,6 +21,8 @@ type FirstAndLast struct {
 	first_and_last_movies  map[string]map[string]FirstAndLastMovies
 	messages_before_commit int
 	storage_base_dir       string
+	eof_id                 map[string]string
+	node_id                map[string]string
 }
 
 type MovieAvgByScore struct {
@@ -40,6 +43,25 @@ func (g *FirstAndLast) EnsureClient(client_id string) {
 	}
 	if _, ok := g.first_and_last_movies[client_id][client_id]; !ok {
 		g.first_and_last_movies[client_id][client_id] = FirstAndLastMovies{}
+	}
+
+	if _, ok := g.eof_id[client_id]; !ok {
+		ids_to_append := make([]string, 2)
+		message_id, err := uuid.NewRandom()
+		if err != nil {
+			log.Errorf("Error generating uuid: %s", err.Error())
+			return
+		}
+		ids_to_append[0] = message_id.String()
+		g.eof_id[client_id] = message_id.String()
+		message_id, err = uuid.NewRandom()
+		if err != nil {
+			log.Errorf("Error generating uuid: %s", err.Error())
+			return
+		}
+		ids_to_append[1] = message_id.String()
+		g.node_id[client_id] = message_id.String()
+		common_statefull_worker.AppendMyId(g.storage_base_dir, ids_to_append, client_id)
 	}
 
 }
@@ -70,7 +92,7 @@ func mapToLines(first_and_last_movies FirstAndLastMovies) string {
 }
 
 func (g *FirstAndLast) HandleEOF(client_id string, message_id string) error {
-	err := common_statefull_worker.SendResult(g.Worker, client_id, g.MapToLines(client_id))
+	err := common_statefull_worker.SendResult(g.Worker, client_id, g.MapToLines(client_id), g.node_id[client_id], g.eof_id[client_id])
 	if err != nil {
 		return err
 	}
@@ -116,6 +138,17 @@ func updateFirstAndLast(lines []string, firstAndLastMovies FirstAndLastMovies) F
 func NewFirstAndLast(config FirstAndLastConfig, messages_before_commit int, storage_base_dir string) *FirstAndLast {
 	log.Infof("FirstAndLast: %+v", config)
 	grouped_elements, _ := common_statefull_worker.GetElements[FirstAndLastMovies](storage_base_dir)
+
+	my_id, _ := common_statefull_worker.GetMyId(storage_base_dir)
+	eof_id := make(map[string]string)
+	node_id := make(map[string]string)
+	for key, val := range my_id {
+		if len(val) == 2 {
+			eof_id[key] = val[0]
+			node_id[key] = val[1]
+		}
+	}
+
 	worker, err := worker.NewWorker(config.WorkerConfig, 1)
 	if err != nil {
 		log.Errorf("Error creating worker: %s", err)
@@ -127,5 +160,7 @@ func NewFirstAndLast(config FirstAndLastConfig, messages_before_commit int, stor
 		first_and_last_movies:  grouped_elements,
 		messages_before_commit: messages_before_commit,
 		storage_base_dir:       storage_base_dir,
+		eof_id:                 eof_id,
+		node_id:                node_id,
 	}
 }

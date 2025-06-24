@@ -106,6 +106,8 @@ class ContainerController:
             containers_to_kill = random.sample(
                 alive_containers, min(y, len(alive_containers)))
             for container_name in containers_to_kill:
+                if container_name.startswith("client-handler"):
+                    continue
                 self.kill_container(container_name)
             time.sleep(x)
 
@@ -160,7 +162,7 @@ class ContainerController:
 
     def print_helper(self):
         print("\nComandos disponibles:")
-        print("auto X Y - Matar X contenedores cada Y segundos")
+        print("auto X Y - Matar cada X segundos Y contenedores")
         print("stop - Detener el auto kill")
         print("bomba - Matar todos los contenedores excepto uno con nombre hearth-beat")
         print("matar <nombre> - Matar un contenedor especifico")
