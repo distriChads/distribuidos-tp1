@@ -79,9 +79,8 @@ func (f *JoinMovieCreditsById) RunWorker(ctx context.Context, starting_message s
 		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 3)[0]
 		message_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 3)[1]
 		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 3)[2]
-
+		f.EnsureClient(client_id)
 		if inputIndex == 0 { // recibiendo movies
-			f.EnsureClient(client_id)
 
 			if message_str == worker.MESSAGE_EOF {
 				err := f.HandleMovieEOF(client_id, message_id)
@@ -94,14 +93,14 @@ func (f *JoinMovieCreditsById) RunWorker(ctx context.Context, starting_message s
 
 			line := strings.TrimSpace(message_str)
 			storeMovieWithId(line, f.Client_movies_by_id[client_id])
-			err := common_statefull_worker.StoreElementsWithBoolean(f.Client_movies_by_id[client_id], client_id, f.Storage_base_dir, f.Received_movies)
+			err := common_statefull_worker.StoreElements(f.Client_movies_by_id[client_id], client_id, f.Storage_base_dir)
 			if err != nil {
 				return err
 			}
 			msg.Ack(false)
 
 		} else { // recibiendo credits
-			if !f.Received_movies {
+			if len(f.Eofs[client_id][client_id]) >= f.Expected_eof {
 				if message_str == worker.MESSAGE_EOF {
 					msg.Nack(false, true)
 				}

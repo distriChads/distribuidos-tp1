@@ -13,11 +13,10 @@ import (
 type CommonJoin struct {
 	worker.Worker
 	Client_movies_by_id map[string]map[string]string
-	Received_movies     bool
 	Storage_base_dir    string
 	Pending             map[string]map[string]string
-	eofs                map[string]map[string][]string
-	expected_eof        int
+	Eofs                map[string]map[string][]string
+	Expected_eof        int
 	Buffer              *buffer.HasherContainer
 }
 
@@ -25,7 +24,7 @@ var log = logging.MustGetLogger("common_join")
 
 func NewCommonJoin(config worker.WorkerConfig, storage_base_dir string, eofCounter int) *CommonJoin {
 	log.Infof("New join: %+v", config)
-	grouped_elements, received_movies, _ := common_statefull_worker.GetElements[string](storage_base_dir)
+	grouped_elements, _, _ := common_statefull_worker.GetElements[string](storage_base_dir)
 	pending, _, _ := common_statefull_worker.GetPending[string](storage_base_dir)
 	eofs, _, _ := common_statefull_worker.GetEofs[[]string](storage_base_dir)
 	worker, err := worker.NewWorker(config, 1)
@@ -43,9 +42,8 @@ func NewCommonJoin(config worker.WorkerConfig, storage_base_dir string, eofCount
 	return &CommonJoin{
 		Worker:              *worker,
 		Client_movies_by_id: grouped_elements,
-		Received_movies:     received_movies,
-		eofs:                eofs,
-		expected_eof:        eofCounter,
+		Eofs:                eofs,
+		Expected_eof:        eofCounter,
 		Storage_base_dir:    storage_base_dir,
 		Pending:             pending,
 		Buffer:              buffer,
@@ -56,7 +54,7 @@ func (f *CommonJoin) HandleJoiningEOF(client_id string, message_id string) error
 	log.Warning("EOF RECEIVED FOR RATINGS")
 	for _, output_routing_keys := range f.Worker.Exchange.OutputRoutingKeys {
 		for _, output_key := range output_routing_keys {
-			message := client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF + "\n"
+			message := client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
 			err := f.Worker.SendMessage(message, output_key)
 			if err != nil {
 				return err
@@ -65,37 +63,35 @@ func (f *CommonJoin) HandleJoiningEOF(client_id string, message_id string) error
 	}
 
 	delete(f.Client_movies_by_id, client_id)
-	delete(f.eofs, client_id)
-	common_statefull_worker.CleanState(f.Storage_base_dir, client_id)
+	delete(f.Eofs, client_id)
+	//common_statefull_worker.CleanState(f.Storage_base_dir, client_id)
 
 	return nil
 }
 
 func (f *CommonJoin) HandleMovieEOF(client_id string, message_id string) error {
 	log.Warning("RECIBO EOF DE LAS MOVIES")
-	if slices.Contains(f.eofs[client_id][client_id], message_id) {
+	if slices.Contains(f.Eofs[client_id][client_id], message_id) {
 		log.Warning("EOF REPETIDO")
 		return nil
 	}
-	f.eofs[client_id][client_id] = append(f.eofs[client_id][client_id], message_id)
-	if len(f.eofs[client_id][client_id]) >= f.expected_eof {
-		f.Received_movies = true
-		err := common_statefull_worker.StoreEofsWithId(f.eofs[client_id], client_id, f.Storage_base_dir)
+	f.Eofs[client_id][client_id] = append(f.Eofs[client_id][client_id], message_id)
+	if len(f.Eofs[client_id][client_id]) >= f.Expected_eof {
+		err := common_statefull_worker.StoreEofsWithId(f.Eofs[client_id], client_id, f.Storage_base_dir)
 		if err != nil {
 			return err
 		}
-		err = common_statefull_worker.StoreElementsWithBoolean(f.Client_movies_by_id[client_id], client_id, f.Storage_base_dir, f.Received_movies)
+		err = common_statefull_worker.StoreElements(f.Client_movies_by_id[client_id], client_id, f.Storage_base_dir)
 		if err != nil {
 			return err
 		}
-		delete(f.eofs, client_id)
 		return nil
 	}
-	err := common_statefull_worker.StoreEofsWithId(f.eofs[client_id], client_id, f.Storage_base_dir)
+	err := common_statefull_worker.StoreEofsWithId(f.Eofs[client_id], client_id, f.Storage_base_dir)
 	if err != nil {
 		return err
 	}
-	err = common_statefull_worker.StoreElementsWithBoolean(f.Client_movies_by_id[client_id], client_id, f.Storage_base_dir, f.Received_movies)
+	err = common_statefull_worker.StoreElements(f.Client_movies_by_id[client_id], client_id, f.Storage_base_dir)
 	if err != nil {
 		return err
 	}
@@ -106,11 +102,11 @@ func (f *CommonJoin) EnsureClient(client_id string) {
 	if _, ok := f.Client_movies_by_id[client_id]; !ok {
 		f.Client_movies_by_id[client_id] = make(map[string]string)
 	}
-	if _, ok := f.eofs[client_id]; !ok {
-		f.eofs[client_id] = make(map[string][]string)
+	if _, ok := f.Eofs[client_id]; !ok {
+		f.Eofs[client_id] = make(map[string][]string)
 	}
-	if _, ok := f.eofs[client_id][client_id]; !ok {
-		f.eofs[client_id][client_id] = make([]string, 0)
+	if _, ok := f.Eofs[client_id][client_id]; !ok {
+		f.Eofs[client_id][client_id] = make([]string, 0)
 	}
 }
 
@@ -127,7 +123,7 @@ func (f *CommonJoin) HandlePending(client_id string, message_id string, message_
 func (f *CommonJoin) HandleLine(client_id string, message_id string, line string, join_function func(lines []string, movies_by_id map[string]string)) error {
 	lines := strings.Split(strings.TrimSpace(line), "\n")
 	join_function(lines, f.Client_movies_by_id[client_id])
-
+	log.Warningf("ENVIO MENSAJE %s", line)
 	for node_type := range f.Worker.Exchange.OutputRoutingKeys {
 		messages_to_send := f.Buffer.GetMessages(node_type)
 		for routing_key_index, message := range messages_to_send {
