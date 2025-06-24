@@ -72,7 +72,7 @@ func main() {
 	done := make(chan bool)
 	wg := sync.WaitGroup{}
 
-	heartbeat_port := v.GetInt("heartbeat.port")
+	heartbeat_port := v.GetInt("cli.heartbeat.port")
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
