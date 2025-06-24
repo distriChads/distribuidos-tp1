@@ -39,7 +39,8 @@ class HealthChecker:
         while True:
             try:
                 # Use the mounted docker-compose.yaml file explicitly
-                subprocess.run(["docker", "compose", "-f", "/app/docker-compose.yaml", "up", "-d", addr], check=True)
+                #subprocess.run(["docker", "compose", "-f", "/app/docker-compose.yaml", "up", "-d", addr], check=True)
+                subprocess.run(["docker", "start", addr], check=True)
                 break
             except subprocess.CalledProcessError as e:
                 logger.warning(f"Error rebooting container {addr}: {e}")

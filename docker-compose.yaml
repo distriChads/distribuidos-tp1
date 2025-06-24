@@ -30,7 +30,7 @@ services:
     - rabbitmq
     environment:
     - CLIENT_HANDLER_PORT=3000
-    - LOGGING_LEVEL=info
+    - LOGGING_LEVEL=warning
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLIENT_HANDLER_LISTEN_BACKLOG=5
     - INPUT_ROUTINGKEY=*.results
@@ -52,7 +52,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - ROUTINGKEYS_INPUT=filter-argentina.1
     - ROUTINGKEYS_OUTPUT_FILTER-SPAIN-2000=filter-spain-2000.1,filter-spain-2000.2,filter-spain-2000.3
     - ROUTINGKEYS_OUTPUT_FILTER-AFTER-2000=filter-after-2000.1,filter-after-2000.2,filter-after-2000.3
@@ -70,7 +70,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - ROUTINGKEYS_INPUT=filter-argentina.2
     - ROUTINGKEYS_OUTPUT_FILTER-SPAIN-2000=filter-spain-2000.1,filter-spain-2000.2,filter-spain-2000.3
     - ROUTINGKEYS_OUTPUT_FILTER-AFTER-2000=filter-after-2000.1,filter-after-2000.2,filter-after-2000.3
@@ -88,7 +88,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - ROUTINGKEYS_INPUT=filter-argentina.3
     - ROUTINGKEYS_OUTPUT_FILTER-SPAIN-2000=filter-spain-2000.1,filter-spain-2000.2,filter-spain-2000.3
     - ROUTINGKEYS_OUTPUT_FILTER-AFTER-2000=filter-after-2000.1,filter-after-2000.2,filter-after-2000.3
@@ -106,7 +106,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - ROUTINGKEYS_INPUT=filter-spain-2000.1
     - ROUTINGKEYS_OUTPUT_OUTPUT_ROUTINGKEY=query1.results
     image: filter_spain_2000:latest
@@ -123,7 +123,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - ROUTINGKEYS_INPUT=filter-spain-2000.2
     - ROUTINGKEYS_OUTPUT_OUTPUT_ROUTINGKEY=query1.results
     image: filter_spain_2000:latest
@@ -140,7 +140,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - ROUTINGKEYS_INPUT=filter-spain-2000.3
     - ROUTINGKEYS_OUTPUT_OUTPUT_ROUTINGKEY=query1.results
     image: filter_spain_2000:latest
@@ -157,7 +157,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - ROUTINGKEYS_INPUT=filter-only-one-country.1
     - ROUTINGKEYS_OUTPUT_GROUP-BY-COUNTRY-SUM=group-by-country-sum.1,group-by-country-sum.2,group-by-country-sum.3
     image: filter_only_one_country:latest
@@ -174,7 +174,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - ROUTINGKEYS_INPUT=filter-only-one-country.2
     - ROUTINGKEYS_OUTPUT_GROUP-BY-COUNTRY-SUM=group-by-country-sum.1,group-by-country-sum.2,group-by-country-sum.3
     image: filter_only_one_country:latest
@@ -191,7 +191,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - ROUTINGKEYS_INPUT=filter-only-one-country.3
     - ROUTINGKEYS_OUTPUT_GROUP-BY-COUNTRY-SUM=group-by-country-sum.1,group-by-country-sum.2,group-by-country-sum.3
     image: filter_only_one_country:latest
@@ -208,7 +208,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - ROUTINGKEYS_INPUT=filter-after-2000.1
     - ROUTINGKEYS_OUTPUT_JOIN-MOVIE-RATINGS=join-movie-ratings.1,join-movie-ratings.2,join-movie-ratings.3
     - ROUTINGKEYS_OUTPUT_JOIN-MOVIE-CREDITS=join-movie-credits.1,join-movie-credits.2,join-movie-credits.3
@@ -226,7 +226,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - ROUTINGKEYS_INPUT=filter-after-2000.2
     - ROUTINGKEYS_OUTPUT_JOIN-MOVIE-RATINGS=join-movie-ratings.1,join-movie-ratings.2,join-movie-ratings.3
     - ROUTINGKEYS_OUTPUT_JOIN-MOVIE-CREDITS=join-movie-credits.1,join-movie-credits.2,join-movie-credits.3
@@ -244,7 +244,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - ROUTINGKEYS_INPUT=filter-after-2000.3
     - ROUTINGKEYS_OUTPUT_JOIN-MOVIE-RATINGS=join-movie-ratings.1,join-movie-ratings.2,join-movie-ratings.3
     - ROUTINGKEYS_OUTPUT_JOIN-MOVIE-CREDITS=join-movie-credits.1,join-movie-credits.2,join-movie-credits.3
@@ -262,7 +262,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=group-by-country-sum.1
     - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-COUNTRY-SUM=master-group-by-country-sum.1
@@ -284,7 +284,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=group-by-country-sum.2
     - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-COUNTRY-SUM=master-group-by-country-sum.1
@@ -306,7 +306,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=group-by-country-sum.3
     - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-COUNTRY-SUM=master-group-by-country-sum.1
@@ -328,7 +328,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=group-by-movie-average.1
     - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-MOVIE-AVERAGE=master-group-by-movie-average.1
@@ -350,7 +350,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=group-by-movie-average.2
     - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-MOVIE-AVERAGE=master-group-by-movie-average.1
@@ -372,7 +372,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=group-by-movie-average.3
     - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-MOVIE-AVERAGE=master-group-by-movie-average.1
@@ -394,7 +394,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=group-by-actor-count.1
     - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-ACTOR-COUNT=master-group-by-actor-count.1
@@ -416,7 +416,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=group-by-actor-count.2
     - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-ACTOR-COUNT=master-group-by-actor-count.1
@@ -438,7 +438,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=group-by-actor-count.3
     - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-ACTOR-COUNT=master-group-by-actor-count.1
@@ -460,7 +460,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=group-by-overview-average.1
     - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-OVERVIEW-AVERAGE=master-group-by-overview-average.1
@@ -482,7 +482,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=group-by-overview-average.2
     - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-OVERVIEW-AVERAGE=master-group-by-overview-average.1
@@ -504,7 +504,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=group-by-overview-average.3
     - ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-OVERVIEW-AVERAGE=master-group-by-overview-average.1
@@ -526,7 +526,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=master-group-by-country-sum.1
     - ROUTINGKEYS_OUTPUT_TOP-FIVE-COUNTRY-BUDGET=top-five-country-budget.1
@@ -548,7 +548,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=master-group-by-movie-average.1
     - ROUTINGKEYS_OUTPUT_FIRST-AND-LAST=first-and-last.1
@@ -570,7 +570,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=master-group-by-actor-count.1
     - ROUTINGKEYS_OUTPUT_TOP-TEN-CAST-MOVIE=top-ten-cast-movie.1
@@ -592,7 +592,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - EOF_COUNTER=3
     - ROUTINGKEYS_INPUT=master-group-by-overview-average.1
     - ROUTINGKEYS_OUTPUT_OUTPUT_ROUTINGKEY=query5.results
@@ -614,7 +614,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - ROUTINGKEYS_INPUT=machine-learning.1
     - ROUTINGKEYS_OUTPUT_GROUP-BY-OVERVIEW-AVERAGE=group-by-overview-average.1,group-by-overview-average.2,group-by-overview-average.3
     image: machine_learning:latest
@@ -631,7 +631,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - ROUTINGKEYS_INPUT=machine-learning.2
     - ROUTINGKEYS_OUTPUT_GROUP-BY-OVERVIEW-AVERAGE=group-by-overview-average.1,group-by-overview-average.2,group-by-overview-average.3
     image: machine_learning:latest
@@ -648,7 +648,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - ROUTINGKEYS_INPUT=machine-learning.3
     - ROUTINGKEYS_OUTPUT_GROUP-BY-OVERVIEW-AVERAGE=group-by-overview-average.1,group-by-overview-average.2,group-by-overview-average.3
     image: machine_learning:latest
@@ -665,7 +665,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - ROUTINGKEYS_INPUT=top-five-country-budget.1
     - ROUTINGKEYS_OUTPUT_OUTPUT_ROUTINGKEY=query2.results
     - CLI_WORKER_STORAGE=/app/storage
@@ -686,7 +686,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - ROUTINGKEYS_INPUT=top-ten-cast-movie.1
     - ROUTINGKEYS_OUTPUT_OUTPUT_ROUTINGKEY=query4.results
     - CLI_WORKER_STORAGE=/app/storage
@@ -707,7 +707,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - EOF_COUNTER=9
     - ROUTINGKEYS_INPUT=join-movie-ratings.1,join-ratings.1
     - ROUTINGKEYS_OUTPUT_GROUP-BY-MOVIE-AVERAGE=group-by-movie-average.1,group-by-movie-average.2,group-by-movie-average.3
@@ -728,7 +728,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - EOF_COUNTER=9
     - ROUTINGKEYS_INPUT=join-movie-ratings.2,join-ratings.2
     - ROUTINGKEYS_OUTPUT_GROUP-BY-MOVIE-AVERAGE=group-by-movie-average.1,group-by-movie-average.2,group-by-movie-average.3
@@ -749,7 +749,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - EOF_COUNTER=9
     - ROUTINGKEYS_INPUT=join-movie-ratings.3,join-ratings.3
     - ROUTINGKEYS_OUTPUT_GROUP-BY-MOVIE-AVERAGE=group-by-movie-average.1,group-by-movie-average.2,group-by-movie-average.3
@@ -770,7 +770,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - EOF_COUNTER=9
     - ROUTINGKEYS_INPUT=join-movie-credits.1,join-credits.1
     - ROUTINGKEYS_OUTPUT_GROUP-BY-ACTOR-COUNT=group-by-actor-count.1,group-by-actor-count.2,group-by-actor-count.3
@@ -791,7 +791,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - EOF_COUNTER=9
     - ROUTINGKEYS_INPUT=join-movie-credits.2,join-credits.2
     - ROUTINGKEYS_OUTPUT_GROUP-BY-ACTOR-COUNT=group-by-actor-count.1,group-by-actor-count.2,group-by-actor-count.3
@@ -812,7 +812,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - EOF_COUNTER=9
     - ROUTINGKEYS_INPUT=join-movie-credits.3,join-credits.3
     - ROUTINGKEYS_OUTPUT_GROUP-BY-ACTOR-COUNT=group-by-actor-count.1,group-by-actor-count.2,group-by-actor-count.3
@@ -833,7 +833,7 @@ services:
     environment:
     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
     - CLI_HEARTBEAT_PORT=4444
-    - CLI_LOG_LEVEL=info
+    - CLI_LOG_LEVEL=warning
     - ROUTINGKEYS_INPUT=first-and-last.1
     - ROUTINGKEYS_OUTPUT_OUTPUT_ROUTINGKEY=query3.results
     - CLI_WORKER_STORAGE=/app/storage
@@ -853,15 +853,15 @@ services:
     networks: *id001
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
-    - docker-compose.yaml:/app/docker-compose.yaml
+    - E:\TP-1-DISTRIBUIDOS\distribuidos-tp1/docker-compose.yaml:/app/docker-compose.yaml
     environment:
-    - CLI_LOGGING_LEVEL=info
-    - CLI_SERVICES=filter-argentina-1:4444,filter-spain-2000-3:4444,filter-after-2000-2:4444,group-by-movie-average-1:4444,group-by-actor-count-3:4444,master-group-by-movie-average-1:4444,machine-learning-3:4444,join-movie-ratings-3:4444,client-handler:4444,health-checker-2:4444
-    - CLI_PING_INTERVAL=5
+    - CLI_LOGGING_LEVEL=warning
+    - CLI_SERVICES=filter-argentina-1:4444,filter-argentina-3:4444,filter-spain-2000-2:4444,filter-only-one-country-1:4444,filter-only-one-country-3:4444,filter-after-2000-2:4444,group-by-country-sum-1:4444,group-by-country-sum-3:4444,group-by-movie-average-2:4444,group-by-actor-count-1:4444,group-by-actor-count-3:4444,group-by-overview-average-2:4444,master-group-by-country-sum-1:4444,master-group-by-actor-count-1:4444,machine-learning-1:4444,machine-learning-3:4444,top-ten-cast-movie-1:4444,join-movie-ratings-2:4444,join-movie-credits-1:4444,join-movie-credits-3:4444,client-handler:4444,health-checker-2:4444
+    - CLI_PING_INTERVAL=1
     - CLI_HEARTBEAT_PORT=4444
     - CLI_MAX_CONCURRENT_HEALTH_CHECKS=10
     - CLI_GRACE_PERIOD=20
-    - CLI_DOCKER_COMPOSE_PATH=docker-compose.yaml
+    - CLI_DOCKER_COMPOSE_PATH=E:\TP-1-DISTRIBUIDOS\distribuidos-tp1/docker-compose.yaml
   health-checker-2:
     container_name: health-checker-2
     build:
@@ -872,69 +872,12 @@ services:
     networks: *id001
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
-    - docker-compose.yaml:/app/docker-compose.yaml
+    - E:\TP-1-DISTRIBUIDOS\distribuidos-tp1/docker-compose.yaml:/app/docker-compose.yaml
     environment:
-    - CLI_LOGGING_LEVEL=info
-    - CLI_SERVICES=filter-argentina-2:4444,filter-only-one-country-1:4444,filter-after-2000-3:4444,group-by-movie-average-2:4444,group-by-overview-average-1:4444,master-group-by-actor-count-1:4444,top-five-country-budget-1:4444,join-movie-credits-1:4444,health-checker-3:4444
-    - CLI_PING_INTERVAL=5
+    - CLI_LOGGING_LEVEL=warning
+    - CLI_SERVICES=filter-argentina-2:4444,filter-spain-2000-1:4444,filter-spain-2000-3:4444,filter-only-one-country-2:4444,filter-after-2000-1:4444,filter-after-2000-3:4444,group-by-country-sum-2:4444,group-by-movie-average-1:4444,group-by-movie-average-3:4444,group-by-actor-count-2:4444,group-by-overview-average-1:4444,group-by-overview-average-3:4444,master-group-by-movie-average-1:4444,master-group-by-overview-average-1:4444,machine-learning-2:4444,top-five-country-budget-1:4444,join-movie-ratings-1:4444,join-movie-ratings-3:4444,join-movie-credits-2:4444,first-and-last-1:4444,health-checker-1:4444
+    - CLI_PING_INTERVAL=1
     - CLI_HEARTBEAT_PORT=4444
     - CLI_MAX_CONCURRENT_HEALTH_CHECKS=10
     - CLI_GRACE_PERIOD=20
-    - CLI_DOCKER_COMPOSE_PATH=docker-compose.yaml
-  health-checker-3:
-    container_name: health-checker-3
-    build:
-      context: .
-      dockerfile: health-checker/Dockerfile
-    image: health-checker:latest
-    entrypoint: python main.py
-    networks: *id001
-    volumes:
-    - /var/run/docker.sock:/var/run/docker.sock
-    - docker-compose.yaml:/app/docker-compose.yaml
-    environment:
-    - CLI_LOGGING_LEVEL=info
-    - CLI_SERVICES=filter-argentina-3:4444,filter-only-one-country-2:4444,group-by-country-sum-1:4444,group-by-movie-average-3:4444,group-by-overview-average-2:4444,master-group-by-overview-average-1:4444,top-ten-cast-movie-1:4444,join-movie-credits-2:4444,health-checker-4:4444
-    - CLI_PING_INTERVAL=5
-    - CLI_HEARTBEAT_PORT=4444
-    - CLI_MAX_CONCURRENT_HEALTH_CHECKS=10
-    - CLI_GRACE_PERIOD=20
-    - CLI_DOCKER_COMPOSE_PATH=docker-compose.yaml
-  health-checker-4:
-    container_name: health-checker-4
-    build:
-      context: .
-      dockerfile: health-checker/Dockerfile
-    image: health-checker:latest
-    entrypoint: python main.py
-    networks: *id001
-    volumes:
-    - /var/run/docker.sock:/var/run/docker.sock
-    - docker-compose.yaml:/app/docker-compose.yaml
-    environment:
-    - CLI_LOGGING_LEVEL=info
-    - CLI_SERVICES=filter-spain-2000-1:4444,filter-only-one-country-3:4444,group-by-country-sum-2:4444,group-by-actor-count-1:4444,group-by-overview-average-3:4444,machine-learning-1:4444,join-movie-ratings-1:4444,join-movie-credits-3:4444,health-checker-5:4444
-    - CLI_PING_INTERVAL=5
-    - CLI_HEARTBEAT_PORT=4444
-    - CLI_MAX_CONCURRENT_HEALTH_CHECKS=10
-    - CLI_GRACE_PERIOD=20
-    - CLI_DOCKER_COMPOSE_PATH=docker-compose.yaml
-  health-checker-5:
-    container_name: health-checker-5
-    build:
-      context: .
-      dockerfile: health-checker/Dockerfile
-    image: health-checker:latest
-    entrypoint: python main.py
-    networks: *id001
-    volumes:
-    - /var/run/docker.sock:/var/run/docker.sock
-    - docker-compose.yaml:/app/docker-compose.yaml
-    environment:
-    - CLI_LOGGING_LEVEL=info
-    - CLI_SERVICES=filter-spain-2000-2:4444,filter-after-2000-1:4444,group-by-country-sum-3:4444,group-by-actor-count-2:4444,master-group-by-country-sum-1:4444,machine-learning-2:4444,join-movie-ratings-2:4444,first-and-last-1:4444,health-checker-1:4444
-    - CLI_PING_INTERVAL=5
-    - CLI_HEARTBEAT_PORT=4444
-    - CLI_MAX_CONCURRENT_HEALTH_CHECKS=10
-    - CLI_GRACE_PERIOD=20
-    - CLI_DOCKER_COMPOSE_PATH=docker-compose.yaml
+    - CLI_DOCKER_COMPOSE_PATH=E:\TP-1-DISTRIBUIDOS\distribuidos-tp1/docker-compose.yaml
