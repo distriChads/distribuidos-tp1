@@ -1,9 +1,10 @@
-import threading
-from time import sleep
 # from transformers import pipeline
-from textblob import TextBlob
-import logging
 from .worker import Worker, WorkerConfig, MESSAGE_SEPARATOR, MESSAGE_EOF
+from textblob import TextBlob
+from .hasher import HasherContainer
+
+import logging
+import threading
 import queue
 import uuid
 
@@ -17,13 +18,15 @@ OVERVIEW_FIELD_INDEX = 6
 BUDGET_INDEX = 5
 REVENUE_INDEX = 7
 
+OUTPUT_KEY = "overview_average"
+
 
 class MachineLearningConfig(WorkerConfig):
     pass
 
 
 class MachineLearning:
-    def __init__(self, config: MachineLearningConfig, output_routing_keys: list[str]):
+    def __init__(self, config: MachineLearningConfig):
         log.info(f"NewMachineLearning: {config.__dict__}")
         self.worker = Worker(config)
         # self.sentiment_analyzer = pipeline(
@@ -33,14 +36,16 @@ class MachineLearning:
         #     truncation=True,
         # )
 
-        self.output_routing_keys = output_routing_keys
-        self.queue_to_send = 0
+        dict_for_hasher = {
+            OUTPUT_KEY: len(config.exchange.output_routing_keys[OUTPUT_KEY]),
+        }
+        self.buffer = HasherContainer(dict_for_hasher)
         self.batches_per_client: dict[str, list[list[str]]] = {}
         self.revenue_budget_zero_count_per_client: dict[str, int] = {}
         self.movies_processed_per_client: dict[str, int] = {}
 
         try:
-            self.worker.init_sender()
+            self.worker.init_senders()
             self.worker.init_receiver()
         except Exception as e:
             log.error(f"Error initializing worker: {e}")
@@ -73,9 +78,8 @@ class MachineLearning:
         except Exception as e:
             log.error(f"Receive thread crashed: {e}")
 
-    def __process_batch(self, client_id: str) -> list[str]:
+    def __process_batch(self, client_id: str):
         sentiments: list[dict[str, str]] = []
-        results: list[str] = []
         movies_batch = self.batches_per_client[client_id]
 
         log.debug(
@@ -89,19 +93,17 @@ class MachineLearning:
             self._analyze_sentiment(overviews, sentiments)
         except Exception as e:
             log.error(f"Error in batch sentiment analysis: {e}")
-            return results
+            return
 
+        i = 0
         for movie_components, sentiment in zip(movies_batch, sentiments):
-            result_msg = self.__create_message_to_send(
-                sentiment["label"], movie_components)
-            results.append(result_msg)
+            self.__add_message_to_buffer(sentiment["label"], movie_components)
+            i += 1
 
-        self.movies_processed_per_client[client_id] += len(results) + \
+        self.movies_processed_per_client[client_id] += i + \
             self.revenue_budget_zero_count_per_client[client_id]
         log.info(
             f"Processed {self.movies_processed_per_client[client_id]} movies")
-
-        return results
 
     def _analyze_sentiment(self, overviews: list[str], sentiments: list[dict[str, str]]):
         for overview in overviews:
@@ -112,10 +114,15 @@ class MachineLearning:
             elif sentiment.polarity < 0:
                 sentiments.append({"label": "NEGATIVE"})
 
-    def __create_message_to_send(self, sentiment: str, parts: list[str]):
+    def __add_message_to_buffer(self, sentiment: str, parts: list[str]):
         result = MESSAGE_SEPARATOR.join(
             [parts[MOVIE_ID_INDEX], sentiment, parts[BUDGET_INDEX], parts[REVENUE_INDEX]])
-        return result
+        result += "\n"
+        if not parts[MOVIE_ID_INDEX].isdigit():
+            log.warning(f"Invalid movie ID: {parts[MOVIE_ID_INDEX]}")
+            return
+        movie_id = int(parts[MOVIE_ID_INDEX])
+        self.buffer.append_to_node(movie_id, result)
 
     def run_worker(self):
         log.info("Starting MachineLearning worker")
@@ -187,17 +194,20 @@ class MachineLearning:
             self.__process_and_send_batch(client_id)
             del self.batches_per_client[client_id]
 
-        
-        for routing_key in self.output_routing_keys:
+        for routing_key in self.worker.exchange.output_routing_keys[OUTPUT_KEY]:
             identifier = str(uuid.uuid4())
-            self.worker.send_message(f"{client_id}{MESSAGE_SEPARATOR}{identifier}{MESSAGE_SEPARATOR}{message}", routing_key)
+            self.worker.send_message(
+                f"{client_id}{MESSAGE_SEPARATOR}{identifier}{MESSAGE_SEPARATOR}{message}", routing_key)
         log.info("Sent EOF to all routing keys")
 
     def __process_and_send_batch(self, client_id: str):
-        for result in self.__process_batch(client_id):
+        self.__process_batch(client_id)
+        messages = self.buffer.get_buffers()
+        dict_index_data = messages[OUTPUT_KEY]
+        routing_keys = self.worker.exchange.output_routing_keys[OUTPUT_KEY]
+
+        for index, message in dict_index_data.items():
+            routing_key = routing_keys[index]
             identifier = str(uuid.uuid4())
-            result = f"{client_id}{MESSAGE_SEPARATOR}{identifier}{MESSAGE_SEPARATOR}{result}"
-            routing_queue = self.output_routing_keys[self.queue_to_send]
-            self.worker.send_message(result, routing_queue)
-            self.queue_to_send = (
-                self.queue_to_send + 1) % len(self.output_routing_keys)
+            result = f"{client_id}{MESSAGE_SEPARATOR}{identifier}{MESSAGE_SEPARATOR}{message}"
+            self.worker.send_message(result, routing_key)

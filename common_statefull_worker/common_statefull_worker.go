@@ -31,24 +31,35 @@ type StatefullWorker interface {
 var log = logging.MustGetLogger("common_group_by")
 
 func SendResult(w worker.Worker, client_id string, lines string) error {
-	send_queue_key := w.Exchange.OutputRoutingKeys[0]
+	var onlyRoutingKeys []string
+	for _, keys := range w.Exchange.OutputRoutingKeys {
+		onlyRoutingKeys = keys
+	}
+	if len(onlyRoutingKeys) != 1 {
+		log.Errorf("Error: expected exactly one output routing key, got %d", len(onlyRoutingKeys))
+		return fmt.Errorf("expected exactly one output routing key, got %d", len(onlyRoutingKeys))
+	}
+
+	send_queue_key := onlyRoutingKeys[0]
 	message_id, err := uuid.NewRandom()
 	if err != nil {
 		log.Errorf("Error generating uuid: %s", err.Error())
 		return err
 	}
-	message_to_send := client_id + worker.MESSAGE_SEPARATOR + message_id.String() + worker.MESSAGE_SEPARATOR + lines
-	err = w.SendMessage(message_to_send, send_queue_key)
-	if err != nil {
-		log.Errorf("Error sending message: %s", err.Error())
-		return err
+	if len(lines) != 0 {
+		message_to_send := client_id + worker.MESSAGE_SEPARATOR + message_id.String() + worker.MESSAGE_SEPARATOR + lines
+		err = w.SendMessage(message_to_send, send_queue_key)
+		if err != nil {
+			log.Errorf("Error sending message: %s", err.Error())
+			return err
+		}
 	}
 	message_id, err = uuid.NewRandom()
 	if err != nil {
 		log.Errorf("Error generating uuid: %s", err.Error())
 		return err
 	}
-	message_to_send = client_id + worker.MESSAGE_SEPARATOR + message_id.String() + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
+	message_to_send := client_id + worker.MESSAGE_SEPARATOR + message_id.String() + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
 	err = w.SendMessage(message_to_send, send_queue_key)
 	if err != nil {
 		log.Errorf("Error sending message: %s", err.Error())

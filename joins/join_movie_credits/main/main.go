@@ -23,18 +23,28 @@ func main() {
 		return
 	}
 
-	log_level := v.GetString("log.level")
-	queue_name := strings.Split(v.GetString("worker.exchange.input.routingkeys"), ",")[0]
+	messageBroker := v.GetString("cli.worker.broker")
+	log_level := v.GetString("cli.log.level")
+	eofCounter := v.GetInt("EOF_COUNTER")
+	inputRoutingKeys := strings.Split(v.GetString("routingkeys.input"), ",")
+	outputRoutingKeysJoinMovieRatings := strings.Split(v.GetString("ROUTINGKEYS_OUTPUT_GROUP-BY-ACTOR-COUNT"), ",")
+	storage_base_dir := v.GetString("cli.worker.storage")
+
+	log.Infof("Input routing keys: %v", inputRoutingKeys)
+
+	outputRoutingKey := map[string][]string{
+		"group_by_actor_count": outputRoutingKeysJoinMovieRatings,
+	}
 
 	exchangeSpec := worker.ExchangeSpec{
-		InputRoutingKeys:  strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
-		OutputRoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
-		QueueName:         queue_name,
+		InputRoutingKeys:  inputRoutingKeys,
+		OutputRoutingKeys: outputRoutingKey,
+		QueueName:         "filter_after_2000",
 	}
-	messageBroker := v.GetString("worker.broker")
 
-	if exchangeSpec.InputRoutingKeys[0] == "" || exchangeSpec.OutputRoutingKeys[0] == "" || messageBroker == "" {
-		log.Criticalf("Error: one or more environment variables are empty")
+	if exchangeSpec.InputRoutingKeys[0] == "" || len(exchangeSpec.OutputRoutingKeys) == 0 || messageBroker == "" {
+		log.Criticalf("Error: one or more environment variables are empty --- message_broker: %s, input_routing_keys: %v, output_routing_keys: %v",
+			messageBroker, exchangeSpec.InputRoutingKeys, outputRoutingKey)
 		return
 	}
 
@@ -43,17 +53,12 @@ func main() {
 		return
 	}
 
-	maxMessages := v.GetInt("worker.maxmessages")
-	if maxMessages == 0 {
-		maxMessages = 10
-	}
-	storage_base_dir := v.GetString("worker.storage")
 	join := join_movie_credits.NewJoinMovieCreditsById(join_movie_credits.JoinMovieCreditsByIdConfig{
 		WorkerConfig: worker.WorkerConfig{
 			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
 		},
-	}, storage_base_dir)
+	}, storage_base_dir, eofCounter)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -80,8 +85,8 @@ func main() {
 	select {
 	case sig := <-sigChan:
 		log.Infof("Signal received: %s. Shutting down...", sig)
-		cancel() // cancelamos el contexto → avisa al worker que debe salir
-		<-done   // esperamos que termine
+		cancel()
+		<-done
 		join.CloseWorker()
 		log.Info("Worker shut down successfully")
 	case <-done:

@@ -84,8 +84,8 @@ func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]Revenu
 	}
 }
 
-func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_before_commit int, storage_base_dir string) *GroupByOverviewAndAvg {
-	group_by := common_group_by.NewCommonGroupBy[RevenueBudgetCount](config.WorkerConfig, messages_before_commit, storage_base_dir)
+func NewGroupByOverviewAndAvg(config GroupByOverviewAndAvgConfig, messages_before_commit int, storage_base_dir string, expected_eof int) *GroupByOverviewAndAvg {
+	group_by := common_group_by.NewCommonGroupBy[RevenueBudgetCount](config.WorkerConfig, messages_before_commit, storage_base_dir, expected_eof)
 	return &GroupByOverviewAndAvg{
 		CommonGroupBy: group_by,
 	}

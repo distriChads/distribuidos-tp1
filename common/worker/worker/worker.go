@@ -3,7 +3,6 @@ package worker
 import (
 	"context"
 	"errors"
-	"fmt"
 	"reflect"
 	"time"
 
@@ -17,6 +16,7 @@ const (
 	MESSAGE_EOF             = "EOF"
 
 	EXCHANGE_NAME = "data_exchange"
+	EXCHANGE_TYPE = "topic"
 
 	INPUTS_COMMON_NODES = 1
 	INPUTS_JOINER_NODES = 2
@@ -39,7 +39,7 @@ type receiver struct {
 
 type ExchangeSpec struct {
 	InputRoutingKeys  []string
-	OutputRoutingKeys []string
+	OutputRoutingKeys map[string][]string
 	QueueName         string
 }
 
@@ -119,7 +119,7 @@ func (w *Worker) initSender() error {
 
 	err = ch.ExchangeDeclare(
 		EXCHANGE_NAME, // name
-		"topic",       // type
+		EXCHANGE_TYPE, // type
 		false,         // durable
 		false,         // auto-deleted
 		false,         // internal
@@ -161,7 +161,7 @@ func (w *Worker) initReceiver(prefetch_count int) error {
 
 	err = ch.ExchangeDeclare(
 		EXCHANGE_NAME, // name
-		"topic",       // type
+		EXCHANGE_TYPE, // type
 		false,         // durable
 		false,         // auto-deleted
 		false,         // internal
@@ -176,14 +176,13 @@ func (w *Worker) initReceiver(prefetch_count int) error {
 	var messages []<-chan amqp.Delivery
 
 	for _, routingKey := range w.Exchange.InputRoutingKeys {
-		queueName := fmt.Sprintf("%s_%s", w.Exchange.QueueName, routingKey)
 		q, err := ch.QueueDeclare(
-			queueName, // name
-			false,     // durable
-			false,     // delete when unused
-			false,     // exclusive
-			false,     // no-wait
-			nil,       // arguments
+			routingKey, // name
+			false,      // durable
+			false,      // delete when unused
+			false,      // exclusive
+			false,      // no-wait
+			nil,        // arguments
 		)
 		if err != nil {
 			return err
@@ -249,7 +248,7 @@ func (w *Worker) SendMessage(message string, routingKey string) error {
 	if err != nil {
 		return err
 	}
-	log.Debugf("Sent message to (routing key: %s): %s", routingKey, message)
+	log.Infof("Sent message to (routing key: %s): %s", routingKey, message)
 
 	return nil
 }
@@ -287,6 +286,7 @@ func (w *Worker) ReceivedMessages(ctx context.Context) (amqp.Delivery, int, erro
 	}
 
 	msg := recv.Interface().(amqp.Delivery)
+	log.Debugf("Received message: %s", msg.Body)
 	return msg, chosen - 1, nil // -1 porque el 0 era el ctx.Done()
 }
 

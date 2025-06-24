@@ -25,17 +25,25 @@ func main() {
 		return
 	}
 
-	log_level := v.GetString("log.level")
+	log_level := v.GetString("cli.log.level")
+	outputRoutingKeysJoinMovieRatings := strings.Split(v.GetString("ROUTINGKEYS_OUTPUT_JOIN-MOVIE-RATINGS"), ",")
+	outputRoutingKeysJoinMovieCredits := strings.Split(v.GetString("ROUTINGKEYS_OUTPUT_JOIN-MOVIE-CREDITS"), ",")
+
+	filterRoutingKeysMap := map[string][]string{
+		"join_movie_ratings": outputRoutingKeysJoinMovieRatings,
+		"join_movie_credits": outputRoutingKeysJoinMovieCredits,
+	}
 
 	exchangeSpec := worker.ExchangeSpec{
-		InputRoutingKeys:  strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
-		OutputRoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
+		InputRoutingKeys:  strings.Split(v.GetString("routingkeys.input"), ","),
+		OutputRoutingKeys: filterRoutingKeysMap,
 		QueueName:         "filter_after_2000",
 	}
-	messageBroker := v.GetString("worker.broker")
+	messageBroker := v.GetString("cli.worker.broker")
 
-	if exchangeSpec.InputRoutingKeys[0] == "" || exchangeSpec.OutputRoutingKeys[0] == "" || messageBroker == "" {
-		log.Criticalf("Error: one or more environment variables are empty")
+	if exchangeSpec.InputRoutingKeys[0] == "" || len(exchangeSpec.OutputRoutingKeys) == 0 || messageBroker == "" {
+		log.Criticalf("Error: one or more environment variables are empty --- message_broker: %s, input_routing_keys: %v, output_routing_keys: %v",
+			messageBroker, exchangeSpec.InputRoutingKeys, filterRoutingKeysMap)
 		return
 	}
 

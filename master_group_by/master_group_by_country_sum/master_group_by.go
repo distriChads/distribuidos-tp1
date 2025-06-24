@@ -70,7 +70,7 @@ func groupByCountryAndSum(lines []string, grouped_elements map[string]int) {
 }
 
 func NewGroupByCountryAndSum(config MasterGroupByCountryAndSumConfig, messages_before_commit int, expected_eof int, storage_base_dir string) *MasterGroupByCountryAndSum {
-	group_by := common_group_by.NewCommonGroupBy[int](config.WorkerConfig, messages_before_commit, storage_base_dir)
+	group_by := common_group_by.NewCommonGroupBy[int](config.WorkerConfig, messages_before_commit, storage_base_dir, expected_eof)
 	return &MasterGroupByCountryAndSum{
 		CommonGroupBy: group_by,
 	}
