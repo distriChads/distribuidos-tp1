@@ -9,7 +9,7 @@ import (
 	"github.com/rabbitmq/amqp091-go"
 )
 
-var log = logging.MustGetLogger("group_by_actor_count")
+var log = logging.MustGetLogger("common_group_by")
 
 type CommonGroupBy[T any] struct {
 	worker.Worker
@@ -77,6 +77,7 @@ func (g *CommonGroupBy[T]) HandleEOF(client_id string, message_id string, lines 
 	}
 	g.eofs[client_id][client_id] = append(g.eofs[client_id][client_id], message_id)
 	if len(g.eofs[client_id][client_id]) >= g.expected_eof {
+		log.Warning("MOMENTO DE ENVIAR FLACO")
 		err := common_statefull_worker.SendResult(g.Worker, client_id, lines)
 		if err != nil {
 			return err
@@ -92,6 +93,7 @@ func (g *CommonGroupBy[T]) HandleEOF(client_id string, message_id string, lines 
 		for _, message := range g.messages[client_id] {
 			message.Ack(false)
 		}
+		g.messages[client_id] = g.messages[client_id][:0]
 		delete(g.messages, client_id)
 		delete(g.Grouped_elements, client_id)
 		delete(g.eofs, client_id)
@@ -110,11 +112,12 @@ func (g *CommonGroupBy[T]) HandleEOF(client_id string, message_id string, lines 
 	for _, message := range g.messages[client_id] {
 		message.Ack(false)
 	}
+	g.messages[client_id] = g.messages[client_id][:0]
 
 	return nil
 }
 
-func NewCommonGroupBy[T any](config worker.WorkerConfig, messages_before_commit int, storage_base_dir string) *CommonGroupBy[T] {
+func NewCommonGroupBy[T any](config worker.WorkerConfig, messages_before_commit int, storage_base_dir string, expected_eof int) *CommonGroupBy[T] {
 	log.Infof("New group by: %+v", config)
 	grouped_elements, _, last_messages_in_state := common_statefull_worker.GetElements[T](storage_base_dir)
 	messages_id, last_message_in_id := common_statefull_worker.GetIds(storage_base_dir)
@@ -137,7 +140,7 @@ func NewCommonGroupBy[T any](config worker.WorkerConfig, messages_before_commit 
 		messages_before_commit:    messages_before_commit,
 		Grouped_elements:          grouped_elements,
 		eofs:                      eofs,
-		expected_eof:              1,
+		expected_eof:              expected_eof,
 		storage_base_dir:          storage_base_dir,
 		messages_id:               messages_id,
 		messages:                  make(map[string][]amqp091.Delivery),

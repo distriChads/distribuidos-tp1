@@ -79,8 +79,8 @@ func groupByMovieAndUpdate(lines []string, grouped_elements map[string]ScoreAndC
 	}
 }
 
-func NewGroupByMovieAndAvg(config GroupByMovieAndAvgConfig, messages_before_commit int, storage_base_dir string) *GroupByMovieAndAvg {
-	group_by := common_group_by.NewCommonGroupBy[ScoreAndCount](config.WorkerConfig, messages_before_commit, storage_base_dir)
+func NewGroupByMovieAndAvg(config GroupByMovieAndAvgConfig, messages_before_commit int, storage_base_dir string, expected_eof int) *GroupByMovieAndAvg {
+	group_by := common_group_by.NewCommonGroupBy[ScoreAndCount](config.WorkerConfig, messages_before_commit, storage_base_dir, expected_eof)
 	return &GroupByMovieAndAvg{
 		CommonGroupBy: group_by,
 	}

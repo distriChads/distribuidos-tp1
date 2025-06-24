@@ -6,6 +6,7 @@ import (
 	"distribuidos-tp1/common_statefull_worker"
 	"distribuidos-tp1/joins/common_join"
 	"errors"
+	"strconv"
 	"strings"
 
 	"github.com/op/go-logging"
@@ -36,8 +37,7 @@ func storeMovieWithId(line string, movies_by_id map[string]string) {
 // MESSAGE FORMAT: MOVIE_ID|ACTORS
 // ---------------------------------
 
-func joinMovieWithCredits(lines []string, movies_by_id map[string]string) []string {
-	var result []string
+func (f *JoinMovieCreditsById) joinMovieWithCredits(lines []string, movies_by_id map[string]string) {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
 		movie_id := movies_by_id[parts[ID]]
@@ -47,14 +47,16 @@ func joinMovieWithCredits(lines []string, movies_by_id map[string]string) []stri
 		}
 
 		data := movie_id + worker.MESSAGE_SEPARATOR + parts[ACTORS]
-
-		result = append(result, data)
+		id, err := strconv.Atoi(parts[ID])
+		if err != nil {
+			continue
+		}
+		f.Buffer.AddMessage(id, data)
 	}
-	return result
 }
 
-func NewJoinMovieCreditsById(config JoinMovieCreditsByIdConfig, storage_base_dir string) *JoinMovieCreditsById {
-	join := common_join.NewCommonJoin(config.WorkerConfig, storage_base_dir)
+func NewJoinMovieCreditsById(config JoinMovieCreditsByIdConfig, storageBaseDir string, eofCounter int) *JoinMovieCreditsById {
+	join := common_join.NewCommonJoin(config.WorkerConfig, storageBaseDir, eofCounter)
 	return &JoinMovieCreditsById{
 		CommonJoin: join,
 	}
@@ -77,9 +79,8 @@ func (f *JoinMovieCreditsById) RunWorker(ctx context.Context, starting_message s
 		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 3)[0]
 		message_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 3)[1]
 		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 3)[2]
-
+		f.EnsureClient(client_id)
 		if inputIndex == 0 { // recibiendo movies
-			f.EnsureClient(client_id)
 
 			if message_str == worker.MESSAGE_EOF {
 				err := f.HandleMovieEOF(client_id, message_id)
@@ -92,14 +93,14 @@ func (f *JoinMovieCreditsById) RunWorker(ctx context.Context, starting_message s
 
 			line := strings.TrimSpace(message_str)
 			storeMovieWithId(line, f.Client_movies_by_id[client_id])
-			err := common_statefull_worker.StoreElementsWithBoolean(f.Client_movies_by_id[client_id], client_id, f.Storage_base_dir, f.Received_movies)
+			err := common_statefull_worker.StoreElements(f.Client_movies_by_id[client_id], client_id, f.Storage_base_dir)
 			if err != nil {
 				return err
 			}
 			msg.Ack(false)
 
 		} else { // recibiendo credits
-			if !f.Received_movies {
+			if len(f.Eofs[client_id][client_id]) < f.Expected_eof {
 				if message_str == worker.MESSAGE_EOF {
 					msg.Nack(false, true)
 				}
@@ -111,7 +112,10 @@ func (f *JoinMovieCreditsById) RunWorker(ctx context.Context, starting_message s
 			if len(f.Pending[client_id]) != 0 {
 				pending_messages := f.Pending[client_id]
 				for _, pending_message := range pending_messages {
-					f.HandleLine(client_id, message_id, pending_message, joinMovieWithCredits)
+					err := f.HandleLine(client_id, message_id, pending_message, f.joinMovieWithCredits)
+					if err != nil {
+						return err
+					}
 				}
 				common_statefull_worker.CleanPending(f.Storage_base_dir, client_id)
 				delete(f.Pending, client_id)
@@ -126,9 +130,11 @@ func (f *JoinMovieCreditsById) RunWorker(ctx context.Context, starting_message s
 				continue
 			}
 
-			f.HandleLine(client_id, message_id, message_str, joinMovieWithCredits)
+			err = f.HandleLine(client_id, message_id, message_str, f.joinMovieWithCredits)
+			if err != nil {
+				return err
+			}
 			msg.Ack(false)
 		}
-
 	}
 }

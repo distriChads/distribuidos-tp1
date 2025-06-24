@@ -2,8 +2,12 @@ package filter_argentina
 
 import (
 	"distribuidos-tp1/common/worker/worker"
+	"strconv"
 	"strings"
 
+	buffer "distribuidos-tp1/common/worker/hasher"
+
+	"github.com/google/uuid"
 	"github.com/op/go-logging"
 )
 
@@ -15,6 +19,7 @@ type FilterByArgentinaConfig struct {
 
 type FilterByArgentina struct {
 	Worker *worker.Worker
+	buffer *buffer.HasherContainer
 }
 
 func NewFilterByArgentina(config FilterByArgentinaConfig) *FilterByArgentina {
@@ -25,8 +30,15 @@ func NewFilterByArgentina(config FilterByArgentinaConfig) *FilterByArgentina {
 		return nil
 	}
 
+	dict := make(map[string]int)
+	for nodeType, routingKeys := range config.WorkerConfig.Exchange.OutputRoutingKeys {
+		dict[nodeType] = len(routingKeys)
+	}
+	buffer := buffer.NewHasherContainer(dict)
+
 	return &FilterByArgentina{
 		Worker: worker,
+		buffer: buffer,
 	}
 }
 
@@ -35,36 +47,59 @@ func NewFilterByArgentina(config FilterByArgentinaConfig) *FilterByArgentina {
 // ---------------------------------
 const COUNTRIES = 3
 
-func (f *FilterByArgentina) Filter(lines []string) []string {
-	var result []string
+func (f *FilterByArgentina) Filter(lines []string) bool {
+	argMovie := false
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
-		countries := strings.Split(parts[COUNTRIES], worker.MESSAGE_ARRAY_SEPARATOR)
-		for _, country := range countries {
+		movie_id, err := strconv.Atoi(parts[0])
+		if err != nil {
+			continue
+		}
+		countries := strings.SplitSeq(parts[COUNTRIES], worker.MESSAGE_ARRAY_SEPARATOR)
+		for country := range countries {
 			if strings.TrimSpace(country) == "AR" {
-				result = append(result, strings.TrimSpace(line))
+				f.buffer.AddMessage(movie_id, strings.TrimSpace(line))
+				argMovie = true
 				break
 			}
 		}
 	}
-	return result
+	return argMovie
 }
 
 func (f *FilterByArgentina) HandleEOF(client_id string, message_id string) error {
-	f.SendMessage([]string{worker.MESSAGE_EOF}, client_id, message_id)
+	for _, output_routing_keys := range f.Worker.Exchange.OutputRoutingKeys {
+		for _, output_key := range output_routing_keys {
+			message_id, err := uuid.NewRandom()
+			if err != nil {
+				log.Errorf("Error generating uuid: %s", err.Error())
+				return err
+			}
+			message := client_id + worker.MESSAGE_SEPARATOR + message_id.String() + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
+			err = f.Worker.SendMessage(message, output_key)
+			if err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
-func (f *FilterByArgentina) SendMessage(message_to_send []string, client_id string, message_id string) error {
-	message := strings.Join(message_to_send, "\n")
-	if len(message) != 0 {
-		send_queue_key := f.Worker.Exchange.OutputRoutingKeys[0]
-		message = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message
-		err := f.Worker.SendMessage(message, send_queue_key)
-		if err != nil {
-			return err
+func (f *FilterByArgentina) SendMessage(client_id string, message_id string) error {
+	for node_type := range f.Worker.Exchange.OutputRoutingKeys {
+		messages_to_send := f.buffer.GetMessages(node_type)
+		for routing_key_index, message := range messages_to_send {
+			if len(message) != 0 {
+				routing_key := f.Worker.Exchange.OutputRoutingKeys[node_type][routing_key_index]
+				message = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message
+				err := f.Worker.SendMessage(message, routing_key)
+				if err != nil {
+					return err
+				}
+				log.Debugf("Sent message to output exchange: %s", message)
+			}
 		}
-		log.Debugf("Sent message to output exchange: %s", message)
+
 	}
 	return nil
 }

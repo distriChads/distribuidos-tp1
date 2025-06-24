@@ -16,7 +16,7 @@ import (
 	"github.com/op/go-logging"
 )
 
-var log = logging.MustGetLogger("master_group_by_actor_count")
+var log = logging.MustGetLogger("master_group_by_overview_average")
 
 func main() {
 	v, err := utils.InitConfig()
@@ -25,16 +25,23 @@ func main() {
 		return
 	}
 
-	log_level := v.GetString("log.level")
-	exchangeSpec := worker.ExchangeSpec{
-		InputRoutingKeys:  strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
-		OutputRoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
-		QueueName:         v.GetString("worker.queue.name"),
-	}
-	messageBroker := v.GetString("worker.broker")
+	log_level := v.GetString("cli.log.level")
+	outputRoutingKeysResults := strings.Split(v.GetString("ROUTINGKEYS_OUTPUT_OUTPUT_ROUTINGKEY"), ",")
 
-	if exchangeSpec.InputRoutingKeys[0] == "" || exchangeSpec.OutputRoutingKeys[0] == "" || messageBroker == "" {
-		log.Criticalf("Error: one or more environment variables are empty")
+	filterRoutingKeysMap := map[string][]string{
+		"results": outputRoutingKeysResults,
+	}
+
+	exchangeSpec := worker.ExchangeSpec{
+		InputRoutingKeys:  strings.Split(v.GetString("routingkeys.input"), ","),
+		OutputRoutingKeys: filterRoutingKeysMap,
+		QueueName:         "filter_after_2000",
+	}
+	messageBroker := v.GetString("cli.worker.broker")
+
+	if exchangeSpec.InputRoutingKeys[0] == "" || len(exchangeSpec.OutputRoutingKeys) == 0 || messageBroker == "" {
+		log.Criticalf("Error: one or more environment variables are empty --- message_broker: %s, input_routing_keys: %v, output_routing_keys: %v",
+			messageBroker, exchangeSpec.InputRoutingKeys, filterRoutingKeysMap)
 		return
 	}
 
@@ -43,16 +50,10 @@ func main() {
 		return
 	}
 
-	maxMessages := v.GetInt("worker.maxmessages")
-	expectedEof := v.GetInt("worker.expectedeof")
-	if maxMessages == 0 {
-		maxMessages = 10
-	}
-	if expectedEof == 0 {
-		expectedEof = 1
-	}
+	maxMessages := v.GetInt("cli.worker.maxmessages")
+	expectedEof := v.GetInt("EOF_COUNTER")
+	storage_base_dir := v.GetString("cli.worker.storage")
 
-	storage_base_dir := v.GetString("worker.storage")
 	master_group_by := master_group_by.NewGroupByOverviewAndAvg(master_group_by.MasterGroupByOverviewAndAvgConfig{
 		WorkerConfig: worker.WorkerConfig{
 			Exchange:      exchangeSpec,
@@ -63,14 +64,11 @@ func main() {
 		return
 	}
 
-	// Crear contexto cancelable
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Capturar señales del sistema
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
 
-	// Lanzar worker en goroutine
 	done := make(chan bool)
 	wg := sync.WaitGroup{}
 
@@ -88,7 +86,6 @@ func main() {
 		done <- true
 	}()
 
-	// Esperar señal o finalización
 	select {
 	case sig := <-sigChan:
 		log.Infof("Signal received: %s. Shutting down...", sig)

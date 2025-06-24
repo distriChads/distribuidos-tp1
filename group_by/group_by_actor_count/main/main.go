@@ -25,18 +25,23 @@ func main() {
 		return
 	}
 
-	log_level := v.GetString("log.level")
-	queue_name := strings.Split(v.GetString("worker.exchange.input.routingkeys"), ",")[0]
+	log_level := v.GetString("cli.log.level")
+	outputRoutingKeysActorCount := strings.Split(v.GetString("ROUTINGKEYS_OUTPUT_MASTER-GROUP-BY-ACTOR-COUNT"), ",")
+
+	filterRoutingKeysMap := map[string][]string{
+		"actor_count": outputRoutingKeysActorCount,
+	}
 
 	exchangeSpec := worker.ExchangeSpec{
-		InputRoutingKeys:  strings.Split(v.GetString("worker.exchange.input.routingkeys"), ","),
-		OutputRoutingKeys: strings.Split(v.GetString("worker.exchange.output.routingkeys"), ","),
-		QueueName:         queue_name,
+		InputRoutingKeys:  strings.Split(v.GetString("routingkeys.input"), ","),
+		OutputRoutingKeys: filterRoutingKeysMap,
+		QueueName:         "filter_after_2000",
 	}
-	messageBroker := v.GetString("worker.broker")
+	messageBroker := v.GetString("cli.worker.broker")
 
-	if exchangeSpec.InputRoutingKeys[0] == "" || exchangeSpec.OutputRoutingKeys[0] == "" || messageBroker == "" {
-		log.Criticalf("Error: one or more environment variables are empty")
+	if exchangeSpec.InputRoutingKeys[0] == "" || len(exchangeSpec.OutputRoutingKeys) == 0 || messageBroker == "" {
+		log.Criticalf("Error: one or more environment variables are empty --- message_broker: %s, input_routing_keys: %v, output_routing_keys: %v",
+			messageBroker, exchangeSpec.InputRoutingKeys, filterRoutingKeysMap)
 		return
 	}
 
@@ -45,18 +50,20 @@ func main() {
 		return
 	}
 
-	maxMessages := v.GetInt("worker.maxmessages")
-	if maxMessages == 0 {
-		maxMessages = 10
-	}
+	maxMessages := v.GetInt("cli.worker.maxmessages")
+	expectedEof := v.GetInt("EOF_COUNTER")
+	storage_base_dir := v.GetString("cli.worker.storage")
 
-	storage_base_dir := v.GetString("worker.storage")
 	group_by := group_by.NewGroupByActorAndCount(group_by.GroupByActorAndCountConfig{
 		WorkerConfig: worker.WorkerConfig{
 			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
 		},
-	}, maxMessages, storage_base_dir)
+	}, maxMessages, storage_base_dir, expectedEof)
+	if group_by == nil {
+		log.Critical("Failed to create GroupByActorAndCount instance")
+		return
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -83,8 +90,8 @@ func main() {
 	select {
 	case sig := <-sigChan:
 		log.Infof("Signal received: %s. Shutting down...", sig)
-		cancel() // cancelamos el contexto → avisa al worker que debe salir
-		<-done   // esperamos que termine
+		cancel()
+		<-done
 		group_by.CloseWorker()
 		log.Info("Worker shut down successfully")
 	case <-done:
