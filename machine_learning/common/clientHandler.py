@@ -109,6 +109,7 @@ class MachineLearning:
                 delivery_tag = method_frame.delivery_tag
                 raw_msg = raw_msg.strip()
                 if not raw_msg:
+                    self.worker.send_ack(delivery_tag)
                     continue
 
                 client_id, _, message = raw_msg.split(MESSAGE_SEPARATOR, 2)
@@ -118,6 +119,7 @@ class MachineLearning:
 
                 if message == MESSAGE_EOF:
                     self._process_remaining_messages(message, client_id)
+                    self.worker.send_ack(delivery_tag)
                     continue
 
                 self.use_all_messages_up(client_id, message)
