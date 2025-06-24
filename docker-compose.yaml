@@ -753,66 +753,66 @@ services:
   #     - movies_net
   #   volumes:
   #     - .local-storage/join-movie-ratings-3:/app/storage
-  # join-movie-credits-1:
-  #   build:
-  #     context: .
-  #     dockerfile: joins/join_movie_credits/Dockerfile
-  #   container_name: join-movie-credits-1
-  #   depends_on:
-  #     - rabbitmq
-  #   entrypoint: ./run_worker
-  #   environment:
-  #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-  #     - CLI_LOG_LEVEL=info
-  #     - EOF_COUNTER=9
-  #     - ROUTINGKEYS_INPUT=join-movie-credits.1,join-credits.1
-  #     - ROUTINGKEYS_OUTPUT_GROUP-BY-ACTOR-COUNT=group-by-actor-count.1,group-by-actor-count.2,group-by-actor-count.3
-  #     - CLI_WORKER_STORAGE=/app/storage
-  #   image: join_movie_credits:latest
-  #   networks:
-  #     - movies_net
-  #   volumes:
-  #     - .local-storage/join-movie-credits-1:/app/storage
-  # join-movie-credits-2:
-  #   build:
-  #     context: .
-  #     dockerfile: joins/join_movie_credits/Dockerfile
-  #   container_name: join-movie-credits-2
-  #   depends_on:
-  #     - rabbitmq
-  #   entrypoint: ./run_worker
-  #   environment:
-  #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-  #     - CLI_LOG_LEVEL=info
-  #     - EOF_COUNTER=9
-  #     - ROUTINGKEYS_INPUT=join-movie-credits.2,join-credits.2
-  #     - ROUTINGKEYS_OUTPUT_GROUP-BY-ACTOR-COUNT=group-by-actor-count.1,group-by-actor-count.2,group-by-actor-count.3
-  #     - CLI_WORKER_STORAGE=/app/storage
-  #   image: join_movie_credits:latest
-  #   networks:
-  #     - movies_net
-  #   volumes:
-  #     - .local-storage/join-movie-credits-2:/app/storage
-  # join-movie-credits-3:
-  #   build:
-  #     context: .
-  #     dockerfile: joins/join_movie_credits/Dockerfile
-  #   container_name: join-movie-credits-3
-  #   depends_on:
-  #     - rabbitmq
-  #   entrypoint: ./run_worker
-  #   environment:
-  #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-  #     - CLI_LOG_LEVEL=info
-  #     - EOF_COUNTER=9
-  #     - ROUTINGKEYS_INPUT=join-movie-credits.3,join-credits.3
-  #     - ROUTINGKEYS_OUTPUT_GROUP-BY-ACTOR-COUNT=group-by-actor-count.1,group-by-actor-count.2,group-by-actor-count.3
-  #     - CLI_WORKER_STORAGE=/app/storage
-  #   image: join_movie_credits:latest
-  #   networks:
-  #     - movies_net
-  #   volumes:
-  #     - .local-storage/join-movie-credits-3:/app/storage
+  join-movie-credits-1:
+    build:
+      context: .
+      dockerfile: joins/join_movie_credits/Dockerfile
+    container_name: join-movie-credits-1
+    depends_on:
+      - rabbitmq
+    entrypoint: ./run_worker
+    environment:
+      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+      - CLI_LOG_LEVEL=info
+      - EOF_COUNTER=9
+      - ROUTINGKEYS_INPUT=join-movie-credits.1,join-credits.1
+      - ROUTINGKEYS_OUTPUT_GROUP-BY-ACTOR-COUNT=group-by-actor-count.1,group-by-actor-count.2,group-by-actor-count.3
+      - CLI_WORKER_STORAGE=/app/storage
+    image: join_movie_credits:latest
+    networks:
+      - movies_net
+    volumes:
+      - .local-storage/join-movie-credits-1:/app/storage
+  join-movie-credits-2:
+    build:
+      context: .
+      dockerfile: joins/join_movie_credits/Dockerfile
+    container_name: join-movie-credits-2
+    depends_on:
+      - rabbitmq
+    entrypoint: ./run_worker
+    environment:
+      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+      - CLI_LOG_LEVEL=info
+      - EOF_COUNTER=9
+      - ROUTINGKEYS_INPUT=join-movie-credits.2,join-credits.2
+      - ROUTINGKEYS_OUTPUT_GROUP-BY-ACTOR-COUNT=group-by-actor-count.1,group-by-actor-count.2,group-by-actor-count.3
+      - CLI_WORKER_STORAGE=/app/storage
+    image: join_movie_credits:latest
+    networks:
+      - movies_net
+    volumes:
+      - .local-storage/join-movie-credits-2:/app/storage
+  join-movie-credits-3:
+    build:
+      context: .
+      dockerfile: joins/join_movie_credits/Dockerfile
+    container_name: join-movie-credits-3
+    depends_on:
+      - rabbitmq
+    entrypoint: ./run_worker
+    environment:
+      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+      - CLI_LOG_LEVEL=info
+      - EOF_COUNTER=9
+      - ROUTINGKEYS_INPUT=join-movie-credits.3,join-credits.3
+      - ROUTINGKEYS_OUTPUT_GROUP-BY-ACTOR-COUNT=group-by-actor-count.1,group-by-actor-count.2,group-by-actor-count.3
+      - CLI_WORKER_STORAGE=/app/storage
+    image: join_movie_credits:latest
+    networks:
+      - movies_net
+    volumes:
+      - .local-storage/join-movie-credits-3:/app/storage
   first-and-last-1:
     build:
       context: .

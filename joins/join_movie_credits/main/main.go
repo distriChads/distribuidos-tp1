@@ -23,25 +23,28 @@ func main() {
 		return
 	}
 
+	messageBroker := v.GetString("cli.worker.broker")
 	log_level := v.GetString("cli.log.level")
-	outputRoutingKeysJoinMovieRatings := strings.Split(v.GetString("ROUTINGKEYS_OUTPUT_JOIN-MOVIE-RATINGS"), ",")
-	outputRoutingKeysJoinMovieCredits := strings.Split(v.GetString("ROUTINGKEYS_OUTPUT_JOIN-MOVIE-CREDITS"), ",")
+	eofCounter := v.GetInt("EOF_COUNTER")
+	inputRoutingKeys := strings.Split(v.GetString("routingkeys.input"), ",")
+	outputRoutingKeysJoinMovieRatings := strings.Split(v.GetString("ROUTINGKEYS_OUTPUT_GROUP-BY-ACTOR-COUNT"), ",")
+	storage_base_dir := v.GetString("worker.storage")
 
-	filterRoutingKeysMap := map[string][]string{
-		"join_movie_ratings": outputRoutingKeysJoinMovieRatings,
-		"join_movie_credits": outputRoutingKeysJoinMovieCredits,
+	log.Infof("Input routing keys: %v", inputRoutingKeys)
+
+	outputRoutingKey := map[string][]string{
+		"group_by_actor_count": outputRoutingKeysJoinMovieRatings,
 	}
 
 	exchangeSpec := worker.ExchangeSpec{
-		InputRoutingKeys:  strings.Split(v.GetString("routingkeys.input"), ","),
-		OutputRoutingKeys: filterRoutingKeysMap,
+		InputRoutingKeys:  inputRoutingKeys,
+		OutputRoutingKeys: outputRoutingKey,
 		QueueName:         "filter_after_2000",
 	}
-	messageBroker := v.GetString("cli.worker.broker")
 
 	if exchangeSpec.InputRoutingKeys[0] == "" || len(exchangeSpec.OutputRoutingKeys) == 0 || messageBroker == "" {
 		log.Criticalf("Error: one or more environment variables are empty --- message_broker: %s, input_routing_keys: %v, output_routing_keys: %v",
-			messageBroker, exchangeSpec.InputRoutingKeys, filterRoutingKeysMap)
+			messageBroker, exchangeSpec.InputRoutingKeys, outputRoutingKey)
 		return
 	}
 
@@ -50,8 +53,6 @@ func main() {
 		return
 	}
 
-	eofCounter := v.GetInt("EOF_COUNTER")
-	storage_base_dir := v.GetString("worker.storage")
 	join := join_movie_credits.NewJoinMovieCreditsById(join_movie_credits.JoinMovieCreditsByIdConfig{
 		WorkerConfig: worker.WorkerConfig{
 			Exchange:      exchangeSpec,
@@ -76,8 +77,8 @@ func main() {
 	select {
 	case sig := <-sigChan:
 		log.Infof("Signal received: %s. Shutting down...", sig)
-		cancel() // cancelamos el contexto → avisa al worker que debe salir
-		<-done   // esperamos que termine
+		cancel()
+		<-done
 		join.CloseWorker()
 		log.Info("Worker shut down successfully")
 	case <-done:
