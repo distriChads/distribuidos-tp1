@@ -111,7 +111,7 @@ func (f *JoinMovieCreditsById) RunWorker(ctx context.Context, starting_message s
 
 			if len(f.Pending[client_id]) != 0 {
 				pending_messages := f.Pending[client_id]
-				for _, pending_message := range pending_messages {
+				for message_id, pending_message := range pending_messages {
 					err := f.HandleLine(client_id, message_id, pending_message, f.joinMovieWithCredits)
 					if err != nil {
 						return err

@@ -64,7 +64,7 @@ func (f *CommonJoin) HandleJoiningEOF(client_id string, message_id string) error
 
 	delete(f.Client_movies_by_id, client_id)
 	delete(f.Eofs, client_id)
-	//common_statefull_worker.CleanState(f.Storage_base_dir, client_id)
+	common_statefull_worker.CleanState(f.Storage_base_dir, client_id)
 
 	return nil
 }
@@ -81,17 +81,9 @@ func (f *CommonJoin) HandleMovieEOF(client_id string, message_id string) error {
 		if err != nil {
 			return err
 		}
-		err = common_statefull_worker.StoreElements(f.Client_movies_by_id[client_id], client_id, f.Storage_base_dir)
-		if err != nil {
-			return err
-		}
 		return nil
 	}
 	err := common_statefull_worker.StoreEofsWithId(f.Eofs[client_id], client_id, f.Storage_base_dir)
-	if err != nil {
-		return err
-	}
-	err = common_statefull_worker.StoreElements(f.Client_movies_by_id[client_id], client_id, f.Storage_base_dir)
 	if err != nil {
 		return err
 	}
