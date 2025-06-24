@@ -100,7 +100,7 @@ func (f *JoinMovieCreditsById) RunWorker(ctx context.Context, starting_message s
 			msg.Ack(false)
 
 		} else { // recibiendo credits
-			if len(f.Eofs[client_id][client_id]) >= f.Expected_eof {
+			if len(f.Eofs[client_id][client_id]) < f.Expected_eof {
 				if message_str == worker.MESSAGE_EOF {
 					msg.Nack(false, true)
 				}

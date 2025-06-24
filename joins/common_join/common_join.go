@@ -123,7 +123,6 @@ func (f *CommonJoin) HandlePending(client_id string, message_id string, message_
 func (f *CommonJoin) HandleLine(client_id string, message_id string, line string, join_function func(lines []string, movies_by_id map[string]string)) error {
 	lines := strings.Split(strings.TrimSpace(line), "\n")
 	join_function(lines, f.Client_movies_by_id[client_id])
-	log.Warningf("ENVIO MENSAJE %s", line)
 	for node_type := range f.Worker.Exchange.OutputRoutingKeys {
 		messages_to_send := f.Buffer.GetMessages(node_type)
 		for routing_key_index, message := range messages_to_send {
