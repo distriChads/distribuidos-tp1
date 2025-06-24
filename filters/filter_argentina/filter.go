@@ -7,6 +7,7 @@ import (
 
 	buffer "distribuidos-tp1/common/worker/hasher"
 
+	"github.com/google/uuid"
 	"github.com/op/go-logging"
 )
 
@@ -69,8 +70,13 @@ func (f *FilterByArgentina) Filter(lines []string) bool {
 func (f *FilterByArgentina) HandleEOF(client_id string, message_id string) error {
 	for _, output_routing_keys := range f.Worker.Exchange.OutputRoutingKeys {
 		for _, output_key := range output_routing_keys {
-			message := client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
-			err := f.Worker.SendMessage(message, output_key)
+			message_id, err := uuid.NewRandom()
+			if err != nil {
+				log.Errorf("Error generating uuid: %s", err.Error())
+				return err
+			}
+			message := client_id + worker.MESSAGE_SEPARATOR + message_id.String() + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
+			err = f.Worker.SendMessage(message, output_key)
 			if err != nil {
 				return err
 			}
