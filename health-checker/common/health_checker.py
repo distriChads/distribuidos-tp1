@@ -33,31 +33,34 @@ class HealthChecker:
             if sock:
                 sock.close()
                 
-    def __reboot_container(self, service: str):
+    async def __reboot_container(self, service: str):
         addr, _port = service.split(":")
         logger.info(f"Rebooting container {addr}")
-        subprocess.run(["docker", "compose", "restart", addr])
+        while True:
+            try:
+                subprocess.run(["docker", "compose", "up", "-d", addr], check=True)
+                break
+            except subprocess.CalledProcessError as e:
+                logger.warning(f"Error rebooting container {addr}: {e}")
+                await asyncio.sleep(self.ping_interval)
         
     async def __health_check_task(self, service: str):
         try:
             while self._running:
                 sock = None
                 async with self.semaphore:
-                    attemps = 0
-                    while attemps < 3:
+                    attempts = 0
+                    while attempts < 3 and self._running:
                         try:
-                            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                            sock = Socket()
                             self._sockets[service] = sock
                             # Send PING message to service
                             addr, port = service.split(":")
-                            sock.sendto(b"PING", (addr, int(port)))
-                            
-                            # Set socket timeout for response
-                            sock.settimeout(5.0)
+                            await sock.send_to("PING", addr, int(port))
                             
                             # Listen for response
-                            data, ret_addr = sock.recvfrom(1024)
-                            if data.decode() == "OK":
+                            data = await sock.read()
+                            if data == "PONG":
                                 logger.info(f"Service {service} is healthy")
                                 if sock:
                                     sock.close()
@@ -65,19 +68,19 @@ class HealthChecker:
                                     self._sockets[service] = None
                                 break
                             else:
-                                logger.error(f"Service {service} sent unexpected response: {data.decode()}")
+                                raise ValueError(f"Service {service} sent unexpected response: {data}")
                         except socket.timeout:
                                 logger.error(f"Service {service} did not respond (timeout)")
                         except Exception as e:
                             logger.error(f"Error receiving response from {service}: {e}")
-                        attemps += 1
+                        attempts += 1
                         if sock:
                             sock.close()
                             sock = None
                             self._sockets[service] = None
-                        await asyncio.sleep(1)
-                        if attemps == 3:
-                            self.__reboot_container(service)
+                if attempts == 3:
+                    await self.__reboot_container(service)
+                    await asyncio.sleep(self.grace_period / 2.0)
                 await asyncio.sleep(self.ping_interval)
         except asyncio.CancelledError:
             logger.info(f"Health check task for {service} cancelled")
@@ -87,6 +90,7 @@ class HealthChecker:
             return
         
     async def run(self):
+        logger.info(f"Sleeping for {self.grace_period} seconds before starting health checks")
         await asyncio.sleep(self.grace_period)
         logger.info(f"Grace period of {self.grace_period} seconds has passed. Starting health checks")
         for service in self.services:

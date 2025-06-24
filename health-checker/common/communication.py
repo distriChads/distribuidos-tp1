@@ -1,11 +1,15 @@
 import codecs
 import socket
+import asyncio
+import logging
 
+logger = logging.getLogger(__name__)
 
 class Socket:
-    def __init__(self, sock: socket.socket):
-        self.sock = sock
+    def __init__(self):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.decoder = codecs.getincrementaldecoder('utf-8')()
+        self.sock.settimeout(5.0)
 
     def close(self):
         """
@@ -13,7 +17,7 @@ class Socket:
         """
         self.sock.close()
 
-    def send(self, msg: str):
+    async def send_to(self, msg: str, addr: str, port: int):
         """
         Write a message to a socket
 
@@ -22,34 +26,30 @@ class Socket:
         """
         # Encode the message to bytes
         msg_encoded = msg.encode('utf-8')
-        self.sock.sendall(len(msg_encoded).to_bytes(4, 'big') + msg_encoded)
+        data = msg_encoded + b"\0"
+        total_sent = 0
+        while total_sent < len(data):
+            sent = await asyncio.to_thread(self.sock.sendto, data[total_sent:], (addr, port))
+            if sent == 0:
+                raise RuntimeError("Socket connection broken")
+            total_sent += sent
+        logger.debug(f"Sent message to {addr}:{port} - {msg}")
 
-    def read(self) -> tuple[str, str, int, str]:
+    async def read(self) -> str:
         """
-        Read a message from a socket, ensuring that all bytes are received.
+        Read a 5 byte message from a socket, ensuring that all bytes are received.
 
         :param sock: socket to read from
         :return: message read
         """
-        # Read the first 4 bytes to get the message length
-        length_data = self._recv_exactly(4)
-        msg_len = int.from_bytes(length_data, 'big')
-
-        # Read the actual message
-        message_data = self._recv_exactly(msg_len)
-        decoded_data = self.decoder.decode(message_data)
-
-        return msg_len, decoded_data
-
-    def _recv_exactly(self, num_bytes: int) -> bytes:
-        """
-        Ensure we receive exactly num_bytes from the socket
-        """
-        data = b""
-        while len(data) < num_bytes:
-            chunk = self.sock.recv(num_bytes - len(data))
-            if not chunk:  # Connection closed before receiving expected data
-                raise ConnectionError(
-                    "Socket closed before receiving full message.")
-            data += chunk
-        return data
+        bytes, addr = await asyncio.to_thread(self.sock.recvfrom, 5)
+        logger.debug(f"Read from {addr}: {bytes}")
+        if bytes[4] != 0:
+            logger.warning(f"Invalid message from {addr}: {bytes}")
+            raise ValueError(f"Invalid message from {addr}: {bytes}")
+        if len(bytes) < 5:
+            logger.warning(f"Short read from {addr}: {bytes}")
+            raise IOError(f"Short read from {addr}: {bytes}")
+        msg = self.decoder.decode(bytes[:-1])
+        logger.debug(f"Read message: {msg}")
+        return msg

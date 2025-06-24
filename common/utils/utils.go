@@ -95,8 +95,7 @@ func HeartBeat(ctx context.Context, port int) {
 
 	logger.Infof("HeartBeat server listening on port %d", port)
 
-	// Buffer to read incoming messages
-	buffer := make([]byte, 1024)
+	buffer := make([]byte, 5)
 
 	for {
 		// Set read timeout to 1 second
@@ -115,26 +114,43 @@ func HeartBeat(ctx context.Context, port int) {
 				// Ignore timeout errors
 				continue
 			}
-			logger.Errorf("Error reading from UDP: %v", err)
+			logger.Warningf("Error reading from UDP: %v", err)
 			continue
 		}
-
-		// Print received message
+		if n < 5 {
+			logger.Warningf("Short read from %v: %s", remoteAddr, string(buffer[:n]))
+			continue
+		}
+		if buffer[4] != 0 {
+			logger.Warningf("Invalid message from %v: %s", remoteAddr, string(buffer[:n]))
+			continue
+		}
 		message := string(buffer[:n])
-		logger.Infof("Received from %v: %s", remoteAddr, message)
+		logger.Debugf("Received from %v: %s", remoteAddr, message)
 
 		// Send "OK" response back to the sender
-		response := []byte("OK")
+		response := []byte{'P', 'O', 'N', 'G', 0}
 		for i := range 3 {
-			_, err = conn.WriteToUDP(response, remoteAddr)
-			if err != nil {
-				logger.Errorf("Error sending response (attempt %d): %v", i+1, err)
-				if i == 2 {
-					logger.Errorf("Failed to send response after 3 attempts")
+
+			sent := 0
+			for sent < len(response) {
+				i, err := conn.WriteToUDP(response[sent:], remoteAddr)
+				if err != nil {
+					break
 				}
-				time.Sleep(time.Duration(2+float64(i)*1.2) * time.Second)
+				sent += i
+			}
+
+			if sent != len(response) {
+				logger.Warningf("Error sending response (attempt %d): %v", i+1, err)
+				if i == 2 {
+					logger.Warningf("Failed to send response after 3 attempts")
+				} else {
+					time.Sleep(time.Duration(2+float64(i)*1.2) * time.Second)
+					sent = 0
+				}
 			} else {
-				logger.Infof("Sent response to %v", remoteAddr)
+				logger.Debugf("Sent response to %v: %s", remoteAddr, string(response[:sent]))
 				break
 			}
 		}
