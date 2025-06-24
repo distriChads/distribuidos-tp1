@@ -853,7 +853,7 @@ services:
     networks: *id001
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
-    - ./docker-compose.yaml:/app/docker-compose.yaml
+    - docker-compose.yaml:/app/docker-compose.yaml
     environment:
     - CLI_LOGGING_LEVEL=info
     - CLI_SERVICES=filter-argentina-1:4444,filter-spain-2000-3:4444,filter-after-2000-2:4444,group-by-movie-average-1:4444,group-by-actor-count-3:4444,master-group-by-movie-average-1:4444,machine-learning-3:4444,join-movie-ratings-3:4444,client-handler:4444,health-checker-2:4444
@@ -861,6 +861,7 @@ services:
     - CLI_HEARTBEAT_PORT=4444
     - CLI_MAX_CONCURRENT_HEALTH_CHECKS=10
     - CLI_GRACE_PERIOD=20
+    - CLI_DOCKER_COMPOSE_PATH=docker-compose.yaml
   health-checker-2:
     container_name: health-checker-2
     build:
@@ -871,7 +872,7 @@ services:
     networks: *id001
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
-    - ./docker-compose.yaml:/app/docker-compose.yaml
+    - docker-compose.yaml:/app/docker-compose.yaml
     environment:
     - CLI_LOGGING_LEVEL=info
     - CLI_SERVICES=filter-argentina-2:4444,filter-only-one-country-1:4444,filter-after-2000-3:4444,group-by-movie-average-2:4444,group-by-overview-average-1:4444,master-group-by-actor-count-1:4444,top-five-country-budget-1:4444,join-movie-credits-1:4444,health-checker-3:4444
@@ -879,6 +880,7 @@ services:
     - CLI_HEARTBEAT_PORT=4444
     - CLI_MAX_CONCURRENT_HEALTH_CHECKS=10
     - CLI_GRACE_PERIOD=20
+    - CLI_DOCKER_COMPOSE_PATH=docker-compose.yaml
   health-checker-3:
     container_name: health-checker-3
     build:
@@ -889,7 +891,7 @@ services:
     networks: *id001
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
-    - ./docker-compose.yaml:/app/docker-compose.yaml
+    - docker-compose.yaml:/app/docker-compose.yaml
     environment:
     - CLI_LOGGING_LEVEL=info
     - CLI_SERVICES=filter-argentina-3:4444,filter-only-one-country-2:4444,group-by-country-sum-1:4444,group-by-movie-average-3:4444,group-by-overview-average-2:4444,master-group-by-overview-average-1:4444,top-ten-cast-movie-1:4444,join-movie-credits-2:4444,health-checker-4:4444
@@ -897,6 +899,7 @@ services:
     - CLI_HEARTBEAT_PORT=4444
     - CLI_MAX_CONCURRENT_HEALTH_CHECKS=10
     - CLI_GRACE_PERIOD=20
+    - CLI_DOCKER_COMPOSE_PATH=docker-compose.yaml
   health-checker-4:
     container_name: health-checker-4
     build:
@@ -907,7 +910,7 @@ services:
     networks: *id001
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
-    - ./docker-compose.yaml:/app/docker-compose.yaml
+    - docker-compose.yaml:/app/docker-compose.yaml
     environment:
     - CLI_LOGGING_LEVEL=info
     - CLI_SERVICES=filter-spain-2000-1:4444,filter-only-one-country-3:4444,group-by-country-sum-2:4444,group-by-actor-count-1:4444,group-by-overview-average-3:4444,machine-learning-1:4444,join-movie-ratings-1:4444,join-movie-credits-3:4444,health-checker-5:4444
@@ -915,6 +918,7 @@ services:
     - CLI_HEARTBEAT_PORT=4444
     - CLI_MAX_CONCURRENT_HEALTH_CHECKS=10
     - CLI_GRACE_PERIOD=20
+    - CLI_DOCKER_COMPOSE_PATH=docker-compose.yaml
   health-checker-5:
     container_name: health-checker-5
     build:
@@ -925,7 +929,7 @@ services:
     networks: *id001
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
-    - ./docker-compose.yaml:/app/docker-compose.yaml
+    - docker-compose.yaml:/app/docker-compose.yaml
     environment:
     - CLI_LOGGING_LEVEL=info
     - CLI_SERVICES=filter-spain-2000-2:4444,filter-after-2000-1:4444,group-by-country-sum-3:4444,group-by-actor-count-2:4444,master-group-by-country-sum-1:4444,machine-learning-2:4444,join-movie-ratings-2:4444,first-and-last-1:4444,health-checker-1:4444
@@ -933,3 +937,4 @@ services:
     - CLI_HEARTBEAT_PORT=4444
     - CLI_MAX_CONCURRENT_HEALTH_CHECKS=10
     - CLI_GRACE_PERIOD=20
+    - CLI_DOCKER_COMPOSE_PATH=docker-compose.yaml

@@ -113,7 +113,7 @@ def client_handler_service(input_routing_key,
     }
 
 
-def health_checker_services(spec, services_to_monitor, replicas):
+def health_checker_services(spec, services_to_monitor, replicas, output_path):
     services = []
     for i in range(replicas):
         _services = []
@@ -129,7 +129,8 @@ def health_checker_services(spec, services_to_monitor, replicas):
             f"CLI_PING_INTERVAL={spec['ping_interval']}",
             f"CLI_HEARTBEAT_PORT={spec.get('heartbeat_port', 4444)}",
             f"CLI_MAX_CONCURRENT_HEALTH_CHECKS={spec.get('max_concurrent_health_checks', 10)}",
-            f"CLI_GRACE_PERIOD={spec.get('grace_period', 30)}"
+            f"CLI_GRACE_PERIOD={spec.get('grace_period', 30)}",
+            f"CLI_DOCKER_COMPOSE_PATH={output_path}"
         ]
         services.append({
             "container_name": f"health-checker-{i+1}",
@@ -140,7 +141,7 @@ def health_checker_services(spec, services_to_monitor, replicas):
             "image": "health-checker:latest",
             "entrypoint": "python main.py",
             "networks": COMMON_NETWORKS,
-            "volumes": [f"/var/run/docker.sock:/var/run/docker.sock", f"./docker-compose.yaml:/app/docker-compose.yaml"],
+            "volumes": [f"/var/run/docker.sock:/var/run/docker.sock", f"{output_path}:/app/docker-compose.yaml"],
             "environment": env
         })
     return services
@@ -270,7 +271,7 @@ def generate_compose(spec_path, output_path):
             services_to_monitor.append(
                 f"client-handler:{ch_spec.get('heartbeat_port', 4444)}")
             health_checkers = health_checker_services(
-                service_spec, services_to_monitor, replicas)
+                service_spec, services_to_monitor, replicas, output_path)
             for i in range(replicas):
                 compose["services"][f"{name}-{i+1}"] = health_checkers[i]
         else:
