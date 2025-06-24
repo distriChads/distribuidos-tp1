@@ -162,5 +162,7 @@ func NewTopFiveCountryBudget(config TopFiveCountryBudgetConfig, messages_before_
 		top_five:               grouped_elements,
 		messages_before_commit: messages_before_commit,
 		storage_base_dir:       storage_base_dir,
+		eof_id:                 eof_id,
+		node_id:                node_id,
 	}
 }
