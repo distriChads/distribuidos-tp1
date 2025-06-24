@@ -112,13 +112,13 @@ class MachineLearning:
                     self.worker.send_ack(delivery_tag)
                     continue
 
-                client_id, _, message = raw_msg.split(MESSAGE_SEPARATOR, 2)
+                client_id, message_id, message = raw_msg.split(MESSAGE_SEPARATOR, 2)
                 if client_id not in self.batches_per_client:
                     self.batches_per_client[client_id] = []
                     self.movies_processed_per_client[client_id] = 0
 
                 if message == MESSAGE_EOF:
-                    self._process_remaining_messages(message, client_id)
+                    self._process_remaining_messages(message, client_id, message_id)
                     self.worker.send_ack(delivery_tag)
                     continue
 
@@ -170,15 +170,14 @@ class MachineLearning:
 
         return valid_movies, revenue_0_in_batch
 
-    def _process_remaining_messages(self, message: str, client_id: str):
+    def _process_remaining_messages(self, message: str, client_id: str, eof_id: str):
         if len(self.batches_per_client[client_id]) > 0:
             self.__process_and_send_batch(client_id)
             del self.batches_per_client[client_id]
 
         for routing_key in self.worker.exchange.output_routing_keys[OUTPUT_KEY]:
-            identifier = str(uuid.uuid4())
             self.worker.send_message(
-                f"{client_id}{MESSAGE_SEPARATOR}{identifier}{MESSAGE_SEPARATOR}{message}", routing_key)
+                f"{client_id}{MESSAGE_SEPARATOR}{eof_id}{MESSAGE_SEPARATOR}{message}", routing_key)
         log.info("Sent EOF to all routing keys")
 
     def __process_and_send_batch(self, client_id: str):
