@@ -28,7 +28,7 @@ func main() {
 	eofCounter := v.GetInt("EOF_COUNTER")
 	inputRoutingKeys := strings.Split(v.GetString("routingkeys.input"), ",")
 	outputRoutingKeysJoinMovieRatings := strings.Split(v.GetString("ROUTINGKEYS_OUTPUT_GROUP-BY-ACTOR-COUNT"), ",")
-	storage_base_dir := v.GetString("worker.storage")
+	storage_base_dir := v.GetString("cli.worker.storage")
 
 	log.Infof("Input routing keys: %v", inputRoutingKeys)
 

@@ -28,7 +28,7 @@ func main() {
 	eofCounter := v.GetInt("EOF_COUNTER")
 	inputRoutingKeys := strings.Split(v.GetString("routingkeys.input"), ",")
 	outputRoutingKeysJoinMovieRatings := strings.Split(v.GetString("ROUTINGKEYS_OUTPUT_GROUP-BY-MOVIE-AVERAGE"), ",")
-	storage_base_dir := v.GetString("worker.storage")
+	storage_base_dir := v.GetString("cli.worker.storage")
 
 	outputRoutingKey := map[string][]string{
 		"group_by_movie_avg": outputRoutingKeysJoinMovieRatings,
