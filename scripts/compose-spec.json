@@ -164,7 +164,7 @@
         },
         {
             "name": "health-checker",
-            "replicas": 1,
+            "replicas": 5,
             "log_level": "info",
             "ping_interval": 5,
             "grace_period": 10,
