@@ -120,7 +120,7 @@ func (w *Worker) initSender() error {
 	err = ch.ExchangeDeclare(
 		EXCHANGE_NAME, // name
 		EXCHANGE_TYPE, // type
-		false,         // durable
+		true,          // durable
 		false,         // auto-deleted
 		false,         // internal
 		false,         // no-wait
@@ -162,7 +162,7 @@ func (w *Worker) initReceiver(prefetch_count int) error {
 	err = ch.ExchangeDeclare(
 		EXCHANGE_NAME, // name
 		EXCHANGE_TYPE, // type
-		false,         // durable
+		true,          // durable
 		false,         // auto-deleted
 		false,         // internal
 		false,         // no-wait
@@ -178,7 +178,7 @@ func (w *Worker) initReceiver(prefetch_count int) error {
 	for _, routingKey := range w.Exchange.InputRoutingKeys {
 		q, err := ch.QueueDeclare(
 			routingKey, // name
-			false,      // durable
+			true,       // durable
 			false,      // delete when unused
 			false,      // exclusive
 			false,      // no-wait
