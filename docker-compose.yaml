@@ -693,66 +693,66 @@ services:
       - movies_net
     volumes:
       - .local-storage/top-ten-cast-movie-1:/app/storage
-  # join-movie-ratings-1:
-  #   build:
-  #     context: .
-  #     dockerfile: joins/join_movie_ratings/Dockerfile
-  #   container_name: join-movie-ratings-1
-  #   depends_on:
-  #     - rabbitmq
-  #   entrypoint: ./run_worker
-  #   environment:
-  #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-  #     - CLI_LOG_LEVEL=info
-  #     - EOF_COUNTER=9
-  #     - ROUTINGKEYS_INPUT=join-movie-ratings.1,join-ratings.1
-  #     - ROUTINGKEYS_OUTPUT_GROUP-BY-MOVIE-AVERAGE=group-by-movie-average.1,group-by-movie-average.2,group-by-movie-average.3
-  #     - CLI_WORKER_STORAGE=/app/storage
-  #   image: join_movie_ratings:latest
-  #   networks:
-  #     - movies_net
-  #   volumes:
-  #     - .local-storage/join-movie-ratings-1:/app/storage
-  # join-movie-ratings-2:
-  #   build:
-  #     context: .
-  #     dockerfile: joins/join_movie_ratings/Dockerfile
-  #   container_name: join-movie-ratings-2
-  #   depends_on:
-  #     - rabbitmq
-  #   entrypoint: ./run_worker
-  #   environment:
-  #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-  #     - CLI_LOG_LEVEL=info
-  #     - EOF_COUNTER=9
-  #     - ROUTINGKEYS_INPUT=join-movie-ratings.2,join-ratings.2
-  #     - ROUTINGKEYS_OUTPUT_GROUP-BY-MOVIE-AVERAGE=group-by-movie-average.1,group-by-movie-average.2,group-by-movie-average.3
-  #     - CLI_WORKER_STORAGE=/app/storage
-  #   image: join_movie_ratings:latest
-  #   networks:
-  #     - movies_net
-  #   volumes:
-  #     - .local-storage/join-movie-ratings-2:/app/storage
-  # join-movie-ratings-3:
-  #   build:
-  #     context: .
-  #     dockerfile: joins/join_movie_ratings/Dockerfile
-  #   container_name: join-movie-ratings-3
-  #   depends_on:
-  #     - rabbitmq
-  #   entrypoint: ./run_worker
-  #   environment:
-  #     - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
-  #     - CLI_LOG_LEVEL=info
-  #     - EOF_COUNTER=9
-  #     - ROUTINGKEYS_INPUT=join-movie-ratings.3,join-ratings.3
-  #     - ROUTINGKEYS_OUTPUT_GROUP-BY-MOVIE-AVERAGE=group-by-movie-average.1,group-by-movie-average.2,group-by-movie-average.3
-  #     - CLI_WORKER_STORAGE=/app/storage
-  #   image: join_movie_ratings:latest
-  #   networks:
-  #     - movies_net
-  #   volumes:
-  #     - .local-storage/join-movie-ratings-3:/app/storage
+  join-movie-ratings-1:
+    build:
+      context: .
+      dockerfile: joins/join_movie_ratings/Dockerfile
+    container_name: join-movie-ratings-1
+    depends_on:
+      - rabbitmq
+    entrypoint: ./run_worker
+    environment:
+      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+      - CLI_LOG_LEVEL=info
+      - EOF_COUNTER=9
+      - ROUTINGKEYS_INPUT=join-movie-ratings.1,join-ratings.1
+      - ROUTINGKEYS_OUTPUT_GROUP-BY-MOVIE-AVERAGE=group-by-movie-average.1,group-by-movie-average.2,group-by-movie-average.3
+      - CLI_WORKER_STORAGE=/app/storage
+    image: join_movie_ratings:latest
+    networks:
+      - movies_net
+    volumes:
+      - .local-storage/join-movie-ratings-1:/app/storage
+  join-movie-ratings-2:
+    build:
+      context: .
+      dockerfile: joins/join_movie_ratings/Dockerfile
+    container_name: join-movie-ratings-2
+    depends_on:
+      - rabbitmq
+    entrypoint: ./run_worker
+    environment:
+      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+      - CLI_LOG_LEVEL=info
+      - EOF_COUNTER=9
+      - ROUTINGKEYS_INPUT=join-movie-ratings.2,join-ratings.2
+      - ROUTINGKEYS_OUTPUT_GROUP-BY-MOVIE-AVERAGE=group-by-movie-average.1,group-by-movie-average.2,group-by-movie-average.3
+      - CLI_WORKER_STORAGE=/app/storage
+    image: join_movie_ratings:latest
+    networks:
+      - movies_net
+    volumes:
+      - .local-storage/join-movie-ratings-2:/app/storage
+  join-movie-ratings-3:
+    build:
+      context: .
+      dockerfile: joins/join_movie_ratings/Dockerfile
+    container_name: join-movie-ratings-3
+    depends_on:
+      - rabbitmq
+    entrypoint: ./run_worker
+    environment:
+      - CLI_WORKER_BROKER=amqp://guest:guest@rabbitmq:5672/
+      - CLI_LOG_LEVEL=info
+      - EOF_COUNTER=9
+      - ROUTINGKEYS_INPUT=join-movie-ratings.3,join-ratings.3
+      - ROUTINGKEYS_OUTPUT_GROUP-BY-MOVIE-AVERAGE=group-by-movie-average.1,group-by-movie-average.2,group-by-movie-average.3
+      - CLI_WORKER_STORAGE=/app/storage
+    image: join_movie_ratings:latest
+    networks:
+      - movies_net
+    volumes:
+      - .local-storage/join-movie-ratings-3:/app/storage
   join-movie-credits-1:
     build:
       context: .
