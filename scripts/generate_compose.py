@@ -156,7 +156,7 @@ def generic_worker_service(name,
     broker = spec.get("broker", DEFAULT_BROKER)
     env = [
         f"CLI_WORKER_BROKER={broker}",
-        f"CLI_HEARTBEAT_PORT={spec.get('heartbeat_port', 4444)}"
+        f"CLI_HEARTBEAT_PORT={spec.get('heartbeat_port', 4444)}",
         f"CLI_LOG_LEVEL={spec['log_level']}",
     ]
     if eof_counter > 0:
