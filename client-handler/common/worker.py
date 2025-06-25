@@ -105,7 +105,7 @@ class Worker:
                 routing_key=routing_key
             )
 
-        messages = ch.consume(queue=queue_name, auto_ack=True)
+        messages = ch.consume(queue=queue_name, auto_ack=False)
         self.receiver = Receiver(conn, ch, queue_name, messages)
         log.info("Receiver initialized")
 
@@ -124,26 +124,38 @@ class Worker:
 
         log.debug(f"Sent message to routing_key {routing_key}: "f"{message}")
 
+    def send_ack(self, delivery_tag: int) -> None:
+        if not self.receiver:
+            raise Exception("Receiver not initialized")
+        self.receiver.ch.basic_ack(delivery_tag=delivery_tag, multiple=False)
+
     def received_messages(self, shutdown_event: threading.Event) -> Generator[tuple[pika.spec.Basic.Deliver, pika.spec.BasicProperties, str], any, str]:
         if not self.receiver:
             raise Exception("Receiver not initialized")
         while not shutdown_event.is_set():
-            for method_frame, _properties, result_encoded in self.receiver.messages:
-                result = result_encoded.decode('utf-8')
-                yield method_frame, _properties, result
+            try:
+                for method_frame, _properties, result_encoded in self.receiver.messages:
+                    result = result_encoded.decode('utf-8')
+                    yield method_frame, _properties, result
+            except pika.exceptions.StreamLostError:
+                log.info("Receiving queue closed")
+                continue
 
     def close_worker(self) -> None:
-        self._close_sender()
         self._close_receiver()
+        self._close_sender()
 
     def _close_sender(self) -> None:
         if self.sender:
-            self.sender.ch.close()
+            # self.sender.ch.close()
             self.sender.conn.close()
             self.sender = None
+            log.info("Sender closed")
 
     def _close_receiver(self) -> None:
         if self.receiver:
+            self.receiver.ch.cancel()
             self.receiver.ch.close()
             self.receiver.conn.close()
             self.receiver = None
+            log.info("Receiver closed")

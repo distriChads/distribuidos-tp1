@@ -34,6 +34,7 @@ class Client:
         }
         self.batch_processor = MoviesProcessor(positions_for_hasher)
 
+    def init_worker(self) -> None:
         try:
             self.worker.init_senders()
             self.worker.init_receiver()
@@ -105,7 +106,7 @@ class Client:
             self.send_eof()
             self.set_next_processor()
 
-    def receive_first_chunck(self):
+    def receive_first_chunk(self):
         if self.client_socket is None:
             raise ValueError("Client socket is not connected.")
         bytes_read, chunck_received = self.read()

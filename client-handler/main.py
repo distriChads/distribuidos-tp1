@@ -1,4 +1,5 @@
 import logging
+from pika.exceptions import StreamLostError
 import threading
 import traceback
 from common.clientHandler import ClientHandler, ClientHandlerConfig
@@ -27,15 +28,15 @@ def main():
     }
 
     init_log(logging_level)
+    logging.getLogger("pika").setLevel(logging.CRITICAL)
 
-    logging.info(
-        f"action: config\nport: {port}\n"
-        f"listen_backlog: {listen_backlog}\n"
-        f"logging_level: {logging_level}\n"
-        f"rabbitmq_host: {config['CLI_WORKER_BROKER']}\n"
-        f"input_routing_keys: {routing_keys_input}\n"
-        f"output_routing_keys: {routing_keys_output}\n\n"
-    )
+    logging.info("Client Handler started. Config:")
+    logging.info(f"port: {port}")
+    logging.info(f"listen_backlog: {listen_backlog}")
+    logging.info(f"logging_level: {logging_level}")
+    logging.info(f"rabbitmq_host: {config['CLI_WORKER_BROKER']}")
+    logging.info(f"input_routing_keys: {routing_keys_input}")
+    logging.info(f"output_routing_keys: {routing_keys_output}")
 
     exchange = ExchangeSpec(
         input_routing_keys=routing_keys_input,
@@ -67,6 +68,8 @@ def main():
     try:
         heartbeat_thread.start()
         client_handler.run()
+    except StreamLostError:
+        pass # This is expected when the client handler is closed
     except Exception as e:
         logging.critical(f"Failed client handler: {e}\nTraceback: {traceback.format_exc()}")
     finally:
