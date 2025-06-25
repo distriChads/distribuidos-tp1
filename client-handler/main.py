@@ -1,8 +1,9 @@
 import logging
 import threading
+import traceback
 from common.clientHandler import ClientHandler, ClientHandlerConfig
 from common.worker import ExchangeSpec
-from common.heartbeat import heartbeat
+from common.heartbeat import Heartbeat
 from tools.logger import init_log
 from tools.config import init_config
 
@@ -48,26 +49,31 @@ def main():
         message_broker=message_broker
     )
 
-    worker = ClientHandler(
-        port=config["port"],
-        listen_backlog=listen_backlog,
-        client_handler_config=client_handler_config,
-        eof_expected=eof_expected
-    )
+    try:
+        client_handler = ClientHandler(
+            port=config["port"],
+            listen_backlog=listen_backlog,
+            client_handler_config=client_handler_config,
+            eof_expected=eof_expected
+        )
+    except Exception as e:
+        logging.critical(f"Failed to initialize client handler: {e}\nTraceback: {traceback.format_exc()}")
+        raise e
 
-    ctx = threading.Event()
+    heartbeat_server = Heartbeat(heartbeat_port)
     heartbeat_thread = threading.Thread(
-        target=heartbeat, args=(heartbeat_port, ctx))
+        target=heartbeat_server.run)
 
     try:
         heartbeat_thread.start()
-        worker.run()
+        client_handler.run()
     except Exception as e:
-        logging.critical(f"Failed client handler: {e}")
+        logging.critical(f"Failed client handler: {e}\nTraceback: {traceback.format_exc()}")
     finally:
-        ctx.set()
+        heartbeat_server.stop()
         heartbeat_thread.join()
 
 
 if __name__ == "__main__":
     main()
+    logging.info("Client Handler finished")

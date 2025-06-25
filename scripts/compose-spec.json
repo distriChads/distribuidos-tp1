@@ -10,6 +10,7 @@
             "ratings_output_nodes": ["join-movie-ratings"],
             "credits_output_nodes": ["join-movie-credits"],
             "heartbeat_port": 4444,
+            "storage": ".local-storage",
             "listen_backlog": 5
         },
         {

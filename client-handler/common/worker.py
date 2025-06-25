@@ -1,8 +1,9 @@
 import pika
 import time
 import logging
-from contextlib import contextmanager
 import uuid
+import threading
+from typing import Generator
 
 MESSAGE_SEPARATOR = "|"
 MESSAGE_ARRAY_SEPARATOR = ","
@@ -48,7 +49,7 @@ class Worker:
         self.sender = None
         self.receiver = None
 
-    def _init_connection(self):
+    def _init_connection(self) -> pika.BlockingConnection:
         max_retries = 3
         retry_sleep = 10
         backoff_factor = 2
@@ -67,7 +68,7 @@ class Worker:
         log.error("Failed to connect to broker")
         raise ConnectionError("Failed to connect to broker")
 
-    def init_senders(self):
+    def init_senders(self) -> None:
         conn = self._init_connection()
         ch = conn.channel()
 
@@ -81,7 +82,7 @@ class Worker:
         self.sender = Sender(conn, ch)
         log.info("Sender initialized")
 
-    def init_receiver(self):
+    def init_receiver(self) -> None:
         conn = self._init_connection()
         ch = conn.channel()
 
@@ -108,7 +109,7 @@ class Worker:
         self.receiver = Receiver(conn, ch, queue_name, messages)
         log.info("Receiver initialized")
 
-    def send_message(self, message: str, routing_key: str, client_id: str):
+    def send_message(self, message: str, routing_key: str, client_id: str) -> None:
         if not self.sender:
             raise Exception("Sender not initialized")
 
@@ -123,22 +124,25 @@ class Worker:
 
         log.debug(f"Sent message to routing_key {routing_key}: "f"{message}")
 
-    def received_messages(self):
+    def received_messages(self, shutdown_event: threading.Event) -> Generator[tuple[pika.spec.Basic.Deliver, pika.spec.BasicProperties, str], any, str]:
         if not self.receiver:
             raise Exception("Receiver not initialized")
-        return self.receiver.messages
+        while not shutdown_event.is_set():
+            for method_frame, _properties, result_encoded in self.receiver.messages:
+                result = result_encoded.decode('utf-8')
+                yield method_frame, _properties, result
 
-    def close_worker(self):
+    def close_worker(self) -> None:
         self._close_sender()
         self._close_receiver()
 
-    def _close_sender(self):
+    def _close_sender(self) -> None:
         if self.sender:
             self.sender.ch.close()
             self.sender.conn.close()
             self.sender = None
 
-    def _close_receiver(self):
+    def _close_receiver(self) -> None:
         if self.receiver:
             self.receiver.ch.close()
             self.receiver.conn.close()
