@@ -105,6 +105,8 @@ func (g *TopFiveCountryBudget) UpdateState(lines []string, client_id string, mes
 const COUNTRY = 0
 const BUDGET = 1
 
+// Updates the top five countrys. if we received an element that is already in the top,
+// we aren't going to store it as a top needs different elements
 func updateTopFive(lines []string, top_five []CountrByBudget) []CountrByBudget {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
