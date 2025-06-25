@@ -79,6 +79,24 @@ func InitLogger(logLevel string) error {
 	return nil
 }
 
+func listenUdp(conn *net.UDPConn, n_ch chan<- int, addr_ch chan<- *net.UDPAddr, msg_ch chan<- string) {
+	buffer := make([]byte, 5)
+	for {
+		n, remoteAddr, err := conn.ReadFromUDP(buffer)
+		if buffer[0] == 0 && n == 1 && remoteAddr.IP.String() == "127.0.0.1" {
+			logger.Info("HeartBeat server received shutdown signal")
+			return
+		}
+		if err != nil {
+			logger.Warningf("Error reading from UDP: %v", err)
+			continue
+		}
+		n_ch <- n
+		addr_ch <- remoteAddr
+		msg_ch <- string(buffer[:n])
+	}
+}
+
 func HeartBeat(ctx context.Context, port int) {
 	if logger == nil {
 		fmt.Println("Logger not initialized")
@@ -89,68 +107,61 @@ func HeartBeat(ctx context.Context, port int) {
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: port})
 	if err != nil {
 		logger.Fatal("Error listening on UDP port:", err)
+		return
 	}
 	defer conn.Close()
-
 	logger.Infof("HeartBeat server listening on port %d", port)
 
-	buffer := make([]byte, 5)
+	n_ch := make(chan int)
+	addr_ch := make(chan *net.UDPAddr)
+	msg_ch := make(chan string)
+	go listenUdp(conn, n_ch, addr_ch, msg_ch)
 
 	for {
-		// Set read timeout to 1 second
-		conn.SetReadDeadline(time.Now().Add(2 * time.Second))
-
 		select {
 		case <-ctx.Done():
 			logger.Info("HeartBeat server shutting down")
+			conn.WriteToUDP([]byte{0}, &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: port})
 			return
-		default:
-		}
-		// Read message from UDP connection
-		n, remoteAddr, err := conn.ReadFromUDP(buffer)
-		if err != nil {
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-				// Ignore timeout errors
+		case n := <-n_ch:
+			// Read message from UDP connection
+			remoteAddr := <-addr_ch
+			message := <-msg_ch
+			if n < 5 {
+				logger.Warningf("Short read from %v: %s", remoteAddr, message)
 				continue
 			}
-			logger.Warningf("Error reading from UDP: %v", err)
-			continue
-		}
-		if n < 5 {
-			logger.Warningf("Short read from %v: %s", remoteAddr, string(buffer[:n]))
-			continue
-		}
-		if buffer[4] != 0 {
-			logger.Warningf("Invalid message from %v: %s", remoteAddr, string(buffer[:n]))
-			continue
-		}
-		message := string(buffer[:n])
-		logger.Debugf("Received from %v: %s", remoteAddr, message)
+			if message[4] != 0 {
+				logger.Warningf("Invalid message from %v: %s", remoteAddr, message)
+				continue
+			}
+			logger.Debugf("Received from %v: %s", remoteAddr, message)
 
-		// Send "OK" response back to the sender
-		response := []byte{'P', 'O', 'N', 'G', 0}
-		for i := range 3 {
+			// Send "OK" response back to the sender
+			response := []byte{'P', 'O', 'N', 'G', 0}
+			for i := range 3 {
 
-			sent := 0
-			for sent < len(response) {
-				i, err := conn.WriteToUDP(response[sent:], remoteAddr)
-				if err != nil {
+				sent := 0
+				for sent < len(response) {
+					i, err := conn.WriteToUDP(response[sent:], remoteAddr)
+					if err != nil {
+						break
+					}
+					sent += i
+				}
+
+				if sent != len(response) {
+					logger.Warningf("Error sending response (attempt %d): %v", i+1, err)
+					if i == 2 {
+						logger.Warningf("Failed to send response after 3 attempts")
+					} else {
+						time.Sleep(time.Duration(2+float64(i)*1.2) * time.Second)
+						sent = 0
+					}
+				} else {
+					logger.Debugf("Sent response to %v: %s", remoteAddr, string(response[:sent]))
 					break
 				}
-				sent += i
-			}
-
-			if sent != len(response) {
-				logger.Warningf("Error sending response (attempt %d): %v", i+1, err)
-				if i == 2 {
-					logger.Warningf("Failed to send response after 3 attempts")
-				} else {
-					time.Sleep(time.Duration(2+float64(i)*1.2) * time.Second)
-					sent = 0
-				}
-			} else {
-				logger.Debugf("Sent response to %v: %s", remoteAddr, string(response[:sent]))
-				break
 			}
 		}
 	}

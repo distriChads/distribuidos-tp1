@@ -60,6 +60,7 @@ class ContainerController:
 
     def kill_containers(self, container_names: list[str]):
         containers = " ".join(container_names)
+        print(f"Containers cruelmente asesinados: {containers}")
         self.run_cmd(f"docker stop {containers}")
 
     def kill_container(self, container_name):
@@ -78,6 +79,7 @@ class ContainerController:
 
         for container_name in self.containers:
             if container_name.startswith("health-checker") and not health_checker_skipped:
+                print(f"Salvando health-checker: {container_name}")
                 containers_to_kill.remove(container_name)
                 health_checker_skipped = True
             elif container_name.startswith("client-handler") and not client_handler_skipped:
