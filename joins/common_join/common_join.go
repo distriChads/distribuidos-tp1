@@ -1,9 +1,11 @@
 package common_join
 
 import (
+	"context"
 	buffer "distribuidos-tp1/common/worker/hasher"
 	"distribuidos-tp1/common/worker/worker"
 	"distribuidos-tp1/common_statefull_worker"
+	"errors"
 	"slices"
 	"strings"
 
@@ -112,7 +114,26 @@ func (f *CommonJoin) HandlePending(client_id string, message_id string, message_
 
 }
 
+func (f *CommonJoin) SendPendings(client_id string, join_function func(lines []string, movies_by_id map[string]string)) error {
+	if len(f.Pending[client_id]) != 0 {
+		pending_messages := f.Pending[client_id]
+		for message_id, pending_message := range pending_messages {
+			err := f.HandleLine(client_id, message_id, pending_message, join_function)
+			if err != nil {
+				return err
+			}
+		}
+		common_statefull_worker.CleanPending(f.Storage_base_dir, client_id)
+		delete(f.Pending, client_id)
+	}
+	return nil
+}
+
 func (f *CommonJoin) HandleLine(client_id string, message_id string, line string, join_function func(lines []string, movies_by_id map[string]string)) error {
+	if line == worker.MESSAGE_EOF {
+		f.HandleJoiningEOF(client_id, message_id)
+		return nil
+	}
 	lines := strings.Split(strings.TrimSpace(line), "\n")
 	join_function(lines, f.Client_movies_by_id[client_id])
 	for node_type := range f.Worker.Exchange.OutputRoutingKeys {
@@ -131,4 +152,71 @@ func (f *CommonJoin) HandleLine(client_id string, message_id string, line string
 
 	}
 	return nil
+}
+
+func (f *CommonJoin) RunWorker(ctx context.Context, starting_message string, join_function func(lines []string, movies_by_id map[string]string), storing_function func(line string, movies_by_id map[string]string)) error {
+
+	for {
+		msg, inputIndex, err := f.Worker.ReceivedMessages(ctx)
+		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				log.Info("Shutting down message dispatcher gracefully")
+				return nil
+			}
+			log.Errorf("Error receiving messages: %s", err)
+			return err
+		}
+		message_str := string(msg.Body)
+
+		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 3)[0]
+		message_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 3)[1]
+		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 3)[2]
+		f.EnsureClient(client_id)
+		if inputIndex == 0 { // recibiendo movies
+
+			if message_str == worker.MESSAGE_EOF {
+				err := f.HandleMovieEOF(client_id, message_id)
+				if err != nil {
+					return err
+				}
+				if len(f.Eofs[client_id][client_id]) >= f.Expected_eof {
+					f.SendPendings(client_id, join_function)
+				}
+				msg.Ack(false)
+				continue
+			}
+
+			line := strings.TrimSpace(message_str)
+			storing_function(line, f.Client_movies_by_id[client_id])
+			err := common_statefull_worker.StoreElements(f.Client_movies_by_id[client_id], client_id, f.Storage_base_dir)
+			if err != nil {
+				return err
+			}
+			msg.Ack(false)
+
+		} else { // recibiendo credits
+			if len(f.Eofs[client_id][client_id]) < f.Expected_eof {
+				f.HandlePending(client_id, message_id, message_str)
+				msg.Ack(false)
+				continue
+			}
+
+			f.SendPendings(client_id, join_function)
+
+			if message_str == worker.MESSAGE_EOF {
+				err := f.HandleJoiningEOF(client_id, message_id)
+				if err != nil {
+					return err
+				}
+				msg.Ack(false)
+				continue
+			}
+
+			err = f.HandleLine(client_id, message_id, message_str, join_function)
+			if err != nil {
+				return err
+			}
+			msg.Ack(false)
+		}
+	}
 }

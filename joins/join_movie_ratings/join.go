@@ -3,16 +3,10 @@ package join_movie_ratings
 import (
 	"context"
 	worker "distribuidos-tp1/common/worker/worker"
-	"distribuidos-tp1/common_statefull_worker"
 	"distribuidos-tp1/joins/common_join"
-	"errors"
 	"strconv"
 	"strings"
-
-	"github.com/op/go-logging"
 )
-
-var log = logging.MustGetLogger("join_movie_ratings")
 
 type JoinMovieRatingByIdConfig struct {
 	worker.WorkerConfig
@@ -62,78 +56,5 @@ func NewJoinMovieRatingById(config JoinMovieRatingByIdConfig, storage_base_dir s
 }
 
 func (f *JoinMovieRatingById) RunWorker(ctx context.Context, starting_message string) error {
-	for {
-		msg, inputIndex, err := f.Worker.ReceivedMessages(ctx)
-		if err != nil {
-			if errors.Is(err, context.Canceled) {
-				log.Info("Shutting down message dispatcher gracefully")
-				return nil
-			}
-			log.Errorf("Error receiving messages: %s", err)
-			return err
-		}
-		message_str := string(msg.Body)
-
-		client_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 3)[0]
-		message_id := strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 3)[1]
-		message_str = strings.SplitN(message_str, worker.MESSAGE_SEPARATOR, 3)[2]
-		f.EnsureClient(client_id)
-		if inputIndex == 0 { // recibiendo movies
-
-			if message_str == worker.MESSAGE_EOF {
-				err := f.HandleMovieEOF(client_id, message_id)
-				if err != nil {
-					return err
-				}
-				msg.Ack(false)
-				continue
-			}
-
-			line := strings.TrimSpace(message_str)
-			storeMovieWithId(line, f.Client_movies_by_id[client_id])
-			err := common_statefull_worker.StoreElements(f.Client_movies_by_id[client_id], client_id, f.Storage_base_dir)
-			if err != nil {
-				return err
-			}
-			msg.Ack(false)
-
-		} else { // recibiendo ratings
-			if len(f.Eofs[client_id][client_id]) < f.Expected_eof {
-				if message_str == worker.MESSAGE_EOF {
-					msg.Nack(false, true)
-				}
-				f.HandlePending(client_id, message_id, message_str)
-				msg.Ack(false)
-				continue
-			}
-
-			if len(f.Pending[client_id]) != 0 {
-				pending_messages := f.Pending[client_id]
-				for message_id, pending_message := range pending_messages {
-					err := f.HandleLine(client_id, message_id, pending_message, f.joinMovieWithRating)
-					if err != nil {
-						return err
-					}
-				}
-				common_statefull_worker.CleanPending(f.Storage_base_dir, client_id)
-				delete(f.Pending, client_id)
-			}
-
-			if message_str == worker.MESSAGE_EOF {
-				err := f.HandleJoiningEOF(client_id, message_id)
-				if err != nil {
-					return err
-				}
-				msg.Ack(false)
-				continue
-			}
-
-			err = f.HandleLine(client_id, message_id, message_str, f.joinMovieWithRating)
-			if err != nil {
-				return err
-			}
-			msg.Ack(false)
-		}
-
-	}
+	return f.CommonJoin.RunWorker(ctx, starting_message, f.joinMovieWithRating, storeMovieWithId)
 }
