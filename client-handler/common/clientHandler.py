@@ -1,6 +1,7 @@
 import logging
 import signal
 import socket
+import os
 import threading
 from types import FrameType
 from typing import Optional
@@ -27,6 +28,7 @@ class ClientHandler:
         # Handle SIGINT (Ctrl+C) and SIGTERM (docker stop)
         signal.signal(signal.SIGINT, self.__graceful_shutdown_handler)
         signal.signal(signal.SIGTERM, self.__graceful_shutdown_handler)
+        signal.signal(signal.SIGABRT, self.__graceful_shutdown_handler)
 
         # Initialize instance variables
         self._shutdown = threading.Event()
@@ -53,6 +55,10 @@ class ClientHandler:
         self._cli_hand_socket.listen(listen_backlog)
 
     def __graceful_shutdown_handler(self, signum: Optional[int] = None, frame: Optional[FrameType] = None):
+        if signum == signal.SIGABRT: # ungraceful shutdown
+            logging.critical("Client handler blew up")
+            os._exit(1)
+        
         self._shutdown.set()
         self.worker.close_worker()
         self._cli_hand_socket.close()
