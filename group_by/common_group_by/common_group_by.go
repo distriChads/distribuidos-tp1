@@ -118,7 +118,7 @@ func (g *CommonGroupBy[T]) HandleEOF(client_id string, message_id string, lines 
 		delete(g.messages, client_id)
 		delete(g.Grouped_elements, client_id)
 		delete(g.eofs, client_id)
-		common_statefull_worker.CleanState(g.storage_base_dir, client_id)
+		common_statefull_worker.CleanGroupNode(g.storage_base_dir, client_id)
 		return nil
 	}
 

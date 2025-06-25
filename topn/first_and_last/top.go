@@ -96,7 +96,7 @@ func (g *FirstAndLast) HandleEOF(client_id string, message_id string) error {
 		return err
 	}
 	delete(g.first_and_last_movies, client_id)
-	common_statefull_worker.CleanState(g.storage_base_dir, client_id)
+	common_statefull_worker.CleanTopNNode(g.storage_base_dir, client_id)
 	return nil
 }
 

@@ -400,6 +400,10 @@ func genericStoreElements[T any](results map[string]T, client_id, storage_base_d
 	return nil
 }
 
+// genericCleanState deletes all state files for a given client
+// storage_base_dir is the base directory where state files are stored
+// client_id is the id of the client to delete state files for
+// dir_name is the name of the directory where the files are stored
 func genericCleanState(storage_base_dir string, client_id string, dir_name string) {
 	dir := fmt.Sprintf("%s/%s", storage_base_dir, dir_name)
 	files, err := os.ReadDir(dir)
@@ -421,13 +425,20 @@ func CleanPending(storage_base_dir string, client_id string) {
 	genericCleanState(storage_base_dir, client_id, "pending")
 }
 
-// CleanState deletes all state files for a given client
-// storage_base_dir is the base directory where state files are stored
-// client_id is the id of the client to delete state files for
-func CleanState(storage_base_dir string, client_id string) {
+func CleanGroupNode(storage_base_dir string, client_id string) {
 	genericCleanState(storage_base_dir, client_id, "state")
 	genericCleanState(storage_base_dir, client_id, "ids")
-	genericCleanState(storage_base_dir, client_id, "eofs")
 	genericCleanState(storage_base_dir, client_id, "node")
+	genericCleanState(storage_base_dir, client_id, "eofs")
+}
+
+func CleanJoinNode(storage_base_dir string, client_id string) {
+	genericCleanState(storage_base_dir, client_id, "state")
+	genericCleanState(storage_base_dir, client_id, "eofs")
 	CleanPending(storage_base_dir, client_id)
+}
+
+func CleanTopNNode(storage_base_dir string, client_id string) {
+	genericCleanState(storage_base_dir, client_id, "state")
+	genericCleanState(storage_base_dir, client_id, "node")
 }

@@ -50,7 +50,7 @@ func main() {
 		return
 	}
 
-	storage_base_dir := v.GetString("worker.storage")
+	storage_base_dir := v.GetString("cli.worker.storage")
 	topn := topn.NewTopFiveCountryBudget(topn.TopFiveCountryBudgetConfig{
 		WorkerConfig: worker.WorkerConfig{
 			Exchange:      exchangeSpec,

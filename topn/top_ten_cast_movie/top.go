@@ -89,7 +89,7 @@ func (g *TopTenCastMovie) HandleEOF(client_id string, message_id string) error {
 		return err
 	}
 	delete(g.top_ten, client_id)
-	common_statefull_worker.CleanState(g.storage_base_dir, client_id)
+	common_statefull_worker.CleanTopNNode(g.storage_base_dir, client_id)
 	return nil
 }
 

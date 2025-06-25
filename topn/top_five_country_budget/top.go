@@ -90,7 +90,7 @@ func (g *TopFiveCountryBudget) HandleEOF(client_id string, message_id string) er
 		return err
 	}
 	delete(g.top_five, client_id)
-	common_statefull_worker.CleanState(g.storage_base_dir, client_id)
+	common_statefull_worker.CleanTopNNode(g.storage_base_dir, client_id)
 	return nil
 }
 
