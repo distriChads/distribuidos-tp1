@@ -18,11 +18,10 @@ type FirstAndLastConfig struct {
 
 type FirstAndLast struct {
 	worker.Worker
-	first_and_last_movies  map[string]map[string]FirstAndLastMovies
-	messages_before_commit int
-	storage_base_dir       string
-	eof_id                 map[string]string
-	node_id                map[string]string
+	first_and_last_movies map[string]map[string]FirstAndLastMovies
+	storage_base_dir      string
+	eof_id                map[string]string
+	node_id               map[string]string
 }
 
 type MovieAvgByScore struct {
@@ -135,7 +134,7 @@ func updateFirstAndLast(lines []string, firstAndLastMovies FirstAndLastMovies) F
 	return firstAndLastMovies
 }
 
-func NewFirstAndLast(config FirstAndLastConfig, messages_before_commit int, storage_base_dir string) *FirstAndLast {
+func NewFirstAndLast(config FirstAndLastConfig, storage_base_dir string) *FirstAndLast {
 	log.Infof("FirstAndLast: %+v", config)
 	grouped_elements, _ := common_statefull_worker.GetElements[FirstAndLastMovies](storage_base_dir)
 
@@ -156,11 +155,10 @@ func NewFirstAndLast(config FirstAndLastConfig, messages_before_commit int, stor
 	}
 
 	return &FirstAndLast{
-		Worker:                 *worker,
-		first_and_last_movies:  grouped_elements,
-		messages_before_commit: messages_before_commit,
-		storage_base_dir:       storage_base_dir,
-		eof_id:                 eof_id,
-		node_id:                node_id,
+		Worker:                *worker,
+		first_and_last_movies: grouped_elements,
+		storage_base_dir:      storage_base_dir,
+		eof_id:                eof_id,
+		node_id:               node_id,
 	}
 }

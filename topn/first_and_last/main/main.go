@@ -50,17 +50,13 @@ func main() {
 		return
 	}
 
-	maxMessages := v.GetInt("worker.maxmessages")
-	if maxMessages == 0 {
-		maxMessages = 10
-	}
 	storage_base_dir := v.GetString("worker.storage")
 	topn := topn.NewFirstAndLast(topn.FirstAndLastConfig{
 		WorkerConfig: worker.WorkerConfig{
 			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
 		},
-	}, maxMessages, storage_base_dir)
+	}, storage_base_dir)
 	if topn == nil {
 		return
 	}

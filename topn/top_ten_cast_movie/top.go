@@ -20,11 +20,10 @@ type TopTenCastMovieConfig struct {
 
 type TopTenCastMovie struct {
 	worker.Worker
-	top_ten                map[string]map[string][]TopTenCastCount
-	messages_before_commit int
-	storage_base_dir       string
-	eof_id                 map[string]string
-	node_id                map[string]string
+	top_ten          map[string]map[string][]TopTenCastCount
+	storage_base_dir string
+	eof_id           map[string]string
+	node_id          map[string]string
 }
 
 type TopTenCastCount struct {
@@ -140,7 +139,7 @@ func updateTopTen(lines []string, top_ten []TopTenCastCount) []TopTenCastCount {
 	return top_ten
 }
 
-func NewTopTenCastMovie(config TopTenCastMovieConfig, messages_before_commit int, storage_base_dir string) *TopTenCastMovie {
+func NewTopTenCastMovie(config TopTenCastMovieConfig, storage_base_dir string) *TopTenCastMovie {
 	log.Infof("TopTenCastMovie: %+v", config)
 	grouped_elements, _ := common_statefull_worker.GetElements[[]TopTenCastCount](storage_base_dir)
 
@@ -161,11 +160,10 @@ func NewTopTenCastMovie(config TopTenCastMovieConfig, messages_before_commit int
 	}
 
 	return &TopTenCastMovie{
-		Worker:                 *worker,
-		top_ten:                grouped_elements,
-		messages_before_commit: messages_before_commit,
-		storage_base_dir:       storage_base_dir,
-		eof_id:                 eof_id,
-		node_id:                node_id,
+		Worker:           *worker,
+		top_ten:          grouped_elements,
+		storage_base_dir: storage_base_dir,
+		eof_id:           eof_id,
+		node_id:          node_id,
 	}
 }

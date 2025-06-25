@@ -20,11 +20,10 @@ type TopFiveCountryBudgetConfig struct {
 
 type TopFiveCountryBudget struct {
 	worker.Worker
-	top_five               map[string]map[string][]CountrByBudget
-	messages_before_commit int
-	storage_base_dir       string
-	eof_id                 map[string]string
-	node_id                map[string]string
+	top_five         map[string]map[string][]CountrByBudget
+	storage_base_dir string
+	eof_id           map[string]string
+	node_id          map[string]string
 }
 
 type CountrByBudget struct {
@@ -137,7 +136,7 @@ func updateTopFive(lines []string, top_five []CountrByBudget) []CountrByBudget {
 	return top_five
 }
 
-func NewTopFiveCountryBudget(config TopFiveCountryBudgetConfig, messages_before_commit int, storage_base_dir string) *TopFiveCountryBudget {
+func NewTopFiveCountryBudget(config TopFiveCountryBudgetConfig, storage_base_dir string) *TopFiveCountryBudget {
 	log.Infof("TopFiveCountryBudget: %+v", config)
 	grouped_elements, _ := common_statefull_worker.GetElements[[]CountrByBudget](storage_base_dir)
 
@@ -158,11 +157,10 @@ func NewTopFiveCountryBudget(config TopFiveCountryBudgetConfig, messages_before_
 	}
 
 	return &TopFiveCountryBudget{
-		Worker:                 *worker,
-		top_five:               grouped_elements,
-		messages_before_commit: messages_before_commit,
-		storage_base_dir:       storage_base_dir,
-		eof_id:                 eof_id,
-		node_id:                node_id,
+		Worker:           *worker,
+		top_five:         grouped_elements,
+		storage_base_dir: storage_base_dir,
+		eof_id:           eof_id,
+		node_id:          node_id,
 	}
 }

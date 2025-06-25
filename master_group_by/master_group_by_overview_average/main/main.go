@@ -50,7 +50,6 @@ func main() {
 		return
 	}
 
-	maxMessages := v.GetInt("cli.worker.maxmessages")
 	expectedEof := v.GetInt("EOF_COUNTER")
 	storage_base_dir := v.GetString("cli.worker.storage")
 
@@ -59,7 +58,7 @@ func main() {
 			Exchange:      exchangeSpec,
 			MessageBroker: messageBroker,
 		},
-	}, maxMessages, expectedEof, storage_base_dir)
+	}, expectedEof, storage_base_dir)
 	if master_group_by == nil {
 		return
 	}
