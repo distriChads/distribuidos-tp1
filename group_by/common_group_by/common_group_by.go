@@ -107,7 +107,6 @@ func (g *CommonGroupBy[T]) VerifyRepeatedMessage(client_id string, message_id st
 // we then store this eofs, our inner state and ack all messages of that client
 // if getting the ack makes us getting the expected amount, we first store our inner state
 // then we send the result to the next node, we ack every message and clean our state
-// the problems here are: what if we die during the last eof?
 // if we die a line before storing our state, there is a problem if the prefetch isn't 1.
 // Rabbit does not ensure the order of the messages when the node dies, so we can have this
 // message - eof - message. and we will be skipping this message, so becareful when the env var of maxmessages != 1
