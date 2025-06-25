@@ -97,7 +97,7 @@ def client_handler_service(input_routing_key,
         f"OUTPUT_ROUTINGKEYS_MACHINE_LEARNING={ml_replicas}",
         f"EOF_EXPECTED={eof_expected}",
         f"HEARTBEAT_PORT={heartbeat_port}",
-        f"CLI_WORKER_STORAGE={storage}"
+        f"STATE_FILE_PATH=/app/storage/state.json"
     ])
 
     return {
@@ -111,6 +111,7 @@ def client_handler_service(input_routing_key,
         "networks": COMMON_NETWORKS,
         "ports": [f"{CLI_HANDLER_PORT}:{CLI_HANDLER_PORT}"],
         "depends_on": COMMON_DEPENDS_ON[:],
+        "volumes": [f"{storage}/client-handler:/app/storage"],
         "environment": env
     }
 

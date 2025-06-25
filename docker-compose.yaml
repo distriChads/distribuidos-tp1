@@ -28,6 +28,8 @@ services:
     - 3000:3000
     depends_on:
     - rabbitmq
+    volumes:
+    - .local-storage/client-handler:/app/storage
     environment:
     - CLIENT_HANDLER_PORT=3000
     - LOGGING_LEVEL=info
@@ -41,7 +43,7 @@ services:
     - OUTPUT_ROUTINGKEYS_MACHINE_LEARNING=machine-learning.1,machine-learning.2,machine-learning.3
     - EOF_EXPECTED=13
     - HEARTBEAT_PORT=4444
-    - CLI_WORKER_STORAGE=.local-storage
+    - STATE_FILE_PATH=/app/storage/state.json
   filter-argentina-1:
     build:
       context: .
@@ -532,7 +534,6 @@ services:
     - ROUTINGKEYS_INPUT=master-group-by-country-sum.1
     - ROUTINGKEYS_OUTPUT_TOP-FIVE-COUNTRY-BUDGET=top-five-country-budget.1
     - CLI_WORKER_STORAGE=/app/storage
-    - CLI_WORKER_MAXMESSAGES=10
     image: master_group_by_country_sum:latest
     networks:
     - movies_net
@@ -554,7 +555,6 @@ services:
     - ROUTINGKEYS_INPUT=master-group-by-movie-average.1
     - ROUTINGKEYS_OUTPUT_FIRST-AND-LAST=first-and-last.1
     - CLI_WORKER_STORAGE=/app/storage
-    - CLI_WORKER_MAXMESSAGES=10
     image: master_group_by_movie_average:latest
     networks:
     - movies_net
@@ -576,7 +576,6 @@ services:
     - ROUTINGKEYS_INPUT=master-group-by-actor-count.1
     - ROUTINGKEYS_OUTPUT_TOP-TEN-CAST-MOVIE=top-ten-cast-movie.1
     - CLI_WORKER_STORAGE=/app/storage
-    - CLI_WORKER_MAXMESSAGES=10
     image: master_group_by_actor_count:latest
     networks:
     - movies_net
@@ -598,7 +597,6 @@ services:
     - ROUTINGKEYS_INPUT=master-group-by-overview-average.1
     - ROUTINGKEYS_OUTPUT_OUTPUT_ROUTINGKEY=query5.results
     - CLI_WORKER_STORAGE=/app/storage
-    - CLI_WORKER_MAXMESSAGES=10
     image: master_group_by_overview_average:latest
     networks:
     - movies_net
@@ -670,7 +668,6 @@ services:
     - ROUTINGKEYS_INPUT=top-five-country-budget.1
     - ROUTINGKEYS_OUTPUT_OUTPUT_ROUTINGKEY=query2.results
     - CLI_WORKER_STORAGE=/app/storage
-    - CLI_WORKER_MAXMESSAGES=10
     image: top_five_country_budget:latest
     networks:
     - movies_net
@@ -691,7 +688,6 @@ services:
     - ROUTINGKEYS_INPUT=top-ten-cast-movie.1
     - ROUTINGKEYS_OUTPUT_OUTPUT_ROUTINGKEY=query4.results
     - CLI_WORKER_STORAGE=/app/storage
-    - CLI_WORKER_MAXMESSAGES=10
     image: top_ten_cast_movie:latest
     networks:
     - movies_net
@@ -838,7 +834,6 @@ services:
     - ROUTINGKEYS_INPUT=first-and-last.1
     - ROUTINGKEYS_OUTPUT_OUTPUT_ROUTINGKEY=query3.results
     - CLI_WORKER_STORAGE=/app/storage
-    - CLI_WORKER_MAXMESSAGES=10
     image: first_and_last:latest
     networks:
     - movies_net

@@ -15,7 +15,7 @@ def main():
     port = config["port"]
     listen_backlog = config["listen_backlog"]
     heartbeat_port = config["heartbeat_port"]
-
+    state_file_path = config["state_file_path"]
     eof_expected = config["eof_expected"]
 
     routing_keys_input = config["INPUT_ROUTINGKEY"].split(",")
@@ -37,7 +37,8 @@ def main():
     logging.info(f"rabbitmq_host: {config['CLI_WORKER_BROKER']}")
     logging.info(f"input_routing_keys: {routing_keys_input}")
     logging.info(f"output_routing_keys: {routing_keys_output}")
-
+    logging.info(f"state_file_path: {state_file_path}")
+    
     exchange = ExchangeSpec(
         input_routing_keys=routing_keys_input,
         output_routing_keys=routing_keys_output,
@@ -55,7 +56,8 @@ def main():
             port=config["port"],
             listen_backlog=listen_backlog,
             client_handler_config=client_handler_config,
-            eof_expected=eof_expected
+            eof_expected=eof_expected,
+            state_file_path=state_file_path
         )
     except Exception as e:
         logging.critical(f"Failed to initialize client handler: {e}\nTraceback: {traceback.format_exc()}")

@@ -44,7 +44,7 @@ class Client:
 
     def close(self):
         self.client_socket.close()
-        # self.worker.close_worker()
+        self.worker.close_worker()
 
     def read(self):
         return self.client_socket.read()
@@ -111,3 +111,12 @@ class Client:
             raise ValueError("Client socket is not connected.")
         bytes_read, chunck_received = self.read()
         return self.batch_processor.process_first_batch(bytes_read, chunck_received)
+    
+class StaleClient(Client):
+    def __init__(self, client_id: str, config: WorkerConfig):
+        super().__init__(None, config)
+        self.client_id = client_id
+        self.init_worker()
+        
+    def close(self):
+        self.worker.close_worker()

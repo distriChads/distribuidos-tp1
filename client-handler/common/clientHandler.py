@@ -6,9 +6,10 @@ import threading
 from types import FrameType
 from typing import Optional
 from .worker import Worker, WorkerConfig
-from .client import Client
+from .client import Client, StaleClient
 from collections import defaultdict
 from common.communication import Socket
+from common.stateManager import StateManager
 
 FILES_TO_RECEIVE = 3
 EOF = "EOF"
@@ -24,6 +25,7 @@ class ClientHandler:
                  client_handler_config: ClientHandlerConfig,
                  listen_backlog: int,
                  eof_expected: int,
+                 state_file_path: str,
                  ):
         # Handle SIGINT (Ctrl+C) and SIGTERM (docker stop)
         signal.signal(signal.SIGINT, self.__graceful_shutdown_handler)
@@ -53,19 +55,38 @@ class ClientHandler:
             socket.AF_INET, socket.SOCK_STREAM)
         self._cli_hand_socket.bind(('', port))
         self._cli_hand_socket.listen(listen_backlog)
+        
+        # Initialize state manager and clean stale clients
+        self.state_manager = StateManager(state_file_path)
 
     def __graceful_shutdown_handler(self, signum: Optional[int] = None, frame: Optional[FrameType] = None):
-        if signum == signal.SIGABRT: # ungraceful shutdown
+        # ===== TEST: ungraceful shutdown on client handler =====
+        if signum == signal.SIGABRT:
             logging.critical("Client handler blew up")
             os._exit(1)
+        # ===== TEST: ungraceful shutdown on client handler =====
         
         self._shutdown.set()
         self.worker.close_worker()
         self._cli_hand_socket.close()
 
+    def __clean_stale_clients(self) -> None:
+        stale_clients = self.state_manager.get_all_clients()
+        if not stale_clients:
+            logging.info("No stale clients found")
+            return
+        
+        logging.info(f"Cleaning {len(stale_clients)} stale clients")
+        for client_id in stale_clients:
+            client = StaleClient(client_id, self.client_handler_config)
+            client.send_all_eof()
+            client.close()
+            self.state_manager.delete_client(client_id)
+
     def run(self) -> None:
         results_thread = threading.Thread(target=self.__manage_client_results)
         results_thread.start()
+        self.__clean_stale_clients()
 
         while not self._shutdown.is_set():
             client_socket = self.__accept_new_connection()
@@ -77,6 +98,7 @@ class ClientHandler:
                 client_t = threading.Thread(target=self.__receive_datasets,
                                  args=(client,))
                 self.client_threads[client.client_id] = client_t
+                self.state_manager.add_client(client.client_id)
                 client_t.start()
         for thread in self.client_threads.values():
             thread.join()
@@ -150,11 +172,15 @@ class ClientHandler:
                     client_id, 0) + 1
                 if self.eof_per_client[client_id] >= self.eof_expected:
                     with self.clients_lock:
-                        client = self.clients.pop(client_id)
+                        client = self.clients.pop(client_id, None)
+                        if not client:
+                            logging.warning(f"EOF received for non-existent client {client_id}")
+                            continue
                     logging.info(
                         f"EOF received for client {client_id} - closing connection")
                     client.send(EOF)
                     client.close()
+                    self.state_manager.delete_client(client_id)
                     self.__join_client(client_id)
                     if client_id in received_messages_id:
                         del received_messages_id[client_id]

@@ -51,3 +51,5 @@ def setup_client_handler_config_esentials(config, config_params):
         'CLI_WORKER_BROKER') or config["DEFAULT"]["CLI_WORKER_BROKER"]
     config_params["heartbeat_port"] = int(
         os.getenv('HEARTBEAT_PORT') or config["DEFAULT"]["HEARTBEAT_PORT"])
+    config_params["state_file_path"] = os.getenv(
+        'STATE_FILE_PATH') or config["DEFAULT"]["STATE_FILE_PATH"]
