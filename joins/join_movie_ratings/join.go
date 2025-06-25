@@ -32,6 +32,8 @@ func storeMovieWithId(line string, movies_by_id map[string]string) {
 // MESSAGE FORMAT: MOVIE_ID|SCORE
 // ---------------------------------
 
+// get the movie_id, if there is nothing to join, continues
+// if there is data, add the message to the hasher buffer
 func (f *JoinMovieRatingById) joinMovieWithRating(lines []string, movies_by_id map[string]string) {
 
 	for _, line := range lines {

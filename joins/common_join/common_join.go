@@ -24,6 +24,8 @@ type CommonJoin struct {
 
 var log = logging.MustGetLogger("common_join")
 
+// Creates a new join, this are the steps
+// we get the elements from the state, the pending data and the eofs
 func NewCommonJoin(config worker.WorkerConfig, storage_base_dir string, eofCounter int) *CommonJoin {
 	log.Infof("New join: %+v", config)
 	grouped_elements, _ := common_statefull_worker.GetElements[string](storage_base_dir)
@@ -52,6 +54,9 @@ func NewCommonJoin(config worker.WorkerConfig, storage_base_dir string, eofCount
 	}
 }
 
+// Handle the EOF by sending it to every next node we have, the joins receives only one eof from their credits/ratings queue
+// if we receive again the same eof, we simply send a message with that id, so the next node will discard it.
+// if everything went fine, clean the state
 func (f *CommonJoin) HandleJoiningEOF(client_id string, message_id string) error {
 	log.Warning("EOF RECEIVED FOR RATINGS")
 	for _, output_routing_keys := range f.Worker.Exchange.OutputRoutingKeys {
@@ -71,20 +76,13 @@ func (f *CommonJoin) HandleJoiningEOF(client_id string, message_id string) error
 	return nil
 }
 
+// Handle the eof by storing it to our in memory state and then flush to file
 func (f *CommonJoin) HandleMovieEOF(client_id string, message_id string) error {
-	log.Warning("RECIBO EOF DE LAS MOVIES")
 	if slices.Contains(f.Eofs[client_id][client_id], message_id) {
 		log.Warning("EOF REPETIDO")
 		return nil
 	}
 	f.Eofs[client_id][client_id] = append(f.Eofs[client_id][client_id], message_id)
-	if len(f.Eofs[client_id][client_id]) >= f.Expected_eof {
-		err := common_statefull_worker.StoreEofsWithId(f.Eofs[client_id], client_id, f.Storage_base_dir)
-		if err != nil {
-			return err
-		}
-		return nil
-	}
 	err := common_statefull_worker.StoreEofsWithId(f.Eofs[client_id], client_id, f.Storage_base_dir)
 	if err != nil {
 		return err
@@ -104,6 +102,9 @@ func (f *CommonJoin) EnsureClient(client_id string) {
 	}
 }
 
+// handle the pending data
+// pending data are the ratings/credits that were received before all the eofs from movies
+// we simply store them in the pending directory in the format {message_id: message_received}
 func (f *CommonJoin) HandlePending(client_id string, message_id string, message_str string) {
 	if _, ok := f.Pending[client_id]; !ok {
 		f.Pending[client_id] = make(map[string]string)
@@ -114,6 +115,8 @@ func (f *CommonJoin) HandlePending(client_id string, message_id string, message_
 
 }
 
+// handle all the pending credits/ratings, then clean the pending files
+// if we couldnt clean before sending all the pending, we will simply send them again with the same id, so the next node discards them
 func (f *CommonJoin) SendPendings(client_id string, join_function func(lines []string, movies_by_id map[string]string)) error {
 	if len(f.Pending[client_id]) != 0 {
 		pending_messages := f.Pending[client_id]
@@ -129,6 +132,9 @@ func (f *CommonJoin) SendPendings(client_id string, join_function func(lines []s
 	return nil
 }
 
+// make the pipelining when we have all the movies stored
+// we have the verification if the line is an EOF, because we use this function from the SendPendings, so there is a chance the EOF
+// from credits/ratings arrived before all the movies and is in disk
 func (f *CommonJoin) HandleLine(client_id string, message_id string, line string, join_function func(lines []string, movies_by_id map[string]string)) error {
 	if line == worker.MESSAGE_EOF {
 		f.HandleJoiningEOF(client_id, message_id)

@@ -31,6 +31,8 @@ func storeMovieWithId(line string, movies_by_id map[string]string) {
 // MESSAGE FORMAT: MOVIE_ID|ACTORS
 // ---------------------------------
 
+// get the movie_id, if there is nothing to join, continues
+// if there is data, add the message to the hasher buffer
 func (f *JoinMovieCreditsById) joinMovieWithCredits(lines []string, movies_by_id map[string]string) {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
