@@ -60,7 +60,7 @@ func (g *FirstAndLast) EnsureClient(client_id string) {
 		}
 		ids_to_append[1] = message_id.String()
 		g.node_id[client_id] = message_id.String()
-		common_statefull_worker.AppendMyId(g.storage_base_dir, ids_to_append, client_id)
+		common_statefull_worker.StoreMyId(g.storage_base_dir, ids_to_append, client_id)
 	}
 
 }
