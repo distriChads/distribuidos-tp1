@@ -111,6 +111,7 @@ func (g *FirstAndLast) UpdateState(lines []string, client_id string, message_id 
 const TITLE = 0
 const AVERAGE = 1
 
+// Updates the first and last movies by the average
 func updateFirstAndLast(lines []string, firstAndLastMovies FirstAndLastMovies) FirstAndLastMovies {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)

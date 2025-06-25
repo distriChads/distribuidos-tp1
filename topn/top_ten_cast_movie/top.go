@@ -104,6 +104,8 @@ func (g *TopTenCastMovie) UpdateState(lines []string, client_id string, message_
 const ACTOR = 0
 const COUNT = 1
 
+// Updates the top ten actors. if we received an element that is already in the top,
+// we aren't going to store it as a top needs different elements
 func updateTopTen(lines []string, top_ten []TopTenCastCount) []TopTenCastCount {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
