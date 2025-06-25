@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 import threading
-from common.heartbeat import heartbeat
+from common.heartbeat import Heartbeat
 from os import getenv
 from common.clientHandler import MachineLearning, MachineLearningConfig
 from common.worker import ExchangeSpec
@@ -31,14 +31,16 @@ def main():
         output_routing_keys: {output_routing_keys}\n\
         log_level: {log_level}\n\n")
 
-    port = int(getenv("CLI_HEARTBEAT_PORT", "0"))
-    if port <= 0:
+    heartbeat_port = int(getenv("CLI_HEARTBEAT_PORT", "0"))
+    if heartbeat_port <= 0:
         log.error("Invalid heartbeat port specified. Exiting.")
         return
 
-    ctx = threading.Event()
-    heartbeat_thread = threading.Thread(target=heartbeat, args=(port, ctx))
+    heartbeat_server = Heartbeat(heartbeat_port)
+    heartbeat_thread = threading.Thread(
+        target=heartbeat_server.run)
     exchange = ExchangeSpec(
+        
         input_routing_key=input_routing_key,
         output_routing_keys=routing_keys_output,
     )
@@ -56,7 +58,7 @@ def main():
     except Exception as e:
         log.error(f"Exception when running worker: {e}")
     finally:
-        ctx.set()
+        heartbeat_server.stop()
         heartbeat_thread.join()
 
 

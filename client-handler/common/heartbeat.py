@@ -14,7 +14,6 @@ class Heartbeat:
         # Create UDP socket
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(('', port))
-        # sock.settimeout(1.0)  # Set timeout for non-blocking behavior
 
     def stop(self):
         logger.info("HeartBeat server shutting down")

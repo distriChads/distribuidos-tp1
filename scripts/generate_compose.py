@@ -144,7 +144,7 @@ def health_checker_services(spec, services_to_monitor, replicas, output_path):
             "image": "health-checker:latest",
             "entrypoint": "python main.py",
             "networks": COMMON_NETWORKS,
-            "volumes": [f"/var/run/docker.sock:/var/run/docker.sock", f"{output_path}:/app/docker-compose.yaml"],
+            "volumes": [f"/var/run/docker.sock:/var/run/docker.sock"],
             "environment": env
         })
     return services

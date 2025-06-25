@@ -35,6 +35,8 @@ class ClientHandler:
         self.eof_per_client: dict[str, int] = {}  # TODO: REMOVE
         self.clients_lock = threading.Lock()
         self.clients: dict[str, Client] = {}
+        self.client_threads_lock = threading.Lock()
+        self.client_threads: dict[str, threading.Thread] = {}
 
         # Initialize middleware worker
         self.worker = Worker(client_handler_config)
@@ -52,30 +54,42 @@ class ClientHandler:
 
     def __graceful_shutdown_handler(self, signum: Optional[int] = None, frame: Optional[FrameType] = None):
         self._shutdown.set()
+        self.worker.close_worker()
         self._cli_hand_socket.close()
 
     def run(self) -> None:
-        threading.Thread(target=self.__manage_client_results).start()
+        results_thread = threading.Thread(target=self.__manage_client_results)
+        results_thread.start()
 
         while not self._shutdown.is_set():
             client_socket = self.__accept_new_connection()
             if client_socket:
                 client_socket = Socket(client_socket)
-                threading.Thread(target=self.__handle_client,
-                                 args=(client_socket,)).start()
+                client = Client(client_socket, self.client_handler_config)
+                with self.clients_lock:
+                    self.clients[client.client_id] = client
+                client_t = threading.Thread(target=self.__receive_datasets,
+                                 args=(client,))
+                self.client_threads[client.client_id] = client_t
+                client_t.start()
+        for thread in self.client_threads.values():
+            thread.join()
+        logging.info("All client threads joined")
+        results_thread.join()
+        logging.info("Results thread joined")
         logging.info('Client handler thread finished')
 
-    def __handle_client(self, client_socket: Socket) -> None:
-        client = Client(client_socket, self.client_handler_config)
-        with self.clients_lock:
-            self.clients[client.client_id] = client
-        self.__receive_datasets(client)
-
+    def __join_client(self, client_id: str) -> None:
+        with self.client_threads_lock:
+            client_t = self.client_threads.pop(client_id)
+        client_t.join()
+    
     def __receive_datasets(self, client: Client) -> None:
+        client.init_worker()
         for i in range(FILES_TO_RECEIVE):
 
             if not self._shutdown.is_set():
-                client.receive_first_chunck()
+                client.receive_first_chunk()
                 logging.debug("Receiving file %d of size %d", i,
                               client.batch_processor.read_until)
                 logging.info("Received %d bytes out of %d --- file %d",
@@ -87,9 +101,9 @@ class ClientHandler:
                     read_all_data = True
                     continue
                 try:
-                    bytes_received, chunck_received = client.read()
+                    bytes_received, chunk_received = client.read()
                     client.batch_processor.process_batch(
-                        bytes_received, chunck_received)
+                        bytes_received, chunk_received)
                     client.send_message_to_workers()
                 except Exception as e:
                     logging.error(
@@ -118,10 +132,11 @@ class ClientHandler:
             if message_id in received_messages_id[client_id]:
                 logging.warning(
                     f"Repeated message {message_id} for client {client_id}")
+                self.worker.send_ack(method_frame.delivery_tag)
                 continue
             received_messages_id[client_id].append(message_id)
             query_number = method_frame.routing_key.split(".")[0]
-            logging.info(
+            logging.debug(
                 "Received result for client %s from worker: %s", client_id, result)
 
             if result == EOF or len(result) == 0:
@@ -134,9 +149,13 @@ class ClientHandler:
                         f"EOF received for client {client_id} - closing connection")
                     client.send(EOF)
                     client.close()
+                    self.__join_client(client_id)
                     if client_id in received_messages_id:
                         del received_messages_id[client_id]
+                self.worker.send_ack(method_frame.delivery_tag)
                 continue
+            
+            self.worker.send_ack(method_frame.delivery_tag)
 
             result = f"{client_id}/{query_number}/{result}\n"
             with self.clients_lock:
