@@ -164,12 +164,13 @@
         },
         {
             "name": "health-checker",
-            "replicas": 2,
+            "replicas": 3,
             "log_level": "warning",
             "ping_interval": 1,
             "grace_period": 20,
             "heartbeat_port": 4444,
-            "max_concurrent_health_checks": 10
+            "max_concurrent_health_checks": 10,
+            "max_retries": 3
         }
     ]
 }

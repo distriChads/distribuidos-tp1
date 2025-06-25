@@ -38,3 +38,6 @@ def setup_health_checker_config_esentials(config, config_params):
         os.getenv('CLI_MAX_CONCURRENT_HEALTH_CHECKS') or config["DEFAULT"]["MAX_CONCURRENT_HEALTH_CHECKS"])
     config_params["GRACE_PERIOD"] = int(
         os.getenv('CLI_GRACE_PERIOD') or config["DEFAULT"]["GRACE_PERIOD"])
+    config_params["MAX_RETRIES"] = int(
+        os.getenv('CLI_MAX_RETRIES') or config["DEFAULT"]["MAX_RETRIES"])
+    config_params["SKIP_GRACE_PERIOD"] = os.getenv('CLI_SKIP_GRACE_PERIOD', False) or config["DEFAULT"]["SKIP_GRACE_PERIOD"]

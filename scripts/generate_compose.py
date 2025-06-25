@@ -124,13 +124,14 @@ def health_checker_services(spec, services_to_monitor, replicas, output_path):
             _services.append(
                 f"health-checker-{((i+1) % replicas) + 1}:{spec.get('heartbeat_port', 4444)}")
         env = [
-            f"CLI_LOGGING_LEVEL={spec['log_level']}",
+            f"CLI_LOGGING_LEVEL={spec.get('log_level', 'INFO')}",
             f"CLI_SERVICES={','.join(_services)}",
-            f"CLI_PING_INTERVAL={spec['ping_interval']}",
+            f"CLI_PING_INTERVAL={spec.get('ping_interval', 1)}",
             f"CLI_HEARTBEAT_PORT={spec.get('heartbeat_port', 4444)}",
             f"CLI_MAX_CONCURRENT_HEALTH_CHECKS={spec.get('max_concurrent_health_checks', 10)}",
             f"CLI_GRACE_PERIOD={spec.get('grace_period', 30)}",
-            f"CLI_DOCKER_COMPOSE_PATH={output_path}"
+            f"CLI_MAX_RETRIES={spec.get('max_retries', 3)}",
+            f"CLI_SKIP_GRACE_PERIOD=false"
         ]
         services.append({
             "container_name": f"health-checker-{i+1}",

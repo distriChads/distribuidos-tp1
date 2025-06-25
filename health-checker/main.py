@@ -17,12 +17,14 @@ def main():
     services = config["SERVICES"]
     max_concurrent_health_checks = int(config["MAX_CONCURRENT_HEALTH_CHECKS"])
     grace_period = int(config["GRACE_PERIOD"])
+    max_retries = int(config["MAX_RETRIES"])
+    skip_grace_period = config["SKIP_GRACE_PERIOD"]
     
     init_log(logging_level)
 
     logging.info(f"Starting health checker on port {port}")
 
-    health_checker = HealthChecker(ping_interval, services, max_concurrent_health_checks, grace_period)
+    health_checker = HealthChecker(ping_interval, services, max_concurrent_health_checks, grace_period, max_retries, skip_grace_period)
     ctx = threading.Event()
     heartbeat_thread = threading.Thread(target=heartbeat, args=(port, ctx))
     
