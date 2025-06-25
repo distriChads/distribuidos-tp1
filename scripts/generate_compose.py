@@ -70,7 +70,8 @@ def client_handler_service(input_routing_key,
                            credits_join_replicas,
                            ml_replicas,
                            eof_expected,
-                           heartbeat_port):
+                           heartbeat_port,
+                           storage):
     filter_arg_out_routing_keys = get_output_routing_keys_strings(
         FILTER_ARG, filter_arg_replicas)
     filter_one_country_out_routing_keys = get_output_routing_keys_strings(
@@ -95,7 +96,8 @@ def client_handler_service(input_routing_key,
         f"OUTPUT_ROUTINGKEYS_JOIN_MOVIES_CREDITS={credits_join_replicas}",
         f"OUTPUT_ROUTINGKEYS_MACHINE_LEARNING={ml_replicas}",
         f"EOF_EXPECTED={eof_expected}",
-        f"HEARTBEAT_PORT={heartbeat_port}"
+        f"HEARTBEAT_PORT={heartbeat_port}",
+        f"CLI_WORKER_STORAGE={storage}"
     ])
 
     return {
@@ -124,13 +126,14 @@ def health_checker_services(spec, services_to_monitor, replicas, output_path):
             _services.append(
                 f"health-checker-{((i+1) % replicas) + 1}:{spec.get('heartbeat_port', 4444)}")
         env = [
-            f"CLI_LOGGING_LEVEL={spec['log_level']}",
+            f"CLI_LOGGING_LEVEL={spec.get('log_level', 'INFO')}",
             f"CLI_SERVICES={','.join(_services)}",
-            f"CLI_PING_INTERVAL={spec['ping_interval']}",
+            f"CLI_PING_INTERVAL={spec.get('ping_interval', 1)}",
             f"CLI_HEARTBEAT_PORT={spec.get('heartbeat_port', 4444)}",
             f"CLI_MAX_CONCURRENT_HEALTH_CHECKS={spec.get('max_concurrent_health_checks', 10)}",
             f"CLI_GRACE_PERIOD={spec.get('grace_period', 30)}",
-            f"CLI_DOCKER_COMPOSE_PATH={output_path}"
+            f"CLI_MAX_RETRIES={spec.get('max_retries', 3)}",
+            f"CLI_SKIP_GRACE_PERIOD=false"
         ]
         services.append({
             "container_name": f"health-checker-{i+1}",
@@ -257,6 +260,7 @@ def generate_compose(spec_path, output_path):
                     "-", "_")],
                 eof_expected=eof_expected,
                 heartbeat_port=service_spec.get("heartbeat_port", 4444),
+                storage=service_spec.get("storage", ".local-storage")
             )
 
         elif name == "health-checker":

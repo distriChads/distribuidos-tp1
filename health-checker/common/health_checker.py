@@ -12,10 +12,12 @@ import traceback
 logger = logging.getLogger(__name__)
 
 class HealthChecker:
-    def __init__(self, ping_interval: int, services: list[str], max_concurrent_health_checks: int, grace_period: int):
+    def __init__(self, ping_interval: int, services: list[str], max_concurrent_health_checks: int, grace_period: int, max_retries: int, skip_grace_period: bool):
         self.ping_interval = ping_interval
         self.services = services
         self.grace_period = grace_period
+        self.max_retries = max_retries
+        self.skip_grace_period = skip_grace_period
         self._running = True
         self._sockets = {} # service: socket
         self.semaphore = asyncio.Semaphore(max_concurrent_health_checks)
@@ -34,13 +36,11 @@ class HealthChecker:
                 sock.close()
                 
     async def __reboot_container(self, service: str):
-        addr, _port = service.split(":")
+        addr, _ = service.split(":")
         logger.info(f"Rebooting container {addr}")
-        while True:
+        while self._running:
             try:
-                # Use the mounted docker-compose.yaml file explicitly
-                #subprocess.run(["docker", "compose", "-f", "/app/docker-compose.yaml", "up", "-d", addr], check=True)
-                subprocess.run(["docker", "start", addr], check=True)
+                subprocess.run(["docker", "start", addr], check=True, env={"SKIP_GRACE_PERIOD": "true"})
                 break
             except subprocess.CalledProcessError as e:
                 logger.warning(f"Error rebooting container {addr}: {e}")
@@ -52,7 +52,7 @@ class HealthChecker:
                 sock = None
                 async with self.semaphore:
                     attempts = 0
-                    while attempts < 3 and self._running:
+                    while attempts < self.max_retries and self._running:
                         try:
                             sock = Socket()
                             self._sockets[service] = sock
@@ -80,9 +80,9 @@ class HealthChecker:
                             sock.close()
                             sock = None
                             self._sockets[service] = None
-                if attempts == 3:
+                if attempts == self.max_retries:
                     await self.__reboot_container(service)
-                    await asyncio.sleep(self.grace_period / 2.0)
+                    await asyncio.sleep(self.grace_period * 0.8)
                 await asyncio.sleep(self.ping_interval)
         except asyncio.CancelledError:
             logger.info(f"Health check task for {service} cancelled")
@@ -92,9 +92,12 @@ class HealthChecker:
             return
         
     async def run(self):
-        logger.info(f"Sleeping for {self.grace_period} seconds before starting health checks")
-        await asyncio.sleep(self.grace_period)
-        logger.info(f"Grace period of {self.grace_period} seconds has passed. Starting health checks")
+        if not self.skip_grace_period:
+            logger.info(f"Sleeping for {self.grace_period} seconds before starting health checks")
+            await asyncio.sleep(self.grace_period)
+            logger.info(f"Grace period of {self.grace_period} seconds has passed. Starting health checks")
+        else:
+            logger.info(f"Skipping grace period. Starting health checks immediately")
         for service in self.services:
             self.tasks.append(asyncio.create_task(self.__health_check_task(service)))
         await asyncio.gather(*self.tasks)
