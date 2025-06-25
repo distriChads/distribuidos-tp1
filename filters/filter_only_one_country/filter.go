@@ -25,13 +25,15 @@ func NewFilterByOnlyOneCountry(config FilterByOnlyOneCountryConfig) *FilterByOnl
 // ---------------------------------
 // MESSAGE FORMAT: ID|TITLE|DATE|COUNTRIES|...
 // ---------------------------------
+const ID = 0
 const COUNTRIES = 3
 
+// Get the countries from the message, if there is exactly one, add to hasher buffer, if not ignore it
 func (f *FilterByOnlyOneCountry) Filter(lines []string) bool {
 	anyMoviesFound := false
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
-		movie_id, err := strconv.Atoi(parts[0])
+		movie_id, err := strconv.Atoi(parts[ID])
 		if err != nil {
 			continue
 		}
