@@ -74,7 +74,7 @@ class Worker:
         ch.exchange_declare(
             exchange=self.exchange.name,
             exchange_type=EXCHANGE_TYPE,
-            durable=False,
+            durable=True,
             auto_delete=False
         )
 
@@ -88,7 +88,7 @@ class Worker:
         ch.exchange_declare(
             exchange=self.exchange.name,
             exchange_type=EXCHANGE_TYPE,
-            durable=False,
+            durable=True,
             auto_delete=False
         )
 

@@ -156,7 +156,7 @@ func RestoreStateIfNeeded(last_messages_in_state map[string][]string, last_messa
 // si el archivo ya existe y esta todo bien, pudo o no haber pasado error de tipo 2), no lo sabemos...
 // la solucion que se me ocurre es quiza mandar los timestamps en los mensajes? quiza podemos rescatar algo de eso
 
-func genericAppendIds(storage_base_dir string, last_message_ids []string, client_id string, dir_name string) error {
+func genericWriteToFile(storage_base_dir string, last_message_ids []string, client_id string, dir_name string, flags int) error {
 	dir := filepath.Join(storage_base_dir, dir_name)
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
@@ -165,7 +165,7 @@ func genericAppendIds(storage_base_dir string, last_message_ids []string, client
 
 	filename := fmt.Sprintf("%s/%s_ids.txt", dir, client_id)
 
-	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(filename, flags, 0644)
 	if err != nil {
 		return err
 	}
@@ -180,11 +180,11 @@ func genericAppendIds(storage_base_dir string, last_message_ids []string, client
 }
 
 func appendIds(storage_base_dir string, last_message_ids []string, client_id string) error {
-	return genericAppendIds(storage_base_dir, last_message_ids, client_id, "ids")
+	return genericWriteToFile(storage_base_dir, last_message_ids, client_id, "ids", os.O_APPEND|os.O_CREATE|os.O_WRONLY)
 }
 
 func AppendMyId(storage_base_dir string, last_message_ids []string, client_id string) error {
-	return genericAppendIds(storage_base_dir, last_message_ids, client_id, "node")
+	return genericWriteToFile(storage_base_dir, last_message_ids, client_id, "node", os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
 }
 
 func genericGetElements[T any](storage_base_dir string, dir_name string) (map[string]map[string]T, map[string][]string) {

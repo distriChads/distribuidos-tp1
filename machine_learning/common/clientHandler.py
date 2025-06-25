@@ -40,7 +40,6 @@ class MachineLearning:
             OUTPUT_KEY: len(config.exchange.output_routing_keys[OUTPUT_KEY]),
         }
         self.buffer = HasherContainer(dict_for_hasher)
-        self.batches_per_client: dict[str, list[list[str]]] = {}
         self.revenue_budget_zero_count_per_client: dict[str, int] = {}
         self.movies_processed_per_client: dict[str, int] = {}
 
@@ -53,17 +52,16 @@ class MachineLearning:
 
     def __shutdown(self):
         log.info("Shutting down MachineLearning worker")
-        self.worker.close_worker()        
+        self.worker.close_worker()
 
-    def __process_batch(self, client_id: str):
+    def __process_batch(self, messages: list[list[str]], client_id: str):
         sentiments: list[dict[str, str]] = []
-        movies_batch = self.batches_per_client[client_id]
 
         log.debug(
             f"Amount of 0 on revenue or budget: {self.revenue_budget_zero_count_per_client[client_id]}")
         self.revenue_budget_zero_count_per_client[client_id] = 0
 
-        overviews = [movie[OVERVIEW_FIELD_INDEX] for movie in movies_batch]
+        overviews = [movie[OVERVIEW_FIELD_INDEX] for movie in messages]
 
         try:
             # sentiments = self.sentiment_analyzer(overviews)
@@ -73,7 +71,7 @@ class MachineLearning:
             return
 
         i = 0
-        for movie_components, sentiment in zip(movies_batch, sentiments):
+        for movie_components, sentiment in zip(messages, sentiments):
             self.__add_message_to_buffer(sentiment["label"], movie_components)
             i += 1
 
@@ -112,17 +110,17 @@ class MachineLearning:
                     self.worker.send_ack(delivery_tag)
                     continue
 
-                client_id, message_id, message = raw_msg.split(MESSAGE_SEPARATOR, 2)
-                if client_id not in self.batches_per_client:
-                    self.batches_per_client[client_id] = []
+                client_id, message_id, message = raw_msg.split(
+                    MESSAGE_SEPARATOR, 2)
+                if client_id not in self.movies_processed_per_client:
                     self.movies_processed_per_client[client_id] = 0
 
                 if message == MESSAGE_EOF:
-                    self._process_remaining_messages(message, client_id, message_id)
+                    self.send_eof_to_all_routing_keys(client_id, message_id)
                     self.worker.send_ack(delivery_tag)
                     continue
 
-                self.use_all_messages_up(client_id, message)
+                self.process_client_messages(client_id, message, message_id)
                 self.worker.send_ack(delivery_tag)
 
         except Exception as e:
@@ -130,7 +128,7 @@ class MachineLearning:
             self.__shutdown()
             return e
 
-    def use_all_messages_up(self, client_id: str, message: str):
+    def process_client_messages(self, client_id: str, message: str, message_id: str):
         messages = message.split("\n")
         messages, amount_of_0 = self._filter_wrong_messages(
             messages, client_id)
@@ -139,16 +137,7 @@ class MachineLearning:
                 client_id, 0) + amount_of_0
         )
 
-        pending_movies_count = len(self.batches_per_client[client_id])
-        necessary_movies_count = BATCH_SIZE - pending_movies_count
-        self.batches_per_client[client_id].extend(
-            messages[:necessary_movies_count])
-        messages = messages[necessary_movies_count:]
-
-        while len(self.batches_per_client[client_id]) >= BATCH_SIZE:
-            self.__process_and_send_batch(client_id)
-            self.batches_per_client[client_id] = messages[:BATCH_SIZE]
-            messages = messages[BATCH_SIZE:]
+        self.__process_and_send_message(messages, client_id)
 
     def _filter_wrong_messages(self, messages: list[str], client_id: str) -> tuple[list[list[str]], int]:
         valid_movies: list[list[str]] = []
@@ -170,20 +159,14 @@ class MachineLearning:
 
         return valid_movies, revenue_0_in_batch
 
-    def _process_remaining_messages(self, message: str, client_id: str, eof_id: str):
-        if len(self.batches_per_client[client_id]) > 0:
-            self.__process_and_send_batch(client_id)
-            del self.batches_per_client[client_id]
+    def __process_and_send_message(self, messages: list[list[str]], client_id: str):
+        self.__process_batch(messages, client_id)
+        messages_processed = self.buffer.get_buffers()
 
-        for routing_key in self.worker.exchange.output_routing_keys[OUTPUT_KEY]:
-            self.worker.send_message(
-                f"{client_id}{MESSAGE_SEPARATOR}{eof_id}{MESSAGE_SEPARATOR}{message}", routing_key)
-        log.info("Sent EOF to all routing keys")
-
-    def __process_and_send_batch(self, client_id: str):
-        self.__process_batch(client_id)
-        messages = self.buffer.get_buffers()
-        dict_index_data = messages[OUTPUT_KEY]
+        if not messages_processed or OUTPUT_KEY not in messages_processed:
+            log.warning("No messages processed or output key not found")
+            return
+        dict_index_data = messages_processed[OUTPUT_KEY]
         routing_keys = self.worker.exchange.output_routing_keys[OUTPUT_KEY]
 
         for index, message in dict_index_data.items():
@@ -191,3 +174,9 @@ class MachineLearning:
             identifier = str(uuid.uuid4())
             result = f"{client_id}{MESSAGE_SEPARATOR}{identifier}{MESSAGE_SEPARATOR}{message}"
             self.worker.send_message(result, routing_key)
+
+    def send_eof_to_all_routing_keys(self, client_id: str, message_id: str):
+        for routing_key in self.worker.exchange.output_routing_keys[OUTPUT_KEY]:
+            eof_message = f"{client_id}{MESSAGE_SEPARATOR}{message_id}{MESSAGE_SEPARATOR}{MESSAGE_EOF}"
+            self.worker.send_message(eof_message, routing_key)
+        log.info(f"Sent EOF message for client {client_id}")

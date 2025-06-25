@@ -3,7 +3,7 @@
     "services": [
         {
             "name": "client-handler",
-            "log_level": "warning",
+            "log_level": "info",
             "replicas": 3,
             "input_routing_key": ["*.results"],
             "movies_output_nodes": ["filter-argentina", "filter-only-one-country"],
@@ -15,35 +15,35 @@
         {
             "name": "filter-argentina",
             "replicas": 3,
-            "log_level": "warning",
+            "log_level": "info",
             "heartbeat_port": 4444,
             "output_nodes": ["filter-spain-2000", "filter-after-2000"]
         },
         {
             "name": "filter-spain-2000",
             "replicas": 3,
-            "log_level": "warning",
+            "log_level": "info",
             "heartbeat_port": 4444,
             "output_routing_key": ["query1.results"]
         },
         {
             "name": "filter-only-one-country",
             "replicas": 3,
-            "log_level": "warning",
+            "log_level": "info",
             "heartbeat_port": 4444,
             "output_nodes": ["group-by-country-sum"]
         },
         {
             "name": "filter-after-2000",
             "replicas": 3,
-            "log_level": "warning",
+            "log_level": "info",
             "heartbeat_port": 4444,
             "output_nodes": ["join-movie-ratings", "join-movie-credits"]
         },
         {
             "name": "group-by-country-sum",
             "replicas": 3,
-            "log_level": "warning",
+            "log_level": "info",
             "output_nodes": ["master-group-by-country-sum"],
             "storage": ".local-storage",
             "heartbeat_port": 4444,
@@ -52,7 +52,7 @@
         {
             "name": "group-by-movie-average",
             "replicas": 3,
-            "log_level": "warning",
+            "log_level": "info",
             "output_nodes": ["master-group-by-movie-average"],
             "storage": ".local-storage",
             "heartbeat_port": 4444,
@@ -61,7 +61,7 @@
         {
             "name": "group-by-actor-count",
             "replicas": 3,
-            "log_level": "warning",
+            "log_level": "info",
             "output_nodes": ["master-group-by-actor-count"],
             "storage": ".local-storage",
             "heartbeat_port": 4444,
@@ -70,7 +70,7 @@
         {
             "name": "group-by-overview-average",
             "replicas": 3,
-            "log_level": "warning",
+            "log_level": "info",
             "output_nodes": ["master-group-by-overview-average"],
             "storage": ".local-storage",
             "heartbeat_port": 4444,
@@ -79,50 +79,47 @@
         {
             "name": "master-group-by-country-sum",
             "replicas": 1,
-            "log_level": "warning",
+            "log_level": "info",
             "output_nodes": ["top-five-country-budget"],
             "storage": ".local-storage",
             "heartbeat_port": 4444,
-            "messages_per_commit": 1
-        },
+            "messages_per_commit": 10        },
         {
             "name": "master-group-by-movie-average",
             "replicas": 1,
-            "log_level": "warning",
+            "log_level": "info",
             "output_nodes": ["first-and-last"],
             "storage": ".local-storage",
             "heartbeat_port": 4444,
-            "messages_per_commit": 1
-        },
+            "messages_per_commit": 10        },
         {
             "name": "master-group-by-actor-count",
             "replicas": 1,
-            "log_level": "warning",
+            "log_level": "info",
             "output_nodes": ["top-ten-cast-movie"],
             "storage": ".local-storage",
             "heartbeat_port": 4444,
-            "messages_per_commit": 1
-        },
+            "messages_per_commit": 10        },
         {
             "name": "master-group-by-overview-average",
             "replicas": 1,
-            "log_level": "warning",
+            "log_level": "info",
             "output_routing_key": ["query5.results"],
             "storage": ".local-storage",
             "heartbeat_port": 4444,
-            "messages_per_commit": 1
+            "messages_per_commit": 10
         },
         {
             "name": "machine-learning",
             "replicas": 3,
-            "log_level": "warning",
+            "log_level": "info",
             "heartbeat_port": 4444,
             "output_nodes": ["group-by-overview-average"]
         },
         {
             "name": "top-five-country-budget",
             "replicas": 1,
-            "log_level": "warning",
+            "log_level": "info",
             "output_routing_key": ["query2.results"],
             "storage": ".local-storage",
             "heartbeat_port": 4444,
@@ -131,7 +128,7 @@
         {
             "name": "top-ten-cast-movie",
             "replicas": 1,
-            "log_level": "warning",
+            "log_level": "info",
             "output_routing_key": ["query4.results"],
             "storage": ".local-storage",
             "heartbeat_port": 4444,
@@ -140,7 +137,7 @@
         {
             "name": "join-movie-ratings",
             "replicas": 3,
-            "log_level": "warning",
+            "log_level": "info",
             "heartbeat_port": 4444,
             "output_nodes": ["group-by-movie-average"],
             "storage": ".local-storage"
@@ -148,7 +145,7 @@
         {
             "name": "join-movie-credits",
             "replicas": 3,
-            "log_level": "warning",
+            "log_level": "info",
             "heartbeat_port": 4444,
             "output_nodes": ["group-by-actor-count"],
             "storage": ".local-storage"
@@ -156,7 +153,7 @@
         {
             "name": "first-and-last",
             "replicas": 1,
-            "log_level": "warning",
+            "log_level": "info",
             "output_routing_key": ["query3.results"],
             "storage": ".local-storage",
             "heartbeat_port": 4444,
@@ -165,9 +162,9 @@
         {
             "name": "health-checker",
             "replicas": 3,
-            "log_level": "warning",
+            "log_level": "info",
             "ping_interval": 1,
-            "grace_period": 20,
+            "grace_period": 10,
             "heartbeat_port": 4444,
             "max_concurrent_health_checks": 10,
             "max_retries": 3
