@@ -158,6 +158,11 @@ func (g *CommonGroupBy[T]) HandleEOF(client_id string, message_id string, lines 
 	return nil
 }
 
+// Creates a new group by, this are the steps
+// first, we get the elements from the state, the ids and the eofs
+// second we restore the state of the ids if needed (this is because we commited our state, but the append file is incomplete)
+// if we had to update, we get this ids again
+// then, we get our messages_id for every client and we can start our new worker
 func NewCommonGroupBy[T any](config worker.WorkerConfig, messages_before_commit int, storage_base_dir string, expected_eof int) *CommonGroupBy[T] {
 	log.Infof("New group by: %+v", config)
 	grouped_elements, last_messages_in_state := common_statefull_worker.GetElements[T](storage_base_dir)
