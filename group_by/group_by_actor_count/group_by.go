@@ -52,12 +52,13 @@ func (g *GroupByActorAndCount) UpdateState(lines []string, client_id string, mes
 
 const ACTORS = 1
 
+// Store the actor as a key and sum 1 everytime it appears
 func groupByActorAndUpdate(lines []string, grouped_elements map[string]int) {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
 
-		actors := strings.Split(parts[ACTORS], worker.MESSAGE_ARRAY_SEPARATOR)
-		for _, actor := range actors {
+		actors := strings.SplitSeq(parts[ACTORS], worker.MESSAGE_ARRAY_SEPARATOR)
+		for actor := range actors {
 			grouped_elements[actor] += 1
 		}
 	}

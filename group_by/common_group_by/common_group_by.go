@@ -26,6 +26,7 @@ type CommonGroupBy[T any] struct {
 	node_id                   map[string]string
 }
 
+// Init the in memory state for the client if needed and creates the ids for the messages it will send at the end
 func (g *CommonGroupBy[T]) EnsureClient(client_id string) {
 	if _, ok := g.Grouped_elements[client_id]; !ok {
 		g.Grouped_elements[client_id] = make(map[string]T)
@@ -57,6 +58,13 @@ func (g *CommonGroupBy[T]) EnsureClient(client_id string) {
 
 }
 
+// Appends the message from rabbit that has been received and increase the global counter of messages received
+// if we have the number of messages to commit, this is what we do:
+// first, for every client we store the state with the last messages_ids and appends the ids
+// in the file we store the last_messages. this is important because if we die during the append, we will restore
+// the appends messages for repeated with this information.
+// if everything went fine, we now have the state and the append file ready, so we can ack all messages that are stored and reset the counter
+// if we die during the .Ack, we now have everything in state and we will simply receive some repeated messages that we are going to skip
 func (g *CommonGroupBy[T]) HandleCommit(client_id string, message amqp091.Delivery) error {
 	g.messages[client_id] = append(g.messages[client_id], message)
 	g.received_messages_counter++
@@ -83,6 +91,7 @@ func (g *CommonGroupBy[T]) HandleCommit(client_id string, message amqp091.Delive
 	return nil
 }
 
+// Verify if the messages is repeated, if not append it to the messages_id for that client
 func (g *CommonGroupBy[T]) VerifyRepeatedMessage(client_id string, message_id string) bool {
 	if slices.Contains(g.messages_id[client_id], message_id) {
 		log.Warning("MENSAJE REPETIDO")
@@ -92,6 +101,21 @@ func (g *CommonGroupBy[T]) VerifyRepeatedMessage(client_id string, message_id st
 	return false
 }
 
+// Handle a received EOF message. if we already received it we just skip it
+// if it's a new eof we do this:
+// first, we append it to the eofs in memory state to know if we receive it again
+// we then store this eofs, our inner state and ack all messages of that client
+// if getting the ack makes us getting the expected amount, we first store our inner state
+// then we send the result to the next node, we ack every message and clean our state
+// the problems here are: what if we die during the last eof?
+// if we die a line before storing our state, there is a problem if the prefetch isn't 1.
+// Rabbit does not ensure the order of the messages when the node dies, so we can have this
+// message - eof - message. and we will be skipping this message, so becareful when the env var of maxmessages != 1
+// if we die after storing and before ack the messages, we will receive then again and we will discard them
+// if we died after sending the results, we will not ack the eof, but this is no problem, we will receive it again
+// we will store what we have again and send the message. because we have the node_ids, the message will be with the same id
+// so the next node will discard it as a repeated
+// if everything goes well, we just clean our state at the end
 func (g *CommonGroupBy[T]) HandleEOF(client_id string, message_id string, lines string) error {
 	if slices.Contains(g.eofs[client_id][client_id], message_id) {
 		log.Warning("EOF REPETIDO")
@@ -99,20 +123,16 @@ func (g *CommonGroupBy[T]) HandleEOF(client_id string, message_id string, lines 
 	}
 	g.eofs[client_id][client_id] = append(g.eofs[client_id][client_id], message_id)
 	if len(g.eofs[client_id][client_id]) >= g.expected_eof {
-		err := common_statefull_worker.SendResult(g.Worker, client_id, lines, g.node_id[client_id], g.eof_id[client_id])
-		if err != nil {
-			return err
-		}
-		err = common_statefull_worker.StoreEofsWithId(g.eofs[client_id], client_id, g.storage_base_dir)
-		if err != nil {
-			return err
-		}
-		err = common_statefull_worker.StoreElementsWithMessageIds(g.Grouped_elements[client_id], client_id, g.storage_base_dir, []string{message_id})
+		err := common_statefull_worker.StoreElementsWithMessageIds(g.Grouped_elements[client_id], client_id, g.storage_base_dir, []string{message_id})
 		if err != nil {
 			return err
 		}
 		for _, message := range g.messages[client_id] {
 			message.Ack(false)
+		}
+		err = common_statefull_worker.SendResult(g.Worker, client_id, lines, g.node_id[client_id], g.eof_id[client_id])
+		if err != nil {
+			return err
 		}
 		g.messages[client_id] = g.messages[client_id][:0]
 		delete(g.messages, client_id)

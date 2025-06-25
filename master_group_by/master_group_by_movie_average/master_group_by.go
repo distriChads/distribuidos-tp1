@@ -63,6 +63,7 @@ func (g *MasterGroupByMovieAndAvg) UpdateState(lines []string, client_id string,
 const TITLE = 0
 const SCORE = 1
 
+// Store the movie as a key and sum the counter and the average received
 func groupByMovieAndUpdate(lines []string, grouped_elements map[string]ScoreAndCount) {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)

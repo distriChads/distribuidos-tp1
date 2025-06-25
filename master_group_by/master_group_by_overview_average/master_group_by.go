@@ -64,6 +64,7 @@ const OVERVIEW = 0
 const AVERAGE = 1
 const COUNT = 2
 
+// Store the overview as a key and sum the counts and the average
 func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]ScoreAndCount) {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
