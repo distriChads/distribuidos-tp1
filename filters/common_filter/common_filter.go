@@ -34,6 +34,12 @@ func NewCommonFilter(config worker.WorkerConfig) *CommonFilter {
 	}
 }
 
+// Send the filtered message to the next nodes
+// the send works as follow:
+// first we pass the node_type this is for example the FilterArgentina that needs to send its message
+// to a node_type = FilterMovies2000Spain and to node_type = FilterMovieAfter2000
+// then we get the message to send with the hasher-buffer (it's not a state, its a buffer from only the message that is now being filtered)
+// and this buffer gives us the message and the key index to send the message to
 func (f *CommonFilter) SendMessage(client_id string, message_id string) error {
 	for node_type := range f.Worker.Exchange.OutputRoutingKeys {
 		messages_to_send := f.Buffer.GetMessages(node_type)
@@ -53,6 +59,7 @@ func (f *CommonFilter) SendMessage(client_id string, message_id string) error {
 	return nil
 }
 
+// Send the eof to all next nodes
 func (f *CommonFilter) HandleEOF(client_id string, message_id string) error {
 	for _, output_routing_keys := range f.Worker.Exchange.OutputRoutingKeys {
 		for _, output_key := range output_routing_keys {
@@ -66,6 +73,7 @@ func (f *CommonFilter) HandleEOF(client_id string, message_id string) error {
 	return nil
 }
 
+// close the worker
 func (f *CommonFilter) CloseWorker() {
 	if f.Worker != nil {
 		f.Worker.CloseWorker()

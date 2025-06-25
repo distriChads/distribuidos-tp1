@@ -58,6 +58,7 @@ func (g *GroupByCountryAndSum) UpdateState(lines []string, client_id string, mes
 const COUNTRY = 3
 const BUDGET = 5
 
+// Store the country as a key and sum the budget
 func groupByCountryAndSum(lines []string, grouped_elements map[string]int) {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)

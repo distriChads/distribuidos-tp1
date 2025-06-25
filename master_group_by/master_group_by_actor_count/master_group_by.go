@@ -57,6 +57,7 @@ func (g *MasterGroupByActorAndCount) UpdateState(lines []string, client_id strin
 const ACTOR = 0
 const COUNT = 1
 
+// Store the actor as a key and sum the counter by the amount received
 func groupByActorAndUpdate(lines []string, grouped_elements map[string]int) {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)

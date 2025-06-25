@@ -29,11 +29,12 @@ const ID = 0
 const TITLE = 1
 const DATE = 2
 
+// Get the year from the message, if it's from 2000 or after, add to hasher buffer, if not ignore it
 func (f *FilterByAfterYear2000) Filter(lines []string) bool {
 	anyMoviesFound := false
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
-		movie_id, err := strconv.Atoi(parts[0])
+		movie_id, err := strconv.Atoi(parts[ID])
 		if err != nil {
 			continue
 		}

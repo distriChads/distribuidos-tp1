@@ -64,6 +64,7 @@ func (g *GroupByOverviewAndAvg) UpdateState(lines []string, client_id string, me
 	return repeated_message
 }
 
+// Store the overview as a key, sum the counter and sum the revenue/budget
 func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]RevenueBudgetCount) {
 	for _, line := range lines {
 		parts := strings.Split(line, worker.MESSAGE_SEPARATOR)
