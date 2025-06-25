@@ -1,42 +1,24 @@
 package filterafter2000
 
 import (
-	buffer "distribuidos-tp1/common/worker/hasher"
 	worker "distribuidos-tp1/common/worker/worker"
+	"distribuidos-tp1/filters/common_filter"
 	"strconv"
 	"strings"
-
-	"github.com/op/go-logging"
 )
-
-var log = logging.MustGetLogger("filter_after_2000")
 
 type FilterByAfterYear2000Config struct {
 	worker.WorkerConfig
 }
 
 type FilterByAfterYear2000 struct {
-	Worker *worker.Worker
-	buffer *buffer.HasherContainer
+	*common_filter.CommonFilter
 }
 
 func NewFilterByAfterYear2000(config FilterByAfterYear2000Config) *FilterByAfterYear2000 {
-	log.Infof("FilterByAfterYear2000: %+v", config)
-	worker, err := worker.NewWorker(config.WorkerConfig, 1)
-	if err != nil {
-		log.Errorf("Error creating worker: %s", err)
-		return nil
-	}
-
-	dict := make(map[string]int)
-	for nodeType, routingKeys := range config.WorkerConfig.Exchange.OutputRoutingKeys {
-		dict[nodeType] = len(routingKeys)
-	}
-	buffer := buffer.NewHasherContainer(dict)
-
+	filter := common_filter.NewCommonFilter(config.WorkerConfig)
 	return &FilterByAfterYear2000{
-		Worker: worker,
-		buffer: buffer,
+		CommonFilter: filter,
 	}
 }
 
@@ -61,7 +43,7 @@ func (f *FilterByAfterYear2000) Filter(lines []string) bool {
 			continue
 		}
 		if year >= 2000 {
-			f.buffer.AddMessage(movie_id, strings.TrimSpace(parts[ID])+worker.MESSAGE_SEPARATOR+strings.TrimSpace(parts[TITLE]))
+			f.Buffer.AddMessage(movie_id, strings.TrimSpace(parts[ID])+worker.MESSAGE_SEPARATOR+strings.TrimSpace(parts[TITLE]))
 			anyMoviesFound = true
 		}
 	}
@@ -69,40 +51,13 @@ func (f *FilterByAfterYear2000) Filter(lines []string) bool {
 }
 
 func (f *FilterByAfterYear2000) HandleEOF(client_id string, message_id string) error {
-	for _, output_routing_keys := range f.Worker.Exchange.OutputRoutingKeys {
-		for _, output_key := range output_routing_keys {
-			message := client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
-			err := f.Worker.SendMessage(message, output_key)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return f.CommonFilter.HandleEOF(client_id, message_id)
 }
 
 func (f *FilterByAfterYear2000) SendMessage(client_id string, message_id string) error {
-	for node_type := range f.Worker.Exchange.OutputRoutingKeys {
-		messages_to_send := f.buffer.GetMessages(node_type)
-		for routing_key_index, message := range messages_to_send {
-			if len(message) != 0 {
-				routing_key := f.Worker.Exchange.OutputRoutingKeys[node_type][routing_key_index]
-				message = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message
-				err := f.Worker.SendMessage(message, routing_key)
-				if err != nil {
-					return err
-				}
-				log.Debugf("Sent message to output exchange: %s", message)
-			}
-		}
-
-	}
-	return nil
+	return f.CommonFilter.SendMessage(client_id, message_id)
 }
 
 func (f *FilterByAfterYear2000) CloseWorker() {
-	if f.Worker != nil {
-		f.Worker.CloseWorker()
-	}
-	log.Info("FilterByAfterYear2000 worker closed")
+	f.CommonFilter.CloseWorker()
 }

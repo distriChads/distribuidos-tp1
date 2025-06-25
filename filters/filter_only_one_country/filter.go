@@ -1,42 +1,24 @@
 package filter_only_one_country
 
 import (
-	buffer "distribuidos-tp1/common/worker/hasher"
 	worker "distribuidos-tp1/common/worker/worker"
+	"distribuidos-tp1/filters/common_filter"
 	"strconv"
 	"strings"
-
-	"github.com/op/go-logging"
 )
-
-var log = logging.MustGetLogger("filter_only_one_country")
 
 type FilterByOnlyOneCountryConfig struct {
 	worker.WorkerConfig
 }
 
 type FilterByOnlyOneCountry struct {
-	Worker *worker.Worker
-	buffer *buffer.HasherContainer
+	*common_filter.CommonFilter
 }
 
 func NewFilterByOnlyOneCountry(config FilterByOnlyOneCountryConfig) *FilterByOnlyOneCountry {
-	log.Infof("FilterByOnlyOneCountry: %+v", config)
-	worker, err := worker.NewWorker(config.WorkerConfig, 1)
-	if err != nil {
-		log.Errorf("Error creating worker: %s", err)
-		return nil
-	}
-
-	dict := make(map[string]int)
-	for nodeType, routingKeys := range config.WorkerConfig.Exchange.OutputRoutingKeys {
-		dict[nodeType] = len(routingKeys)
-	}
-	buffer := buffer.NewHasherContainer(dict)
-
+	filter := common_filter.NewCommonFilter(config.WorkerConfig)
 	return &FilterByOnlyOneCountry{
-		Worker: worker,
-		buffer: buffer,
+		CommonFilter: filter,
 	}
 }
 
@@ -55,7 +37,7 @@ func (f *FilterByOnlyOneCountry) Filter(lines []string) bool {
 		}
 		countries := strings.Split(parts[COUNTRIES], worker.MESSAGE_ARRAY_SEPARATOR)
 		if len(countries) == 1 {
-			f.buffer.AddMessage(movie_id, strings.TrimSpace(line))
+			f.Buffer.AddMessage(movie_id, strings.TrimSpace(line))
 			anyMoviesFound = true
 		}
 	}
@@ -63,40 +45,13 @@ func (f *FilterByOnlyOneCountry) Filter(lines []string) bool {
 }
 
 func (f *FilterByOnlyOneCountry) HandleEOF(client_id string, message_id string) error {
-	for _, output_routing_keys := range f.Worker.Exchange.OutputRoutingKeys {
-		for _, output_key := range output_routing_keys {
-			message := client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
-			err := f.Worker.SendMessage(message, output_key)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return f.CommonFilter.HandleEOF(client_id, message_id)
 }
 
 func (f *FilterByOnlyOneCountry) SendMessage(client_id string, message_id string) error {
-	for node_type := range f.Worker.Exchange.OutputRoutingKeys {
-		messages_to_send := f.buffer.GetMessages(node_type)
-		for routing_key_index, message := range messages_to_send {
-			if len(message) != 0 {
-				send_queue_key := f.Worker.Exchange.OutputRoutingKeys[node_type][routing_key_index]
-				message = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message
-				err := f.Worker.SendMessage(message, send_queue_key)
-				if err != nil {
-					return err
-				}
-				log.Debugf("Sent message to output exchange: %s", message)
-			}
-		}
-
-	}
-	return nil
+	return f.CommonFilter.SendMessage(client_id, message_id)
 }
 
 func (f *FilterByOnlyOneCountry) CloseWorker() {
-	if f.Worker != nil {
-		f.Worker.CloseWorker()
-	}
-	log.Info("FilterByOnlyOneCountry worker closed")
+	f.CommonFilter.CloseWorker()
 }

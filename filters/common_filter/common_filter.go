@@ -1,72 +1,74 @@
 package common_filter
 
 import (
-	"context"
+	buffer "distribuidos-tp1/common/worker/hasher"
 	"distribuidos-tp1/common/worker/worker"
-	worker_package "distribuidos-tp1/common/worker/worker"
-
-	"strings"
 
 	"github.com/op/go-logging"
 )
 
-type Filter interface {
-	Filter(lines []string) bool
-	HandleEOF(client_id string, message_id string) error
-	SendMessage(client_id string, message_id string) error
-}
-
 var log = logging.MustGetLogger("common_filter")
 
-func RunWorker(f Filter, worker worker.Worker, ctx context.Context, starting_message string) error {
-	log.Info(starting_message)
+type CommonFilter struct {
+	Worker *worker.Worker
+	Buffer *buffer.HasherContainer
+}
 
-	for {
-		msg, _, err := worker.ReceivedMessages(ctx)
-		if err != nil {
-			log.Errorf("Fatal error in run worker: %v", err)
-			return err
-		}
-
-		message_str := string(msg.Body)
-		log.Debugf("Received message: %s", message_str)
-		if len(message_str) == 0 {
-			log.Warning("Received empty message")
-			msg.Ack(false)
-			continue
-		}
-
-		client_id := strings.SplitN(message_str, worker_package.MESSAGE_SEPARATOR, 3)[0]
-		message_id := strings.SplitN(message_str, worker_package.MESSAGE_SEPARATOR, 3)[1]
-		message_str = strings.SplitN(message_str, worker_package.MESSAGE_SEPARATOR, 3)[2]
-
-		if len(message_str) == 0 {
-			log.Warning("Received empty message")
-			msg.Ack(false)
-			continue
-		}
-
-		if strings.TrimSpace(message_str) == worker_package.MESSAGE_EOF {
-			err := f.HandleEOF(client_id, message_id)
-			if err != nil {
-				log.Infof("Error sending message: %s", err.Error())
-				return err
-			}
-			msg.Ack(false)
-			continue
-		}
-
-		lines := strings.Split(strings.TrimSpace(message_str), "\n")
-		hasMessageToSend := f.Filter(lines)
-		if hasMessageToSend {
-			err = f.SendMessage(client_id, message_id)
-			if err != nil {
-				log.Infof("Error sending message: %s", err.Error())
-				return err
-			}
-			log.Debug("Sent message")
-		}
-
-		msg.Ack(false)
+func NewCommonFilter(config worker.WorkerConfig) *CommonFilter {
+	log.Infof("FilterByAfterYear2000: %+v", config)
+	worker, err := worker.NewWorker(config, 1)
+	if err != nil {
+		log.Errorf("Error creating worker: %s", err)
+		return nil
 	}
+
+	dict := make(map[string]int)
+	for nodeType, routingKeys := range config.Exchange.OutputRoutingKeys {
+		dict[nodeType] = len(routingKeys)
+	}
+	buffer := buffer.NewHasherContainer(dict)
+
+	return &CommonFilter{
+		Worker: worker,
+		Buffer: buffer,
+	}
+}
+
+func (f *CommonFilter) SendMessage(client_id string, message_id string) error {
+	for node_type := range f.Worker.Exchange.OutputRoutingKeys {
+		messages_to_send := f.Buffer.GetMessages(node_type)
+		for routing_key_index, message := range messages_to_send {
+			if len(message) != 0 {
+				routing_key := f.Worker.Exchange.OutputRoutingKeys[node_type][routing_key_index]
+				message = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message
+				err := f.Worker.SendMessage(message, routing_key)
+				if err != nil {
+					return err
+				}
+				log.Debugf("Sent message to output exchange: %s", message)
+			}
+		}
+
+	}
+	return nil
+}
+
+func (f *CommonFilter) HandleEOF(client_id string, message_id string) error {
+	for _, output_routing_keys := range f.Worker.Exchange.OutputRoutingKeys {
+		for _, output_key := range output_routing_keys {
+			message := client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + worker.MESSAGE_EOF
+			err := f.Worker.SendMessage(message, output_key)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (f *CommonFilter) CloseWorker() {
+	if f.Worker != nil {
+		f.Worker.CloseWorker()
+	}
+	log.Info("Filter worker closed")
 }

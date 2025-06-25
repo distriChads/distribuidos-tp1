@@ -2,10 +2,9 @@ package filter_argentina
 
 import (
 	"distribuidos-tp1/common/worker/worker"
+	"distribuidos-tp1/filters/common_filter"
 	"strconv"
 	"strings"
-
-	buffer "distribuidos-tp1/common/worker/hasher"
 
 	"github.com/op/go-logging"
 )
@@ -17,27 +16,13 @@ type FilterByArgentinaConfig struct {
 }
 
 type FilterByArgentina struct {
-	Worker *worker.Worker
-	buffer *buffer.HasherContainer
+	*common_filter.CommonFilter
 }
 
 func NewFilterByArgentina(config FilterByArgentinaConfig) *FilterByArgentina {
-	log.Infof("FilterByArgentina: %+v", config)
-	worker, err := worker.NewWorker(config.WorkerConfig, 1)
-	if err != nil {
-		log.Errorf("Error creating worker: %s", err)
-		return nil
-	}
-
-	dict := make(map[string]int)
-	for nodeType, routingKeys := range config.WorkerConfig.Exchange.OutputRoutingKeys {
-		dict[nodeType] = len(routingKeys)
-	}
-	buffer := buffer.NewHasherContainer(dict)
-
+	filter := common_filter.NewCommonFilter(config.WorkerConfig)
 	return &FilterByArgentina{
-		Worker: worker,
-		buffer: buffer,
+		CommonFilter: filter,
 	}
 }
 
@@ -57,7 +42,7 @@ func (f *FilterByArgentina) Filter(lines []string) bool {
 		countries := strings.SplitSeq(parts[COUNTRIES], worker.MESSAGE_ARRAY_SEPARATOR)
 		for country := range countries {
 			if strings.TrimSpace(country) == "AR" {
-				f.buffer.AddMessage(movie_id, strings.TrimSpace(line))
+				f.Buffer.AddMessage(movie_id, strings.TrimSpace(line))
 				argMovie = true
 				break
 			}
@@ -80,27 +65,9 @@ func (f *FilterByArgentina) HandleEOF(client_id string, message_id string) error
 }
 
 func (f *FilterByArgentina) SendMessage(client_id string, message_id string) error {
-	for node_type := range f.Worker.Exchange.OutputRoutingKeys {
-		messages_to_send := f.buffer.GetMessages(node_type)
-		for routing_key_index, message := range messages_to_send {
-			if len(message) != 0 {
-				routing_key := f.Worker.Exchange.OutputRoutingKeys[node_type][routing_key_index]
-				message = client_id + worker.MESSAGE_SEPARATOR + message_id + worker.MESSAGE_SEPARATOR + message
-				err := f.Worker.SendMessage(message, routing_key)
-				if err != nil {
-					return err
-				}
-				log.Debugf("Sent message to output exchange: %s", message)
-			}
-		}
-
-	}
-	return nil
+	return f.CommonFilter.SendMessage(client_id, message_id)
 }
 
 func (f *FilterByArgentina) CloseWorker() {
-	if f.Worker != nil {
-		f.Worker.CloseWorker()
-	}
-	log.Info("FilterByArgentina worker closed")
+	f.CommonFilter.CloseWorker()
 }
