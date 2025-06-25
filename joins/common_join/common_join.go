@@ -66,7 +66,7 @@ func (f *CommonJoin) HandleJoiningEOF(client_id string, message_id string) error
 
 	delete(f.Client_movies_by_id, client_id)
 	delete(f.Eofs, client_id)
-	common_statefull_worker.CleanState(f.Storage_base_dir, client_id)
+	common_statefull_worker.CleanJoinNode(f.Storage_base_dir, client_id)
 
 	return nil
 }

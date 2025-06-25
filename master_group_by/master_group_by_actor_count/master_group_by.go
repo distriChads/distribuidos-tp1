@@ -69,8 +69,8 @@ func groupByActorAndUpdate(lines []string, grouped_elements map[string]int) {
 	}
 }
 
-func NewGroupByActorAndCount(config MasterGroupByActorAndCountConfig, messages_before_commit int, expected_eof int, storage_base_dir string) *MasterGroupByActorAndCount {
-	group_by := common_group_by.NewCommonGroupBy[int](config.WorkerConfig, messages_before_commit, storage_base_dir, expected_eof)
+func NewGroupByActorAndCount(config MasterGroupByActorAndCountConfig, expected_eof int, storage_base_dir string) *MasterGroupByActorAndCount {
+	group_by := common_group_by.NewCommonGroupBy[int](config.WorkerConfig, 1, storage_base_dir, expected_eof)
 	return &MasterGroupByActorAndCount{
 		CommonGroupBy: group_by,
 	}

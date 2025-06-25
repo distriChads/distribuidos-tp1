@@ -84,8 +84,8 @@ func groupByOverviewAndUpdate(lines []string, grouped_elements map[string]ScoreA
 	}
 }
 
-func NewGroupByOverviewAndAvg(config MasterGroupByOverviewAndAvgConfig, messages_before_commit int, expected_eof int, storage_base_dir string) *MasterGroupByOverviewAndAvg {
-	group_by := common_group_by.NewCommonGroupBy[ScoreAndCount](config.WorkerConfig, messages_before_commit, storage_base_dir, expected_eof)
+func NewGroupByOverviewAndAvg(config MasterGroupByOverviewAndAvgConfig, expected_eof int, storage_base_dir string) *MasterGroupByOverviewAndAvg {
+	group_by := common_group_by.NewCommonGroupBy[ScoreAndCount](config.WorkerConfig, 1, storage_base_dir, expected_eof)
 	return &MasterGroupByOverviewAndAvg{
 		CommonGroupBy: group_by,
 	}

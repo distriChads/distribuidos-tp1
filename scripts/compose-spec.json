@@ -83,32 +83,28 @@
             "log_level": "info",
             "output_nodes": ["top-five-country-budget"],
             "storage": ".local-storage",
-            "heartbeat_port": 4444,
-            "messages_per_commit": 10        },
+            "heartbeat_port": 4444      },
         {
             "name": "master-group-by-movie-average",
             "replicas": 1,
             "log_level": "info",
             "output_nodes": ["first-and-last"],
             "storage": ".local-storage",
-            "heartbeat_port": 4444,
-            "messages_per_commit": 10        },
+            "heartbeat_port": 4444      },
         {
             "name": "master-group-by-actor-count",
             "replicas": 1,
             "log_level": "info",
             "output_nodes": ["top-ten-cast-movie"],
             "storage": ".local-storage",
-            "heartbeat_port": 4444,
-            "messages_per_commit": 10        },
+            "heartbeat_port": 4444      },
         {
             "name": "master-group-by-overview-average",
             "replicas": 1,
             "log_level": "info",
             "output_routing_key": ["query5.results"],
             "storage": ".local-storage",
-            "heartbeat_port": 4444,
-            "messages_per_commit": 10
+            "heartbeat_port": 4444
         },
         {
             "name": "machine-learning",
@@ -123,8 +119,7 @@
             "log_level": "info",
             "output_routing_key": ["query2.results"],
             "storage": ".local-storage",
-            "heartbeat_port": 4444,
-            "messages_per_commit": 10
+            "heartbeat_port": 4444
         },
         {
             "name": "top-ten-cast-movie",
@@ -132,8 +127,7 @@
             "log_level": "info",
             "output_routing_key": ["query4.results"],
             "storage": ".local-storage",
-            "heartbeat_port": 4444,
-            "messages_per_commit": 10
+            "heartbeat_port": 4444
         },
         {
             "name": "join-movie-ratings",
@@ -157,8 +151,7 @@
             "log_level": "info",
             "output_routing_key": ["query3.results"],
             "storage": ".local-storage",
-            "heartbeat_port": 4444,
-            "messages_per_commit": 10
+            "heartbeat_port": 4444
         },
         {
             "name": "health-checker",

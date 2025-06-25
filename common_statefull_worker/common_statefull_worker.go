@@ -22,12 +22,16 @@ type StatefullWorker interface {
 	HandleEOF(client_id string, message_id string) error
 	// Converts the current state for the specified client to a string representation
 	MapToLines(client_id string) string
+	// Commits the message if needed
 	HandleCommit(client_id string, message amqp091.Delivery) error
+	// Init the in memory state for the client if needed
 	EnsureClient(client_id string)
 }
 
 var log = logging.MustGetLogger("common_group_by")
 
+// send 2 messages to the next node. All statefull workers have exactly one node next
+// the first message is the state we want to send, the second one is the EOF
 func SendResult(w worker.Worker, client_id string, lines string, message_id string, eof_id string) error {
 	var onlyRoutingKeys []string
 	for _, keys := range w.Exchange.OutputRoutingKeys {
@@ -56,6 +60,11 @@ func SendResult(w worker.Worker, client_id string, lines string, message_id stri
 	return nil
 }
 
+// Generic way to run a statefullworker.
+// first we verify we have the in memory state for this client
+// second we update the state for that client
+// third we commit the value
+// if there is an eof, we handle it different as we don't need to update the state
 func RunWorker(s StatefullWorker, ctx context.Context, w worker.Worker, starting_message string) error {
 	log.Info(starting_message)
 
@@ -135,27 +144,7 @@ func RestoreStateIfNeeded(last_messages_in_state map[string][]string, last_messa
 	return len(clients_ids_to_restore) != 0, nil
 }
 
-// hay 2 tipos de errores.
-// error tipo 1) -> "insalvables", la idea es la siguiente
-// voy a intentar leer de un archivo, si este esta corrupto voy al siguiente. Si este esta corrupto al siguiente y asi
-// hasta pasar por los N archivos que se eligieron como posible backup.
-// si NINGUNO de los archivos tenia estado, okay, se va a aceptar que hubo un error fatal, se va a colocar el estado en blanco
-// para este nodo y se va a seguir brindando servicio normalmente, pero se va a enviar un EOF-FAIL en vez de un EOF normal, asi lo sabe
-// el cliente que "che, te di un resultado pero es cualquier banana, vos fijate"
-
-// error tipo 2) -> salvable. se escribio todo bien el log, pero murio justo una linea antes de enviar el ACK
-// interesados -> client handler, group by (ver como manejar estos casos...)
-// interesado facil de arreglar ya que no mantiene un estado de agregacion -> topN (solo hacer un if si esta repetido cuando lo tenga guardado, ignorar)
-// NO interesados -> filtros, ML, join (a cualquiera de estos si les llega un repetido, van a pisar estado o simplemente reenviar un proximo, no hay drama)
-
-// casos posibles:
-// si el archivo no existe y lo creo, entonces es la primera vez que voy a comitear, esta bien
-// si el archivo ya existe y esta en blanco -> Hubo error de tipo 1)
-// si el archivo ya existe y esta con datos corrompidos -> hubo error de tipo 1)
-// si el archivo ya existe y los horarios estan incorrectos -> hubo error de tipo 1)
-// si el archivo ya existe y esta todo bien, pudo o no haber pasado error de tipo 2), no lo sabemos...
-// la solucion que se me ocurre es quiza mandar los timestamps en los mensajes? quiza podemos rescatar algo de eso
-
+// write to a file and sync the results when finished. We don't promise if the flags isn't at append that the file is or not corrupted
 func genericWriteToFile(storage_base_dir string, last_message_ids []string, client_id string, dir_name string, flags int) error {
 	dir := filepath.Join(storage_base_dir, dir_name)
 	err := os.MkdirAll(dir, 0755)
@@ -176,17 +165,32 @@ func genericWriteToFile(storage_base_dir string, last_message_ids []string, clie
 			return err
 		}
 	}
-	return err
+	err = f.Sync()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
+// Append the ids given to the file
 func appendIds(storage_base_dir string, last_message_ids []string, client_id string) error {
 	return genericWriteToFile(storage_base_dir, last_message_ids, client_id, "ids", os.O_APPEND|os.O_CREATE|os.O_WRONLY)
 }
 
-func AppendMyId(storage_base_dir string, last_message_ids []string, client_id string) error {
+// stores the node id that was created. It doesn't matter if there is other data, this will only replace with the new data
+// this is needed for group nodes, as they send new messages when they end, we need to create an id for the eof and the message
+// that is send. If we created a new one at the moment, there is a possibility that:
+// we receive an eof -> we send the message -> we die before .ack the last eof message
+// so we resend the data, if we didn't store this when we received the eof again,
+// we would send a new message with a new message_id, and the next node wouldn't know it's a repeated message
+func StoreMyId(storage_base_dir string, last_message_ids []string, client_id string) error {
 	return genericWriteToFile(storage_base_dir, last_message_ids, client_id, "node", os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
 }
 
+// This function is used to get data from the states file.
+// this pass through all the files from the given directory. The files are in the format
+// <client_id><something>. returns a hashmap with the client id as the key and a hashmap of the json that is in the file
+// also returns the last_messages of the clients if there are some
 func genericGetElements[T any](storage_base_dir string, dir_name string) (map[string]map[string]T, map[string][]string) {
 	grouped := make(map[string]map[string]T)
 	last_messages := make(map[string][]string)
@@ -240,18 +244,24 @@ func genericGetElements[T any](storage_base_dir string, dir_name string) (map[st
 	return grouped, last_messages
 }
 
+// get the elements from the pending directory
 func GetPending[T any](storage_base_dir string) (map[string]map[string]T, map[string][]string) {
 	return genericGetElements[T](storage_base_dir, "pending")
 }
 
+// get the elements from the eofs directory
 func GetEofs[T any](storage_base_dir string) (map[string]map[string]T, map[string][]string) {
 	return genericGetElements[T](storage_base_dir, "eofs")
 }
 
+// get the elements from the state directory
 func GetElements[T any](storage_base_dir string) (map[string]map[string]T, map[string][]string) {
 	return genericGetElements[T](storage_base_dir, "state")
 }
 
+// This function is used to get data from the appends file.
+// this pass through all the files from the given directory. The files are in the format
+// <client_id><something>. returns a hashmap with the client id as the key and all the data found.
 func genericGetIds(storage_base_dir string, dir_name string) (map[string][]string, map[string]string) {
 	grouped := make(map[string][]string)
 	last_messages := make(map[string]string)
@@ -259,7 +269,7 @@ func genericGetIds(storage_base_dir string, dir_name string) (map[string][]strin
 	dir := fmt.Sprintf("%s/%s", storage_base_dir, dir_name)
 	files, err := os.ReadDir(dir)
 	if err != nil {
-		return grouped, last_messages // si no existia el directorio, te devuelvo las cosas como vacios
+		return grouped, last_messages
 	}
 
 	for _, entry := range files {
@@ -296,19 +306,17 @@ func genericGetIds(storage_base_dir string, dir_name string) (map[string][]strin
 	return grouped, last_messages
 }
 
+// get the ids from the ids directory
 func GetIds(storage_base_dir string) (map[string][]string, map[string]string) {
 	return genericGetIds(storage_base_dir, "ids")
 }
 
+// get the ids from the node directory
 func GetMyId(storage_base_dir string) (map[string][]string, map[string]string) {
 	return genericGetIds(storage_base_dir, "node")
 }
 
-// StoreElements stores the state for a given client in the given storage base directory
-// results is the state to store
-// client_id is the id of the client to store the state for
-// storage_base_dir is the base directory where state files are stored
-// replicas is the number of replicas to create
+// store data to the state directory and appends the last N messages ids received at the end
 func StoreElementsWithMessageIds[T any](
 	results map[string]T,
 	client_id, storage_base_dir string,
@@ -335,18 +343,26 @@ func StoreElementsWithMessageIds[T any](
 	return appendIds(storage_base_dir, last_message_ids, client_id)
 }
 
+// store data to the eofs directory
 func StoreEofsWithId[T any](results map[string]T, client_id, storage_base_dir string) error {
 	return genericStoreElements(results, client_id, storage_base_dir, nil, "eofs")
 }
 
+// store data to the state directory
 func StoreElements[T any](results map[string]T, client_id, storage_base_dir string) error {
 	return genericStoreElements(results, client_id, storage_base_dir, nil, "state")
 }
 
+// store data to the pending directory
 func StorePending[T any](results map[string]T, client_id, storage_base_dir string) error {
 	return genericStoreElements(results, client_id, storage_base_dir, nil, "pending")
 }
 
+// genericStoreElements is an atomic function to store a file to disk
+// First, creates a temporary file to write the data in a json format
+// then writes any additional data needed at the end of the json
+// if everything was OK, flush to disk the temp file and then use the rename function to <client_id>_commited.txt
+// everything that is commited is OK, as the rename function is atomic
 func genericStoreElements[T any](results map[string]T, client_id, storage_base_dir string, after_write_function func(f *os.File) error, dir_name string) error {
 	dir := filepath.Join(storage_base_dir, dir_name)
 	err := os.MkdirAll(dir, 0755)
@@ -400,6 +416,10 @@ func genericStoreElements[T any](results map[string]T, client_id, storage_base_d
 	return nil
 }
 
+// genericCleanState deletes all state files for a given client
+// storage_base_dir is the base directory where state files are stored
+// client_id is the id of the client to delete state files for
+// dir_name is the name of the directory where the files are stored
 func genericCleanState(storage_base_dir string, client_id string, dir_name string) {
 	dir := fmt.Sprintf("%s/%s", storage_base_dir, dir_name)
 	files, err := os.ReadDir(dir)
@@ -417,17 +437,28 @@ func genericCleanState(storage_base_dir string, client_id string, dir_name strin
 	}
 }
 
+// clean state for pending directory, used for joins
 func CleanPending(storage_base_dir string, client_id string) {
 	genericCleanState(storage_base_dir, client_id, "pending")
 }
 
-// CleanState deletes all state files for a given client
-// storage_base_dir is the base directory where state files are stored
-// client_id is the id of the client to delete state files for
-func CleanState(storage_base_dir string, client_id string) {
+// clean all state for group and master group by nodes
+func CleanGroupNode(storage_base_dir string, client_id string) {
 	genericCleanState(storage_base_dir, client_id, "state")
 	genericCleanState(storage_base_dir, client_id, "ids")
-	genericCleanState(storage_base_dir, client_id, "eofs")
 	genericCleanState(storage_base_dir, client_id, "node")
+	genericCleanState(storage_base_dir, client_id, "eofs")
+}
+
+// clean all state for join nodes
+func CleanJoinNode(storage_base_dir string, client_id string) {
+	genericCleanState(storage_base_dir, client_id, "state")
+	genericCleanState(storage_base_dir, client_id, "eofs")
 	CleanPending(storage_base_dir, client_id)
+}
+
+// clean all state for topN nodes
+func CleanTopNNode(storage_base_dir string, client_id string) {
+	genericCleanState(storage_base_dir, client_id, "state")
+	genericCleanState(storage_base_dir, client_id, "node")
 }

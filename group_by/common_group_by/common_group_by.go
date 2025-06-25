@@ -52,7 +52,7 @@ func (g *CommonGroupBy[T]) EnsureClient(client_id string) {
 		}
 		ids_to_append[1] = message_id.String()
 		g.node_id[client_id] = message_id.String()
-		common_statefull_worker.AppendMyId(g.storage_base_dir, ids_to_append, client_id)
+		common_statefull_worker.StoreMyId(g.storage_base_dir, ids_to_append, client_id)
 	}
 
 }
@@ -99,7 +99,6 @@ func (g *CommonGroupBy[T]) HandleEOF(client_id string, message_id string, lines 
 	}
 	g.eofs[client_id][client_id] = append(g.eofs[client_id][client_id], message_id)
 	if len(g.eofs[client_id][client_id]) >= g.expected_eof {
-		log.Warning("MOMENTO DE ENVIAR FLACO")
 		err := common_statefull_worker.SendResult(g.Worker, client_id, lines, g.node_id[client_id], g.eof_id[client_id])
 		if err != nil {
 			return err
@@ -119,7 +118,7 @@ func (g *CommonGroupBy[T]) HandleEOF(client_id string, message_id string, lines 
 		delete(g.messages, client_id)
 		delete(g.Grouped_elements, client_id)
 		delete(g.eofs, client_id)
-		common_statefull_worker.CleanState(g.storage_base_dir, client_id)
+		common_statefull_worker.CleanGroupNode(g.storage_base_dir, client_id)
 		return nil
 	}
 
