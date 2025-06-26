@@ -1,12 +1,11 @@
-# from transformers import pipeline
 from .worker import Worker, WorkerConfig, MESSAGE_SEPARATOR, MESSAGE_EOF
 from textblob import TextBlob
 from .hasher import HasherContainer
-
+import signal
 import logging
-import threading
-import queue
 import uuid
+from typing import Optional
+from types import FrameType
 
 log = logging.getLogger("machine_learning")
 
@@ -26,15 +25,16 @@ class MachineLearningConfig(WorkerConfig):
 
 
 class MachineLearning:
+    """
+    Machine learning worker.
+    Processes reviews from messages and produces sentiment analysis as output.
+    Ignores messages with invalid movie IDs or revenue/budget set to 0.
+
+    :param config: configuration for the machine learning worker
+    """
     def __init__(self, config: MachineLearningConfig):
         log.info(f"NewMachineLearning: {config.__dict__}")
         self.worker = Worker(config)
-        # self.sentiment_analyzer = pipeline(
-        #     'sentiment-analysis',
-        #     model='distilbert-base-uncased-finetuned-sst-2-english',
-        #     batch_size=BATCH_SIZE,
-        #     truncation=True,
-        # )
 
         dict_for_hasher = {
             OUTPUT_KEY: len(config.exchange.output_routing_keys[OUTPUT_KEY]),
@@ -42,6 +42,10 @@ class MachineLearning:
         self.buffer = HasherContainer(dict_for_hasher)
         self.revenue_budget_zero_count_per_client: dict[str, int] = {}
         self.movies_processed_per_client: dict[str, int] = {}
+        
+        # Handle SIGINT (Ctrl+C) and SIGTERM (docker stop)
+        signal.signal(signal.SIGTERM, self.__graceful_shutdown_handler)
+        signal.signal(signal.SIGTERM, self.__graceful_shutdown_handler)
 
         try:
             self.worker.init_senders()
@@ -50,11 +54,23 @@ class MachineLearning:
             log.error(f"Error initializing worker: {e}")
             return e
 
+    def __graceful_shutdown_handler(self, signum: Optional[int] = None, frame: Optional[FrameType] = None):
+        """
+        Handles graceful shutdown and resource cleanup of the machine learning worker.
+        """
+        self.__shutdown()
+
     def __shutdown(self):
+        """
+        Shuts down the machine learning worker.
+        """
         log.info("Shutting down MachineLearning worker")
         self.worker.close_worker()
 
     def __process_batch(self, messages: list[list[str]], client_id: str):
+        """
+        Processes a batch of messages.
+        """
         sentiments: list[dict[str, str]] = []
 
         log.debug(
@@ -81,6 +97,9 @@ class MachineLearning:
             f"Processed {self.movies_processed_per_client[client_id]} movies")
 
     def _analyze_sentiment(self, overviews: list[str], sentiments: list[dict[str, str]]):
+        """
+        Analyzes the sentiment of a list of overviews.
+        """
         for overview in overviews:
             blob = TextBlob(overview)
             sentiment = blob.sentiment
@@ -90,6 +109,9 @@ class MachineLearning:
                 sentiments.append({"label": "NEGATIVE"})
 
     def __add_message_to_buffer(self, sentiment: str, parts: list[str]):
+        """
+        Adds a message to the processed messages buffer.
+        """
         result = MESSAGE_SEPARATOR.join(
             [parts[MOVIE_ID_INDEX], sentiment, parts[BUDGET_INDEX], parts[REVENUE_INDEX]])
         result += "\n"
@@ -100,6 +122,9 @@ class MachineLearning:
         self.buffer.append_to_node(movie_id, result)
 
     def run_worker(self):
+        """
+        Main loop for the machine learning worker.
+        """
         log.info("Starting MachineLearning worker")
         try:
             for method_frame, _properties, body in self.worker.received_messages():
@@ -129,6 +154,9 @@ class MachineLearning:
             return e
 
     def process_client_messages(self, client_id: str, message: str, message_id: str):
+        """
+        Processes a client message block.
+        """
         messages = message.split("\n")
         messages, amount_of_0 = self._filter_wrong_messages(
             messages, client_id)
@@ -140,6 +168,9 @@ class MachineLearning:
         self.__process_and_send_message(messages, client_id)
 
     def _filter_wrong_messages(self, messages: list[str], client_id: str) -> tuple[list[list[str]], int]:
+        """
+        Filters out messages with invalid movie IDs or revenue/budget set to 0.
+        """
         valid_movies: list[list[str]] = []
         revenue_0_in_batch = 0
 
@@ -160,6 +191,9 @@ class MachineLearning:
         return valid_movies, revenue_0_in_batch
 
     def __process_and_send_message(self, messages: list[list[str]], client_id: str):
+        """
+        Processes a batch of messages and sends the results to the message broker.
+        """
         self.__process_batch(messages, client_id)
         messages_processed = self.buffer.get_buffers()
 
@@ -176,6 +210,9 @@ class MachineLearning:
             self.worker.send_message(result, routing_key)
 
     def send_eof_to_all_routing_keys(self, client_id: str, message_id: str):
+        """
+        Sends EOF messages to all routing keys.
+        """
         for routing_key in self.worker.exchange.output_routing_keys[OUTPUT_KEY]:
             eof_message = f"{client_id}{MESSAGE_SEPARATOR}{message_id}{MESSAGE_SEPARATOR}{MESSAGE_EOF}"
             self.worker.send_message(eof_message, routing_key)

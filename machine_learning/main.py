@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 import threading
 from common.heartbeat import Heartbeat
 from os import getenv
-from common.clientHandler import MachineLearning, MachineLearningConfig
+from common.machineLearning import MachineLearning, MachineLearningConfig
 from common.worker import ExchangeSpec
 from tools.config import load_config, config_string
 from tools.logger import init_log
