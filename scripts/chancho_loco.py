@@ -38,7 +38,8 @@ class ContainerController:
 
     def get_active_containers(self):
         running_containers = (
-            self.run_cmd(f"docker ps --format {{{{.Names}}}}").strip().splitlines()
+            self.run_cmd(
+                f"docker ps --format {{{{.Names}}}}").strip().splitlines()
         )
         running_containers = [
             c for c in running_containers if not c.startswith("rabbit")
@@ -135,6 +136,11 @@ class ContainerController:
                 container_name
                 for container_name in self.containers
                 if self.is_container_running(container_name)
+            ]
+            alive_containers = [
+                container_name
+                for container_name in alive_containers
+                if not container_name.startswith("health-checker")
             ]
             if not alive_containers:
                 print("No hay mas contenedores vivos")
