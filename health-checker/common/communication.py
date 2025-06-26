@@ -13,8 +13,8 @@ class Socket:
 
     def __init__(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.port = self.sock.getsockname()[1]
         self.decoder = codecs.getincrementaldecoder('utf-8')()
+        self.sock.settimeout(3)
 
     def close(self):
         """
