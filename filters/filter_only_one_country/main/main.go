@@ -35,7 +35,6 @@ func main() {
 	exchangeSpec := worker.ExchangeSpec{
 		InputRoutingKeys:  strings.Split(v.GetString("routingkeys.input"), ","),
 		OutputRoutingKeys: filterRoutingKeysMap,
-		QueueName:         "filter_only_one_country",
 	}
 	messageBroker := v.GetString("cli.worker.broker")
 

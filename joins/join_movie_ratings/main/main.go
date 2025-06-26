@@ -37,7 +37,6 @@ func main() {
 	exchangeSpec := worker.ExchangeSpec{
 		InputRoutingKeys:  inputRoutingKeys,
 		OutputRoutingKeys: outputRoutingKey,
-		QueueName:         "filter_after_2000",
 	}
 
 	if exchangeSpec.InputRoutingKeys[0] == "" || len(exchangeSpec.OutputRoutingKeys) == 0 || messageBroker == "" {

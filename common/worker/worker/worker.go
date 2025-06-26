@@ -40,7 +40,6 @@ type receiver struct {
 type ExchangeSpec struct {
 	InputRoutingKeys  []string
 	OutputRoutingKeys map[string][]string
-	QueueName         string
 }
 
 type WorkerConfig struct {
