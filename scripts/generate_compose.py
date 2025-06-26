@@ -49,7 +49,7 @@ def rabbitmq_service(silent):
         "image": "rabbitmq:management",
         "container_name": "rabbitmq",
         "networks": COMMON_NETWORKS,
-        "ports": RABBIT_PORTS
+        "ports": RABBIT_PORTS,
     }
     if silent:
         service["logging"] = {"driver": "none"}
@@ -60,59 +60,63 @@ def get_output_routing_keys_strings(service_name, replicas):
     return ",".join(f"{service_name}.{i}" for i in range(1, replicas + 1))
 
 
-def client_handler_service(input_routing_key,
-                           broker,
-                           logging_level,
-                           listen_backlog,
-                           filter_arg_replicas,
-                           filter_one_country_replicas,
-                           ratings_join_replicas,
-                           credits_join_replicas,
-                           ml_replicas,
-                           eof_expected,
-                           heartbeat_port,
-                           storage):
+def client_handler_service(
+    input_routing_key,
+    broker,
+    logging_level,
+    listen_backlog,
+    filter_arg_replicas,
+    filter_one_country_replicas,
+    ratings_join_replicas,
+    credits_join_replicas,
+    ml_replicas,
+    eof_expected,
+    heartbeat_port,
+    storage,
+):
     filter_arg_out_routing_keys = get_output_routing_keys_strings(
-        FILTER_ARG, filter_arg_replicas)
+        FILTER_ARG, filter_arg_replicas
+    )
     filter_one_country_out_routing_keys = get_output_routing_keys_strings(
-        FILTER_ONE_COUNTRY, filter_one_country_replicas)
+        FILTER_ONE_COUNTRY, filter_one_country_replicas
+    )
     ratings_join_replicas = get_output_routing_keys_strings(
-        "join-ratings", ratings_join_replicas)
+        "join-ratings", ratings_join_replicas
+    )
     credits_join_replicas = get_output_routing_keys_strings(
-        "join-credits", credits_join_replicas)
-    ml_replicas = get_output_routing_keys_strings(
-        MACHINE_LEARNING, ml_replicas)
+        "join-credits", credits_join_replicas
+    )
+    ml_replicas = get_output_routing_keys_strings(MACHINE_LEARNING, ml_replicas)
 
     env = []
-    env.extend([
-        f"CLIENT_HANDLER_PORT={CLI_HANDLER_PORT}",
-        f"LOGGING_LEVEL={logging_level}",
-        f"CLI_WORKER_BROKER={broker}",
-        f"CLIENT_HANDLER_LISTEN_BACKLOG={listen_backlog}",
-        f"INPUT_ROUTINGKEY={input_routing_key}",
-        f"OUTPUT_ROUTINGKEYS_FILTER_ARG={filter_arg_out_routing_keys}",
-        f"OUTPUT_ROUTINGKEYS_FILTER_ONE_COUNTRY={filter_one_country_out_routing_keys}",
-        f"OUTPUT_ROUTINGKEYS_JOIN_MOVIES_RATING={ratings_join_replicas}",
-        f"OUTPUT_ROUTINGKEYS_JOIN_MOVIES_CREDITS={credits_join_replicas}",
-        f"OUTPUT_ROUTINGKEYS_MACHINE_LEARNING={ml_replicas}",
-        f"EOF_EXPECTED={eof_expected}",
-        f"HEARTBEAT_PORT={heartbeat_port}",
-        f"STATE_FILE_PATH=/app/storage/state.json"
-    ])
+    env.extend(
+        [
+            f"CLIENT_HANDLER_PORT={CLI_HANDLER_PORT}",
+            f"LOGGING_LEVEL={logging_level}",
+            f"CLI_WORKER_BROKER={broker}",
+            f"CLIENT_HANDLER_LISTEN_BACKLOG={listen_backlog}",
+            f"INPUT_ROUTINGKEY={input_routing_key}",
+            f"OUTPUT_ROUTINGKEYS_FILTER_ARG={filter_arg_out_routing_keys}",
+            f"OUTPUT_ROUTINGKEYS_FILTER_ONE_COUNTRY={filter_one_country_out_routing_keys}",
+            f"OUTPUT_ROUTINGKEYS_JOIN_MOVIES_RATING={ratings_join_replicas}",
+            f"OUTPUT_ROUTINGKEYS_JOIN_MOVIES_CREDITS={credits_join_replicas}",
+            f"OUTPUT_ROUTINGKEYS_MACHINE_LEARNING={ml_replicas}",
+            f"EOF_EXPECTED={eof_expected}",
+            f"HEARTBEAT_PORT={heartbeat_port}",
+            f"STATE_FILE_PATH=/app/storage/state.json",
+        ]
+    )
 
     return {
         "container_name": "client-handler",
-        "build": {
-            "context": ".",
-            "dockerfile": "client-handler/Dockerfile"
-        },
+        "build": {"context": ".", "dockerfile": "client-handler/Dockerfile"},
         "image": "client-handler:latest",
         "entrypoint": "python main.py",
         "networks": COMMON_NETWORKS,
         "ports": [f"{CLI_HANDLER_PORT}:{CLI_HANDLER_PORT}"],
         "depends_on": COMMON_DEPENDS_ON[:],
         "volumes": [f"{storage}/client-handler:/app/storage"],
-        "environment": env
+        "environment": env,
     }
 
 
@@ -125,7 +129,8 @@ def health_checker_services(spec, services_to_monitor, replicas, output_path):
                 _services.append(services_to_monitor[j])
         if replicas > 1:
             _services.append(
-                f"health-checker-{((i+1) % replicas) + 1}:{spec.get('heartbeat_port', 4444)}")
+                f"health-checker-{((i+1) % replicas) + 1}:{spec.get('heartbeat_port', 4444)}"
+            )
         env = [
             f"CLI_LOGGING_LEVEL={spec.get('log_level', 'INFO')}",
             f"CLI_SERVICES={','.join(_services)}",
@@ -134,30 +139,25 @@ def health_checker_services(spec, services_to_monitor, replicas, output_path):
             f"CLI_MAX_CONCURRENT_HEALTH_CHECKS={spec.get('max_concurrent_health_checks', 10)}",
             f"CLI_GRACE_PERIOD={spec.get('grace_period', 30)}",
             f"CLI_MAX_RETRIES={spec.get('max_retries', 3)}",
-            f"CLI_SKIP_GRACE_PERIOD=false"
+            f"CLI_SKIP_GRACE_PERIOD=false",
         ]
-        services.append({
-            "container_name": f"health-checker-{i+1}",
-            "build": {
-                "context": ".",
-                "dockerfile": "health-checker/Dockerfile"
-            },
-            "image": "health-checker:latest",
-            "entrypoint": "python main.py",
-            "networks": COMMON_NETWORKS,
-            "volumes": [f"/var/run/docker.sock:/var/run/docker.sock"],
-            "environment": env
-        })
+        services.append(
+            {
+                "container_name": f"health-checker-{i+1}",
+                "build": {"context": ".", "dockerfile": "health-checker/Dockerfile"},
+                "image": "health-checker:latest",
+                "entrypoint": "python main.py",
+                "networks": COMMON_NETWORKS,
+                "volumes": [f"/var/run/docker.sock:/var/run/docker.sock"],
+                "environment": env,
+            }
+        )
     return services
 
 
-def generic_worker_service(name,
-                           dockerfile_path,
-                           replica,
-                           spec,
-                           entrypoint,
-                           output_routing_keys,
-                           eof_counter):
+def generic_worker_service(
+    name, dockerfile_path, replica, spec, entrypoint, output_routing_keys, eof_counter
+):
     broker = spec.get("broker", DEFAULT_BROKER)
     env = [
         f"CLI_WORKER_BROKER={broker}",
@@ -177,7 +177,9 @@ def generic_worker_service(name,
     else:
         input_routing_keys = f"{name}.{replica}"
 
-    env.append(f"ROUTINGKEYS_INPUT={input_routing_keys}",)
+    env.append(
+        f"ROUTINGKEYS_INPUT={input_routing_keys}",
+    )
 
     for key, value in output_routing_keys.items():
         env.append(f"ROUTINGKEYS_OUTPUT_{key.upper()}={value}")
@@ -188,10 +190,7 @@ def generic_worker_service(name,
         env.append(f"CLI_WORKER_MAXMESSAGES={spec['messages_per_commit']}")
 
     service = {
-        "build": {
-            "context": ".",
-            "dockerfile": dockerfile_path
-        },
+        "build": {"context": ".", "dockerfile": dockerfile_path},
         "container_name": f"{name}-{replica}",
         "depends_on": ["rabbitmq"],
         "entrypoint": entrypoint,
@@ -201,9 +200,7 @@ def generic_worker_service(name,
     }
 
     if "storage" in spec:
-        service["volumes"] = [
-            f"{spec['storage']}/{name}-{replica}:/app/storage"
-        ]
+        service["volumes"] = [f"{spec['storage']}/{name}-{replica}:/app/storage"]
 
     return service
 
@@ -216,15 +213,10 @@ def generate_compose(spec_path, output_path):
         "name": spec.get("name", "tp1"),
         "networks": {
             COMMON_NETWORK: {
-                "ipam": {
-                    "driver": "default",
-                    "config": [{"subnet": "172.25.125.0/24"}]
-                }
+                "ipam": {"driver": "default", "config": [{"subnet": "172.25.125.0/24"}]}
             }
         },
-        "services": {
-            "rabbitmq": rabbitmq_service(silent=True)
-        }
+        "services": {"rabbitmq": rabbitmq_service(silent=True)},
     }
 
     node_replica_mapping = get_replicas(spec["services"])
@@ -235,13 +227,14 @@ def generate_compose(spec_path, output_path):
         if name == CLIENT_HANDLER:
             broker = service_spec.get("broker", DEFAULT_BROKER)
             logging_level = service_spec.get("log_level", "INFO")
-            listen_backlog = service_spec.get(
-                "listen_backlog", CLI_HANDLER_BACKLOG)
+            listen_backlog = service_spec.get("listen_backlog", CLI_HANDLER_BACKLOG)
 
-            filter_arg_replicas = node_replica_mapping[FILTER_ARG.upper().replace(
-                "-", "_")]
-            filter_2000_spain_replicas = node_replica_mapping[FILTER_SPAIN_2000.upper().replace(
-                "-", "_")]
+            filter_arg_replicas = node_replica_mapping[
+                FILTER_ARG.upper().replace("-", "_")
+            ]
+            filter_2000_spain_replicas = node_replica_mapping[
+                FILTER_SPAIN_2000.upper().replace("-", "_")
+            ]
             eof_expected = 4 + filter_arg_replicas * filter_2000_spain_replicas
 
             compose["services"][name] = client_handler_service(
@@ -249,34 +242,41 @@ def generate_compose(spec_path, output_path):
                 broker=broker,
                 logging_level=logging_level,
                 listen_backlog=listen_backlog,
-                filter_arg_replicas=node_replica_mapping[FILTER_ARG.upper().replace(
-                    "-", "_")],
-                filter_one_country_replicas=node_replica_mapping[FILTER_ONE_COUNTRY.upper(
-                ).replace("-", "_")],
-                credits_join_replicas=node_replica_mapping[JOIN_MOVIES_CREDITS.upper().replace(
-                    "-", "_")],
-                ratings_join_replicas=node_replica_mapping[JOIN_MOVIES_RATINGS.upper().replace(
-                    "-", "_")],
-                ml_replicas=node_replica_mapping[MACHINE_LEARNING.upper().replace(
-                    "-", "_")],
+                filter_arg_replicas=node_replica_mapping[
+                    FILTER_ARG.upper().replace("-", "_")
+                ],
+                filter_one_country_replicas=node_replica_mapping[
+                    FILTER_ONE_COUNTRY.upper().replace("-", "_")
+                ],
+                credits_join_replicas=node_replica_mapping[
+                    JOIN_MOVIES_CREDITS.upper().replace("-", "_")
+                ],
+                ratings_join_replicas=node_replica_mapping[
+                    JOIN_MOVIES_RATINGS.upper().replace("-", "_")
+                ],
+                ml_replicas=node_replica_mapping[
+                    MACHINE_LEARNING.upper().replace("-", "_")
+                ],
                 eof_expected=eof_expected,
                 heartbeat_port=service_spec.get("heartbeat_port", 4444),
-                storage=service_spec.get("storage", ".local-storage")
+                storage=service_spec.get("storage", ".local-storage"),
             )
 
         elif name == "health-checker":
             replicas = node_replica_mapping[name.upper().replace("-", "_")]
             services_to_monitor = [
                 f"{service['name']}-{i+1}:{service.get('heartbeat_port', 4444)}"
-                for service in spec["services"] if service["name"] not in ["health-checker", "client-handler"]
+                for service in spec["services"]
+                if service["name"] not in ["health-checker", "client-handler"]
                 for i in range(service["replicas"])
             ]
-            ch_spec = next(
-                s for s in spec["services"] if s["name"] == "client-handler")
+            ch_spec = next(s for s in spec["services"] if s["name"] == "client-handler")
             services_to_monitor.append(
-                f"client-handler:{ch_spec.get('heartbeat_port', 4444)}")
+                f"client-handler:{ch_spec.get('heartbeat_port', 4444)}"
+            )
             health_checkers = health_checker_services(
-                service_spec, services_to_monitor, replicas, output_path)
+                service_spec, services_to_monitor, replicas, output_path
+            )
             for i in range(replicas):
                 compose["services"][f"{name}-{i+1}"] = health_checkers[i]
         else:
@@ -300,14 +300,18 @@ def generate_compose(spec_path, output_path):
             output_routing_keys = {}
 
             if "output_routing_key" in service_spec:
-                output_routing_keys["OUTPUT_ROUTINGKEY"] = service_spec["output_routing_key"][0]
+                output_routing_keys["OUTPUT_ROUTINGKEY"] = service_spec[
+                    "output_routing_key"
+                ][0]
             else:
                 output_nodes = service_spec.get("output_nodes", [])
                 if not output_nodes:
                     raise ValueError(
-                        f"Service {name} must have at least one output node defined.")
+                        f"Service {name} must have at least one output node defined."
+                    )
                 output_routing_keys = get_output_routing_keys(
-                    output_nodes, node_replica_mapping)
+                    output_nodes, node_replica_mapping
+                )
 
             dockerfile_path = f"{prefix}{name.replace('-', '_')}/Dockerfile"
 
@@ -315,35 +319,48 @@ def generate_compose(spec_path, output_path):
                 eof_counter = 0
 
                 if name == JOIN_MOVIES_CREDITS or name == JOIN_MOVIES_RATINGS:
-                    replicas_filter_arg = node_replica_mapping[FILTER_ARG.upper().replace(
-                        "-", "_")]
-                    replicas_filter_after_2000 = node_replica_mapping[FILTER_AFTER_2000.upper(
-                    ).replace("-", "_")]
+                    replicas_filter_arg = node_replica_mapping[
+                        FILTER_ARG.upper().replace("-", "_")
+                    ]
+                    replicas_filter_after_2000 = node_replica_mapping[
+                        FILTER_AFTER_2000.upper().replace("-", "_")
+                    ]
                     eof_counter = replicas_filter_arg * replicas_filter_after_2000
 
                 if name.startswith("master-group-by"):
                     group_by = name.split("-")
                     group_by = group_by[1:]
                     group_by = "-".join(group_by)
-                    eof_counter = node_replica_mapping[group_by.upper().replace(
-                        "-", "_")]
+                    eof_counter = node_replica_mapping[
+                        group_by.upper().replace("-", "_")
+                    ]
 
                 if name == GROUP_BY_COUNTRY_SUM:
-                    eof_counter = node_replica_mapping[FILTER_ONE_COUNTRY.upper().replace(
-                        "-", "_")]
+                    eof_counter = node_replica_mapping[
+                        FILTER_ONE_COUNTRY.upper().replace("-", "_")
+                    ]
                 if name == GROUP_BY_MOVIE_AVG:
-                    eof_counter = node_replica_mapping[JOIN_MOVIES_RATINGS.upper().replace(
-                        "-", "_")]
+                    eof_counter = node_replica_mapping[
+                        JOIN_MOVIES_RATINGS.upper().replace("-", "_")
+                    ]
                 if name == GROUP_BY_ACTOR_COUNT:
-                    eof_counter = node_replica_mapping[JOIN_MOVIES_CREDITS.upper().replace(
-                        "-", "_")]
+                    eof_counter = node_replica_mapping[
+                        JOIN_MOVIES_CREDITS.upper().replace("-", "_")
+                    ]
                 if name == GROUP_BY_OVERVIEW_AVG:
-                    eof_counter = node_replica_mapping[MACHINE_LEARNING.upper().replace(
-                        "-", "_")]
+                    eof_counter = node_replica_mapping[
+                        MACHINE_LEARNING.upper().replace("-", "_")
+                    ]
 
                 instance_name = f"{name}-{i}"
                 compose["services"][instance_name] = generic_worker_service(
-                    name, dockerfile_path, i, service_spec, entrypoint, output_routing_keys, eof_counter
+                    name,
+                    dockerfile_path,
+                    i,
+                    service_spec,
+                    entrypoint,
+                    output_routing_keys,
+                    eof_counter,
                 )
 
     with open(output_path, "w") as f:
@@ -380,12 +397,12 @@ def get_output_routing_keys(output_nodes, node_replica_mapping):
 def get_service_replica(spec, replicas_services):
     replicas = {}
     for service in replicas_services:
-        service_spec = next(
-            (s for s in spec if s.get("name") == service), None)
+        service_spec = next((s for s in spec if s.get("name") == service), None)
         replicas[service] = service_spec.get("replicas", -1)
         if replicas == -1:
             raise ValueError(
-                f"Service {service} must have a defined number of replicas.")
+                f"Service {service} must have a defined number of replicas."
+            )
 
     return replicas
 

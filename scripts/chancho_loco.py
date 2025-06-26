@@ -6,11 +6,7 @@ import sys
 
 
 def death_print(name):
-    explosion = [
-        "   *   *   *",
-        f"*   💀 {name} 💀   *",
-        " *   * * *   *"
-    ]
+    explosion = ["   *   *   *", f"*   💀 {name} 💀   *", " *   * * *   *"]
 
     width = max(len(line) for line in explosion)
 
@@ -41,10 +37,12 @@ class ContainerController:
         self.auto_running = False
 
     def get_active_containers(self):
-        running_containers = self.run_cmd(
-            f"docker ps --format {{{{.Names}}}}").strip().splitlines()
+        running_containers = (
+            self.run_cmd(f"docker ps --format {{{{.Names}}}}").strip().splitlines()
+        )
         running_containers = [
-            c for c in running_containers if not c.startswith("rabbit")]
+            c for c in running_containers if not c.startswith("rabbit")
+        ]
         return running_containers
 
     def run_cmd(self, cmd):
@@ -55,7 +53,8 @@ class ContainerController:
 
     def is_container_running(self, container_name):
         output = self.run_cmd(
-            f"docker ps --filter name=^{container_name}$ --format {{{{.Names}}}}")
+            f"docker ps --filter name=^{container_name}$ --format {{{{.Names}}}}"
+        )
         return container_name.strip() == output.strip()
 
     def kill_containers(self, container_names: list[str]):
@@ -78,11 +77,17 @@ class ContainerController:
         time.sleep(1)
 
         for container_name in self.containers:
-            if container_name.startswith("health-checker") and not health_checker_skipped:
+            if (
+                container_name.startswith("health-checker")
+                and not health_checker_skipped
+            ):
                 print(f"Salvando health-checker: {container_name}")
                 containers_to_kill.remove(container_name)
                 health_checker_skipped = True
-            elif container_name.startswith("client-handler") and not client_handler_skipped:
+            elif (
+                container_name.startswith("client-handler")
+                and not client_handler_skipped
+            ):
                 containers_to_kill.remove(container_name)
                 client_handler_skipped = True
             if health_checker_skipped and client_handler_skipped:
@@ -90,8 +95,9 @@ class ContainerController:
 
         self.kill_containers(containers_to_kill)
         print(
-            "Todos los contenedores han sido asesinados, excepto un heartbeat y el handler. 💣💣💣💥💥💥💣💣💣\n")
-        
+            "Todos los contenedores han sido asesinados, excepto un heartbeat y el handler. 💣💣💣💥💥💥💣💣💣\n"
+        )
+
     def kill_all_except_one_heartbeat(self):
         health_checker_skipped = False
         containers_to_kill = self.get_active_containers()
@@ -99,7 +105,10 @@ class ContainerController:
         time.sleep(1)
 
         for container_name in self.containers:
-            if container_name.startswith("health-checker") and not health_checker_skipped:
+            if (
+                container_name.startswith("health-checker")
+                and not health_checker_skipped
+            ):
                 print(f"Salvando health-checker: {container_name}")
                 containers_to_kill.remove(container_name)
                 health_checker_skipped = True
@@ -108,25 +117,30 @@ class ContainerController:
 
         self.kill_containers(containers_to_kill)
         print(
-            "Todos los contenedores han sido asesinados, excepto un heartbeat. 💣💣💣💥💥💥💣💣💣\n")
+            "Todos los contenedores han sido asesinados, excepto un heartbeat. 💣💣💣💥💥💥💣💣💣\n"
+        )
 
     def kill_with_prefix(self, prefix):
         containers_to_kill = []
         for container_name in self.containers:
             if container_name.startswith(prefix):
                 containers_to_kill.append(container_name)
-                
+
         self.kill_containers(containers_to_kill)
 
     def auto_kill(self, x, y):
         self.auto_running = True
         while self.auto_running:
             alive_containers = [
-                container_name for container_name in self.containers if self.is_container_running(container_name)]
+                container_name
+                for container_name in self.containers
+                if self.is_container_running(container_name)
+            ]
             if not alive_containers:
                 print("No hay mas contenedores vivos")
             containers_to_kill = random.sample(
-                alive_containers, min(y, len(alive_containers)))
+                alive_containers, min(y, len(alive_containers))
+            )
             for container_name in containers_to_kill:
                 if container_name.startswith("client-handler"):
                     continue
@@ -138,13 +152,14 @@ class ContainerController:
             print("Ya esta auto en ejecucion, frenalo primero con stop")
             return
         self.auto_thread = threading.Thread(
-            target=self.auto_kill, args=(x, y), daemon=True)
+            target=self.auto_kill, args=(x, y), daemon=True
+        )
         self.auto_thread.start()
 
     def stop_auto_kill(self):
         self.auto_running = False
         if self.auto_thread and self.auto_thread.is_alive():
-           self.auto_thread.join()
+            self.auto_thread.join()
         print("Auto detenido")
 
     def prompt_loop(self):
@@ -153,7 +168,7 @@ class ContainerController:
             self.print_helper()
             try:
                 cmd = input(">>> ").strip()
-            except (KeyboardInterrupt):
+            except KeyboardInterrupt:
                 self.stop_auto_kill()
                 break
 
@@ -174,11 +189,15 @@ class ContainerController:
                 _, prefix = cmd.split(maxsplit=1)
                 self.kill_with_prefix(prefix)
             elif cmd == "mostrar":
-                running_containers = self.run_cmd(
-                    f"docker ps --format {{{{.Names}}}}").strip().splitlines()
+                running_containers = (
+                    self.run_cmd(f"docker ps --format {{{{.Names}}}}")
+                    .strip()
+                    .splitlines()
+                )
                 print(f"Contenedores corriendo: {running_containers}")
                 running_containers = [
-                    c for c in running_containers if not c.startswith("rabbit")]
+                    c for c in running_containers if not c.startswith("rabbit")
+                ]
             elif cmd == "bomba_atomica":
                 self.kill_all_except_one_heartbeat()
             else:
@@ -190,7 +209,9 @@ class ContainerController:
         print("stop - Detener el auto kill")
         print("bomba - Matar todos los contenedores excepto uno con nombre hearth-beat")
         print("matar <nombre> - Matar un contenedor especifico")
-        print("matar_varios <prefijo> - Matar todos los contenedores con un prefijo especifico")
+        print(
+            "matar_varios <prefijo> - Matar todos los contenedores con un prefijo especifico"
+        )
         print("mostrar - Mostrar contenedores corriendo")
         print("Ctrl+C o Ctrl+D - Salir del programa\n")
 
