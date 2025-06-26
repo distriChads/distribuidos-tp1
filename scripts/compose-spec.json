@@ -4,7 +4,7 @@
         {
             "name": "client-handler",
             "log_level": "info",
-            "replicas": 3,
+            "replicas": 1,
             "input_routing_key": ["*.results"],
             "movies_output_nodes": ["filter-argentina", "filter-only-one-country"],
             "ratings_output_nodes": ["join-movie-ratings"],
