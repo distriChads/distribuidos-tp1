@@ -5,6 +5,10 @@ from dotenv import load_dotenv
 
 
 def init_config() -> dict[str, str | int]:
+    """
+    Loads the configuration from the .env file, the existing environment and the config.ini file.
+    Raises ValueError if a critical parameter is missing.
+    """
     load_dotenv()
     config = ConfigParser()
     config.read(['./tools/config.ini', './client_handler/tools/config.ini'])
@@ -16,6 +20,10 @@ def init_config() -> dict[str, str | int]:
 
 
 def load_environmental_variables(config: ConfigParser, config_params: dict[str, str | int]):
+    """
+    Loads environmental variables from the .env file, the existing environment and the config.ini file.
+    Raises ValueError if a critical parameter is missing.
+    """
     try:
         setup_client_handler_config_esentials(config, config_params)
         load_exchange_config(config_params)
@@ -28,6 +36,9 @@ def load_environmental_variables(config: ConfigParser, config_params: dict[str, 
 
 
 def load_exchange_config(config_params):
+    """
+    Loads the exchange configuration from the .env file, the existing environment and the config.ini file.
+    """
     config_params["INPUT_ROUTINGKEY"] = os.getenv('INPUT_ROUTINGKEY')
 
     output_node_names = ["FILTER_ARG",
@@ -39,6 +50,9 @@ def load_exchange_config(config_params):
 
 
 def setup_client_handler_config_esentials(config, config_params):
+    """
+    Sets up the client handler essential configuration parameters.
+    """
     config_params["eof_expected"] = int(
         os.getenv('EOF_EXPECTED') or config["DEFAULT"]["EOF_EXPECTED"])
     config_params["port"] = int(

@@ -3,6 +3,10 @@ import socket
 
 
 class Socket:
+    """
+    Socket wrapper to handle message encoding and decoding and avoid short reads/writes.
+    """
+
     def __init__(self, sock: socket.socket):
         self.sock = sock
         self.decoder = codecs.getincrementaldecoder('utf-8')()

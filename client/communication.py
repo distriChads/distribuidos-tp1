@@ -3,13 +3,16 @@ import socket
 
 
 class Socket:
+    """
+    Socket wrapper to handle message encoding and decoding and avoid short reads/writes.
+    """
     def __init__(self, sock: socket.socket):
         self.sock = sock
         self.decoder = codecs.getincrementaldecoder('utf-8')()
 
     def send(self, msg: bytes):
         """
-        Write a message to a socket
+        Write a message to a socket.
 
         :param socket: socket to write to
         :param msg: message to write
@@ -35,7 +38,8 @@ class Socket:
 
     def _recv_exactly(self, num_bytes: int) -> bytes:
         """
-        Ensure we receive exactly num_bytes from the socket
+        Receive exactly num_bytes from the socket.
+        Raises ConnectionError if the socket is closed before receiving the expected data.
         """
         data = b""
         while len(data) < num_bytes:

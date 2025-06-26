@@ -60,6 +60,9 @@ class ClientHandler:
         self.state_manager = StateManager(state_file_path)
 
     def __graceful_shutdown_handler(self, signum: Optional[int] = None, frame: Optional[FrameType] = None):
+        """
+        Handles resource cleanup and shutdown of the client handler.
+        """
         # ===== TEST: ungraceful shutdown on client handler =====
         if signum == signal.SIGABRT:
             logging.critical("Client handler blew up")
@@ -71,6 +74,10 @@ class ClientHandler:
         self._cli_hand_socket.close()
 
     def __clean_stale_clients(self) -> None:
+        """
+        Cleans up stale clients that were not properly closed.
+        Sends EOFs for all stale clients and removes them from state.
+        """
         stale_clients = self.state_manager.get_all_clients()
         if not stale_clients:
             logging.info("No stale clients found")
@@ -84,6 +91,10 @@ class ClientHandler:
             self.state_manager.delete_client(client_id)
 
     def run(self) -> None:
+        """
+        Main client handler loop.
+        Accepts new connections, processes clients in separate threads, and manages client results in a dedicated thread.
+        """
         results_thread = threading.Thread(target=self.__manage_client_results)
         results_thread.start()
         self.__clean_stale_clients()
@@ -108,11 +119,19 @@ class ClientHandler:
         logging.info('Client handler thread finished')
 
     def __join_client(self, client_id: str) -> None:
+        """
+        Joins a client thread.
+        """
         with self.client_threads_lock:
             client_t = self.client_threads.pop(client_id)
         client_t.join()
     
     def __receive_datasets(self, client: Client) -> None:
+        """
+        Loop for receiving datasets from a client.
+        Processes the datasets and forwards them to the message broker.
+        When all datasets have been received, sends EOFs to the message broker.
+        """
         client.init_worker()
         for i in range(FILES_TO_RECEIVE):
 
@@ -153,6 +172,11 @@ class ClientHandler:
         logging.info(f'Received all files for client {client.client_id}')
 
     def __manage_client_results(self) -> None:
+        """
+        Loop for receiving query results.
+        Listens for results and forwards them to the respective client.
+        When a client has received all results, it closes the connection.
+        """
         received_messages_id = defaultdict(list)
         for method_frame, _properties, result in self.worker.received_messages(self._shutdown):
             parts = result.split("|", 2)
@@ -202,6 +226,10 @@ class ClientHandler:
         logging.info('Client results manager thread finished')
 
     def __accept_new_connection(self) -> socket.socket:
+        """
+        Accepts a new connection from a client.
+        Returns the connection socket.
+        """
         logging.debug('In listener socket loop')
         try:
             c, addr = self._cli_hand_socket.accept()

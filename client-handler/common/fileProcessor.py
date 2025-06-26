@@ -20,7 +20,17 @@ LINE_SEPARATOR = "\n"
 
 
 class Processor:
-    def __init__(self, positions_for_hasher):
+    """
+    Base class for file processors.
+    Parses chunks of data and ensures the data is valid.
+    Stores the data in a HasherContainer for sending to the appropiate nodes.
+    """
+
+    def __init__(self, positions_for_hasher: dict[str, int]):
+        """
+        Initializes the file processor.
+        :param positions_for_hasher: positions for the hasher
+        """
         self.container = HasherContainer(positions_for_hasher)
         self.header_length = 0
         self.fields_count = 0
@@ -31,6 +41,11 @@ class Processor:
         self.successful_lines_count = 0
 
     def process_first_batch(self, bytes_received: int, chunck_received: str):
+        """
+        Processes the first received batch of data, which contains the file size and the header.
+        :param bytes_received: number of bytes received
+        :param chunck_received: chunk of data to process
+        """
         index_delimiter = chunck_received.find('|')
 
         file_size = int(chunck_received[:index_delimiter])
@@ -41,6 +56,11 @@ class Processor:
         self.process_batch(bytes_received, chunck_received)
 
     def process_batch(self, bytes_received: int, chunck_received: str):
+        """
+        Parses and stores a chunk of data.
+        :param bytes_received: number of bytes received
+        :param chunck_received: chunk of data to process
+        """
         self.bytes_read += bytes_received
         successful_lines_count = 0
         error_count = 0
@@ -64,22 +84,48 @@ class Processor:
         self.errors_per_file += error_count
 
     def received_all_data(self) -> bool:
+        """
+        Checks if all data has been received.
+        :return: True if all data has been received, False otherwise
+        """
         return self.bytes_read >= self.read_until
 
     def remove_header(self, csv_data: str) -> str:
+        """
+        Removes the header from the data.
+        :param csv_data: data to remove the header from
+        :return: data without the header
+        """
         return csv_data[self.header_length:]
 
     def _process_line(self, line: list[str]) -> list[int, str]:
+        """
+        Parses a single line of data.
+        :param line: line of data to process
+        :return: tuple of id and processed line
+        """
         raise NotImplementedError(
             "Subclasses should implement this method")
 
     def _try_parse_python_structure(self, text: str):
+        """
+        Tries to parse a python structure from a string.
+        :param text: string to parse
+        :return: parsed python structure
+        :raises: ValueError if the string is not a valid python structure
+        """
         try:
             return ast.literal_eval(text)
         except (ValueError, SyntaxError):
             return ""
 
     def convert_movie_id_to_int(self, movie_id: str) -> int:
+        """
+        Converts an id in string format to an integer.
+        :param movie_id: id in string format
+        :return: id in integer format
+        :raises: EmptyFieldError if the id is not a valid integer
+        """
         try:
             return int(movie_id)
         except ValueError:
@@ -90,6 +136,10 @@ class Processor:
 
 
 class MoviesProcessor(Processor):
+    """
+    Processor for movies data. See base class for more information.
+    """
+
     def __init__(self, positions_for_hasher):
         super().__init__(positions_for_hasher)
         self.header_length = len(MOVIES_HEADER) + 1  # +1 for the \n
@@ -141,6 +191,10 @@ class MoviesProcessor(Processor):
 
 
 class CreditsProcessor(Processor):
+    """
+    Processor for credits data. See base class for more information.
+    """
+
     def __init__(self, positions_for_hasher):
         super().__init__(positions_for_hasher)
         self.header_length = len(CREDITS_HEADER) + 1  # +1 for the \n
@@ -184,6 +238,10 @@ class CreditsProcessor(Processor):
 
 
 class RatingsProcessor(Processor):
+    """
+    Processor for ratings data. See base class for more information.
+    """
+
     def __init__(self, positions_for_hasher):
         super().__init__(positions_for_hasher)
         self.header_length = len(RATINGS_HEADER) + 1  # +1 for the \n
@@ -206,4 +264,7 @@ class RatingsProcessor(Processor):
 
 
 class EmptyFieldError(Exception):
+    """
+    Exception raised when a required field is empty.
+    """
     pass

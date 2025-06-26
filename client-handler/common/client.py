@@ -13,6 +13,11 @@ ML_ROUTING_KEYS = "machine_learning"
 
 
 class Client:
+    """
+    Class for handling communication related to a single client.
+    Handles both tcp connection with the client and communication with the message broker.
+    """
+
     def __init__(self, socket: Socket, config: WorkerConfig):
         self.client_socket = socket
         self.worker = Worker(config)
@@ -35,6 +40,9 @@ class Client:
         self.batch_processor = MoviesProcessor(positions_for_hasher)
 
     def init_worker(self) -> None:
+        """
+        Initializes the message broker worker.
+        """
         try:
             self.worker.init_senders()
             self.worker.init_receiver()
@@ -43,16 +51,29 @@ class Client:
             return e
 
     def close(self):
+        """
+        Closes the client socket and the message broker worker.
+        """
         self.client_socket.close()
         self.worker.close_worker()
 
     def read(self):
+        """
+        Reads data from the client socket.
+        """
         return self.client_socket.read()
 
     def send(self, data: str):
+        """
+        Sends data to the client socket.
+        """
         return self.client_socket.send(data)
 
     def send_message(self, data_list: dict[str, dict[int, str]]):
+        """
+        Sends the processed batch to the message broker.
+        Handles routing based on the keys and positions in the data list.
+        """
         for routing_key, dict_positions in data_list.items():
             routing_keys = self.worker.exchange.output_routing_keys[routing_key]
             if not dict_positions:
@@ -63,6 +84,9 @@ class Client:
                 self.worker.send_message(data, routing_keys[position], self.client_id)
 
     def set_next_processor(self):
+        """
+        Sets the current batch processor to the next processor in the sequence.
+        """
         if type(self.batch_processor) == MoviesProcessor:
             join_movies_credits_positions = len(
                 self.worker.exchange.output_routing_keys[CREDITS_ROUTING_KEYS])
@@ -81,9 +105,15 @@ class Client:
             self.batch_processor = None
 
     def send_message_to_workers(self):
+        """
+        Sends the processed batch to the message broker.
+        """
         self.send_message(self.batch_processor.get_processed_batch())
 
     def send_eof(self):
+        """
+        Sends the appropriate EOF to the message broker for the current batch processor.
+        """
         routing_keys = []
         if type(self.batch_processor) == MoviesProcessor:
             routing_keys = self.worker.exchange.output_routing_keys[MOVIES_ROUTING_KEYS[0]] + \
@@ -102,17 +132,27 @@ class Client:
             self.worker.send_message(EOF, routing_key, self.client_id)
 
     def send_all_eof(self):
+        """
+        Sends all EOFs to the message broker.
+        """
         while self.batch_processor:
             self.send_eof()
             self.set_next_processor()
 
     def receive_first_chunk(self):
+        """
+        Receives the first chunk of data from the client.
+        """
         if self.client_socket is None:
             raise ValueError("Client socket is not connected.")
         bytes_read, chunck_received = self.read()
         return self.batch_processor.process_first_batch(bytes_read, chunck_received)
     
 class StaleClient(Client):
+    """
+    Stub class for handling clients that weren't properly closed.
+    Only meant to sent EOFs to the message broker to clean up.
+    """
     def __init__(self, client_id: str, config: WorkerConfig):
         super().__init__(None, config)
         self.client_id = client_id
