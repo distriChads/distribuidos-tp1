@@ -125,7 +125,6 @@ class ContainerController:
                 container_name for container_name in self.containers if self.is_container_running(container_name)]
             if not alive_containers:
                 print("No hay mas contenedores vivos")
-                self.stop_auto_kill()
             containers_to_kill = random.sample(
                 alive_containers, min(y, len(alive_containers)))
             for container_name in containers_to_kill:
@@ -145,7 +144,7 @@ class ContainerController:
     def stop_auto_kill(self):
         self.auto_running = False
         if self.auto_thread and self.auto_thread.is_alive():
-            self.auto_thread.join()
+           self.auto_thread.join()
         print("Auto detenido")
 
     def prompt_loop(self):
@@ -154,7 +153,7 @@ class ContainerController:
             self.print_helper()
             try:
                 cmd = input(">>> ").strip()
-            except (EOFError, KeyboardInterrupt):
+            except (KeyboardInterrupt):
                 self.stop_auto_kill()
                 break
 
