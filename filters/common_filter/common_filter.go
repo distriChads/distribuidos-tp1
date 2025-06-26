@@ -1,6 +1,7 @@
 package common_filter
 
 import (
+	"distribuidos-tp1/common/utils"
 	buffer "distribuidos-tp1/common/worker/hasher"
 	"distribuidos-tp1/common/worker/worker"
 
@@ -8,6 +9,13 @@ import (
 )
 
 var log = logging.MustGetLogger("common_filter")
+
+// ========================== Testing ==========================
+const (
+	TEST_SEND_MULTIPLE_EOF = 1
+)
+
+// ========================== Testing ==========================
 
 type CommonFilter struct {
 	Worker *worker.Worker
@@ -68,6 +76,15 @@ func (f *CommonFilter) HandleEOF(client_id string, message_id string) error {
 			if err != nil {
 				return err
 			}
+			// ========================== Testing ==========================
+			if utils.TestCase == TEST_SEND_MULTIPLE_EOF {
+				err = f.Worker.SendMessage(message, output_key)
+				if err != nil {
+					return err
+				}
+				log.Infof("Sent repeated EOF to output exchange: %s", message)
+			}
+			// ========================== Testing ==========================
 		}
 	}
 	return nil

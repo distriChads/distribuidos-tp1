@@ -12,6 +12,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+var TestCase int // Global variable for testing purposes only
+
 var logger *logging.Logger
 
 // InitConfig Function that uses viper library to parse configuration parameters.
@@ -36,14 +38,19 @@ func InitConfig() (*viper.Viper, error) {
 	v.BindEnv("worker", "exchange", "output", "routingkeys")
 	v.BindEnv("worker", "broker")
 	v.BindEnv("worker", "maxmessages")
+	v.BindEnv("test", "case")
 	// Try to read configuration from config file. If config file
 	// does not exists then ReadInConfig will fail but configuration
 	// can be loaded from the environment variables so we shouldn't
 	// return an error in that case
+
 	v.SetConfigFile("./config.yaml")
 	if err := v.ReadInConfig(); err != nil {
 		fmt.Printf("Configuration could not be read from config file. Using env variables instead\n")
 	}
+
+	// For testing resiliency
+	TestCase = v.GetInt("test.case")
 
 	// Print all settings loaded by Viper (including env vars)
 	// This is useful for debugging
