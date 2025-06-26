@@ -21,7 +21,7 @@ def init_config() -> dict[str, str | int]:
             'LOGGING_LEVEL') or config["DEFAULT"]["LOGGING_LEVEL"]
         config_params["client_handler_address"] = os.getenv(
             'CLIENT_HANDLER_ADDRESS') or config["DEFAULT"]["CLIENT_HANDLER_ADDRESS"]
-        config_params["storage_path"] = os.getenv(
+        config_params["dataset_path"] = os.getenv(
             'DATASET_PATH') or config["DEFAULT"]["DATASET_PATH"]
         config_params["results_path"] = os.getenv(
             'RESULTS_PATH') or config["DEFAULT"]["RESULTS_PATH"]
