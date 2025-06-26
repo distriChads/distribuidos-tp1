@@ -17,7 +17,8 @@ def main():
     log_level = getenv("CLI_LOG_LEVEL", "INFO").upper()
     input_routing_key = getenv("ROUTINGKEYS_INPUT")
     output_routing_keys = getenv("ROUTINGKEYS_OUTPUT_GROUP-BY-OVERVIEW-AVERAGE").split(
-        ",")
+        ","
+    )
 
     routing_keys_output = {
         "overview_average": output_routing_keys,
@@ -25,11 +26,13 @@ def main():
 
     init_log(log_level)
 
-    log.info(f"Machine Learning worker config:\n\
+    log.info(
+        f"Machine Learning worker config:\n\
         message_broker: {message_broker}\n\
         input_routing_key: {input_routing_key}\n\
         output_routing_keys: {output_routing_keys}\n\
-        log_level: {log_level}\n\n")
+        log_level: {log_level}\n\n"
+    )
 
     heartbeat_port = int(getenv("CLI_HEARTBEAT_PORT", "0"))
     if heartbeat_port <= 0:
@@ -37,10 +40,8 @@ def main():
         return
 
     heartbeat_server = Heartbeat(heartbeat_port)
-    heartbeat_thread = threading.Thread(
-        target=heartbeat_server.run)
+    heartbeat_thread = threading.Thread(target=heartbeat_server.run)
     exchange = ExchangeSpec(
-        
         input_routing_key=input_routing_key,
         output_routing_keys=routing_keys_output,
     )

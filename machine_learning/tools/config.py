@@ -16,7 +16,8 @@ def load_config(config_file="./config.ini"):
         print(f"Configuración leída desde {config_file}")
     else:
         print(
-            "No se pudo leer el archivo de configuración. Usando solo variables de entorno.")
+            "No se pudo leer el archivo de configuración. Usando solo variables de entorno."
+        )
 
     final_config = {}
     keys = [
@@ -28,11 +29,11 @@ def load_config(config_file="./config.ini"):
         "heartbeat.port",
     ]
 
-    final_config["worker.exchange.input.routingkeys"] = load_worker_routingkeys(
-        "INPUT")
+    final_config["worker.exchange.input.routingkeys"] = load_worker_routingkeys("INPUT")
     final_config["worker.exchange.output.routingkeys"] = load_worker_routingkeys(
-        "OUTPUT")
-    
+        "OUTPUT"
+    )
+
     for full_key in keys:
         env_key = "CLI_" + full_key.upper().replace(".", "_")
 
@@ -49,14 +50,14 @@ def load_config(config_file="./config.ini"):
 
     return final_config
 
+
 def config_string(config):
     return "\n".join([f"{key}: {value}" for key, value in config.items()])
 
+
 def load_worker_routingkeys(type):
-    worker_routingkeys = os.getenv(
-        f"CLI_WORKER_EXCHANGE_{type}_ROUTINGKEYS")
-    worker_routingkeys = worker_routingkeys.split(
-        ",") if worker_routingkeys else []
+    worker_routingkeys = os.getenv(f"CLI_WORKER_EXCHANGE_{type}_ROUTINGKEYS")
+    worker_routingkeys = worker_routingkeys.split(",") if worker_routingkeys else []
     if not worker_routingkeys:
         raise ValueError(
             "No se ha proporcionado la variable de entorno CLI_WORKER_EXCHANGE_{type}_ROUTINGKEYS"

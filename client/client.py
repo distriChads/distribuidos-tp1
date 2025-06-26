@@ -10,7 +10,7 @@ from typing import Optional
 from communication import Socket
 
 
-BATCH_SIZE = (1024*8) - 4  # 4 bytes for the length of the message
+BATCH_SIZE = (1024 * 8) - 4  # 4 bytes for the length of the message
 EOF = "EOF"
 
 
@@ -19,15 +19,16 @@ class Client:
     Client class to handle query requests.
     """
 
-    def __init__(self,
-            client_handler_address: str,
-            client_handler_port: int,
-            dataset_path: str,
-            results_path: str,
-            max_retries: int,
-            retry_delay: int,
-            backoff_factor: int,
-        ):
+    def __init__(
+        self,
+        client_handler_address: str,
+        client_handler_port: int,
+        dataset_path: str,
+        results_path: str,
+        max_retries: int,
+        retry_delay: int,
+        backoff_factor: int,
+    ):
         """
         Initializes the client.
         :param client_handler_address: address of the client handler
@@ -58,7 +59,9 @@ class Client:
         signal.signal(signal.SIGINT, self.__graceful_shutdown_handler)
         signal.signal(signal.SIGTERM, self.__graceful_shutdown_handler)
 
-    def __graceful_shutdown_handler(self, signum: Optional[int] = None, frame: Optional[FrameType] = None):
+    def __graceful_shutdown_handler(
+        self, signum: Optional[int] = None, frame: Optional[FrameType] = None
+    ):
         """
         Cleans up client resources before shutting down.
         """
@@ -81,7 +84,8 @@ class Client:
         while attempts < self.max_retries and self.running:
             try:
                 self.client_socket.sock.connect(
-                    (self.client_handler_address, self.client_handler_port))
+                    (self.client_handler_address, self.client_handler_port)
+                )
                 break
             except Exception as e:
                 logging.error(f"Error connecting to client handler: {e}")
@@ -91,7 +95,7 @@ class Client:
 
     def run(self):
         """
-        Main Client loop. 
+        Main Client loop.
         1. Connects to client handler and waits for results in the background.
         2. Sends the files to the client handler in chunks.
         3. Waits for all results to arrive.
@@ -124,8 +128,7 @@ class Client:
                 _bytes_read, result = self.client_socket.read()
 
                 if not result or result == EOF:
-                    logging.info(
-                        "All queries have been processed - Shutting down")
+                    logging.info("All queries have been processed - Shutting down")
                     break
 
                 client_id = result.split("/")[0]
@@ -162,13 +165,14 @@ class Client:
         """
         file_size = os.path.getsize(file_path)
         total_msg_bytes = len(str(file_size)) + 1 + file_size
-        file_transfer_header = str(total_msg_bytes).encode('utf-8')
+        file_transfer_header = str(total_msg_bytes).encode("utf-8")
         file_name = file_path.split("/")[-1]
         logging.info(
-            f"Started sending {total_msg_bytes}B to client handler for {file_name}")
+            f"Started sending {total_msg_bytes}B to client handler for {file_name}"
+        )
 
         buffer = b""
-        with open(file_path, 'rb') as file:
+        with open(file_path, "rb") as file:
             # 4 bytes for length + 1 byte for delimiter
             chunk = file.read(BATCH_SIZE - len(file_transfer_header) - 1)
 
@@ -177,11 +181,11 @@ class Client:
             chunk = chunk[:idx]
             # 4 bytes for length + 1 byte for delimiter
             lenght_sent = len(chunk) + len(file_transfer_header) + 1
-            logging.info("Sent %d bytes of %s to client handler",
-                         lenght_sent, file_name)
+            logging.info(
+                "Sent %d bytes of %s to client handler", lenght_sent, file_name
+            )
 
-            self.client_socket.send(
-                file_transfer_header + b"|" + chunk)
+            self.client_socket.send(file_transfer_header + b"|" + chunk)
 
             while self.running and self.client_socket and lenght_sent < total_msg_bytes:
                 chunk = buffer
@@ -197,7 +201,9 @@ class Client:
                 percent_bytes_sent = (lenght_sent / file_size) * 100
                 percent_bytes_sent = f"{percent_bytes_sent:05.2f}"
                 print(
-                    f"\rSent {percent_bytes_sent}% of {file_name} to client handler", end="")
+                    f"\rSent {percent_bytes_sent}% of {file_name} to client handler",
+                    end="",
+                )
         print()
         logging.info(f"Sent {file_name} to client handler")
 
@@ -207,7 +213,7 @@ class Client:
         :param chunk: array of bytes
         :return: index of the nearest line break
         """
-        for i in range(len(chunk)-1, -1, -1):
+        for i in range(len(chunk) - 1, -1, -1):
             if chunk[i] == 10:  # \n in ASCII
                 return i + 1
         return len(chunk)
@@ -220,27 +226,28 @@ class Client:
         total_bytes_sent = 0
         file_size = os.path.getsize(file_path)
         file_transfer_header = len(str(file_size)) + 1 + file_size
-        chunk = (f"{file_transfer_header}|").encode('utf-8')
+        chunk = (f"{file_transfer_header}|").encode("utf-8")
         file_name = file_path.split("/")[-1]
         logging.info(
-            f"Started sending {file_transfer_header}B to client handler for {file_name}")
+            f"Started sending {file_transfer_header}B to client handler for {file_name}"
+        )
 
         j = 0
-        with open(file_path, 'r', encoding="utf-8") as file:
+        with open(file_path, "r", encoding="utf-8") as file:
             for csv_row in file:
                 if not self.running:
                     break
                 if j != 0:
                     # length of row that are not the header
-                    csv_row_size_bytes = f"{len(csv_row)}|".encode('utf-8')
+                    csv_row_size_bytes = f"{len(csv_row)}|".encode("utf-8")
                     chunk += csv_row_size_bytes
 
                 j += 1
                 i = 0
-                csv_row_decoded = csv_row.encode('utf-8')
+                csv_row_decoded = csv_row.encode("utf-8")
 
                 while i < len(csv_row_decoded) and self.running:
-                    row_info = csv_row_decoded[i:i + BATCH_SIZE - len(chunk)]
+                    row_info = csv_row_decoded[i : i + BATCH_SIZE - len(chunk)]
                     total_bytes_sent += len(row_info)
                     chunk += row_info
                     i += len(row_info)
@@ -248,11 +255,12 @@ class Client:
                     self.client_socket.send(chunk)
                     chunk = b""
 
-                    percent_bytes_sent = round(
-                        (total_bytes_sent / file_size) * 100, 2)
+                    percent_bytes_sent = round((total_bytes_sent / file_size) * 100, 2)
                     percent_bytes_sent = f"{percent_bytes_sent:05.2f}"
                     print(
-                        f"\rSent {percent_bytes_sent}% of {file_name} to client handler", end="")
+                        f"\rSent {percent_bytes_sent}% of {file_name} to client handler",
+                        end="",
+                    )
         print()
         logging.info(f"Sent {file_name} to client handler")
 

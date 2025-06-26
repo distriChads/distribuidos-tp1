@@ -32,6 +32,7 @@ class MachineLearning:
 
     :param config: configuration for the machine learning worker
     """
+
     def __init__(self, config: MachineLearningConfig):
         log.info(f"NewMachineLearning: {config.__dict__}")
         self.worker = Worker(config)
@@ -42,7 +43,7 @@ class MachineLearning:
         self.buffer = HasherContainer(dict_for_hasher)
         self.revenue_budget_zero_count_per_client: dict[str, int] = {}
         self.movies_processed_per_client: dict[str, int] = {}
-        
+
         # Handle SIGINT (Ctrl+C) and SIGTERM (docker stop)
         signal.signal(signal.SIGTERM, self.__graceful_shutdown_handler)
         signal.signal(signal.SIGTERM, self.__graceful_shutdown_handler)
@@ -54,7 +55,9 @@ class MachineLearning:
             log.error(f"Error initializing worker: {e}")
             return e
 
-    def __graceful_shutdown_handler(self, signum: Optional[int] = None, frame: Optional[FrameType] = None):
+    def __graceful_shutdown_handler(
+        self, signum: Optional[int] = None, frame: Optional[FrameType] = None
+    ):
         """
         Handles graceful shutdown and resource cleanup of the machine learning worker.
         """
@@ -74,7 +77,8 @@ class MachineLearning:
         sentiments: list[dict[str, str]] = []
 
         log.debug(
-            f"Amount of 0 on revenue or budget: {self.revenue_budget_zero_count_per_client[client_id]}")
+            f"Amount of 0 on revenue or budget: {self.revenue_budget_zero_count_per_client[client_id]}"
+        )
         self.revenue_budget_zero_count_per_client[client_id] = 0
 
         overviews = [movie[OVERVIEW_FIELD_INDEX] for movie in messages]
@@ -91,12 +95,14 @@ class MachineLearning:
             self.__add_message_to_buffer(sentiment["label"], movie_components)
             i += 1
 
-        self.movies_processed_per_client[client_id] += i + \
-            self.revenue_budget_zero_count_per_client[client_id]
-        log.info(
-            f"Processed {self.movies_processed_per_client[client_id]} movies")
+        self.movies_processed_per_client[client_id] += (
+            i + self.revenue_budget_zero_count_per_client[client_id]
+        )
+        log.info(f"Processed {self.movies_processed_per_client[client_id]} movies")
 
-    def _analyze_sentiment(self, overviews: list[str], sentiments: list[dict[str, str]]):
+    def _analyze_sentiment(
+        self, overviews: list[str], sentiments: list[dict[str, str]]
+    ):
         """
         Analyzes the sentiment of a list of overviews.
         """
@@ -113,7 +119,13 @@ class MachineLearning:
         Adds a message to the processed messages buffer.
         """
         result = MESSAGE_SEPARATOR.join(
-            [parts[MOVIE_ID_INDEX], sentiment, parts[BUDGET_INDEX], parts[REVENUE_INDEX]])
+            [
+                parts[MOVIE_ID_INDEX],
+                sentiment,
+                parts[BUDGET_INDEX],
+                parts[REVENUE_INDEX],
+            ]
+        )
         result += "\n"
         if not parts[MOVIE_ID_INDEX].isdigit():
             log.warning(f"Invalid movie ID: {parts[MOVIE_ID_INDEX]}")
@@ -135,8 +147,7 @@ class MachineLearning:
                     self.worker.send_ack(delivery_tag)
                     continue
 
-                client_id, message_id, message = raw_msg.split(
-                    MESSAGE_SEPARATOR, 2)
+                client_id, message_id, message = raw_msg.split(MESSAGE_SEPARATOR, 2)
                 if client_id not in self.movies_processed_per_client:
                     self.movies_processed_per_client[client_id] = 0
 
@@ -158,16 +169,16 @@ class MachineLearning:
         Processes a client message block.
         """
         messages = message.split("\n")
-        messages, amount_of_0 = self._filter_wrong_messages(
-            messages, client_id)
+        messages, amount_of_0 = self._filter_wrong_messages(messages, client_id)
         self.revenue_budget_zero_count_per_client[client_id] = (
-            self.revenue_budget_zero_count_per_client.get(
-                client_id, 0) + amount_of_0
+            self.revenue_budget_zero_count_per_client.get(client_id, 0) + amount_of_0
         )
 
         self.__process_and_send_message(messages, client_id)
 
-    def _filter_wrong_messages(self, messages: list[str], client_id: str) -> tuple[list[list[str]], int]:
+    def _filter_wrong_messages(
+        self, messages: list[str], client_id: str
+    ) -> tuple[list[list[str]], int]:
         """
         Filters out messages with invalid movie IDs or revenue/budget set to 0.
         """
@@ -181,7 +192,10 @@ class MachineLearning:
                 log.warning(f"Incomplete message skipped: {movies_components}")
                 continue
 
-            if movies_components[BUDGET_INDEX] == "0" or movies_components[REVENUE_INDEX] == "0":
+            if (
+                movies_components[BUDGET_INDEX] == "0"
+                or movies_components[REVENUE_INDEX] == "0"
+            ):
                 self.movies_processed_per_client[client_id] += 1
                 revenue_0_in_batch += 1
                 continue

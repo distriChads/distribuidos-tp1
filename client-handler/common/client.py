@@ -1,9 +1,9 @@
 import logging
-from time import sleep
 from common.communication import Socket
 from common.fileProcessor import MoviesProcessor, CreditsProcessor, RatingsProcessor
 from .worker import Worker, WorkerConfig
 import uuid
+
 EOF = "EOF"
 
 MOVIES_ROUTING_KEYS = ["filter_arg", "filter_one_country"]
@@ -22,13 +22,17 @@ class Client:
         self.client_socket = socket
         self.worker = Worker(config)
         self.client_id = str(uuid.uuid4())
-        logging.info("Initializing client with output routing keys: %s",
-                     self.worker.exchange.output_routing_keys[MOVIES_ROUTING_KEYS[0]])
+        logging.info(
+            "Initializing client with output routing keys: %s",
+            self.worker.exchange.output_routing_keys[MOVIES_ROUTING_KEYS[0]],
+        )
 
         filter_arg_positions = len(
-            self.worker.exchange.output_routing_keys[MOVIES_ROUTING_KEYS[0]])
+            self.worker.exchange.output_routing_keys[MOVIES_ROUTING_KEYS[0]]
+        )
         filter_only_one_country_positions = len(
-            self.worker.exchange.output_routing_keys[MOVIES_ROUTING_KEYS[1]])
+            self.worker.exchange.output_routing_keys[MOVIES_ROUTING_KEYS[1]]
+        )
         ml_positions = len(
             self.worker.exchange.output_routing_keys[ML_ROUTING_KEYS])
 
@@ -80,7 +84,8 @@ class Client:
             for position, data in dict_positions.items():
                 if not data:
                     continue
-                self.worker.send_message(data, routing_keys[position], self.client_id)
+                self.worker.send_message(
+                    data, routing_keys[position], self.client_id)
 
     def set_next_processor(self):
         """
@@ -88,14 +93,16 @@ class Client:
         """
         if type(self.batch_processor) == MoviesProcessor:
             join_movies_credits_positions = len(
-                self.worker.exchange.output_routing_keys[CREDITS_ROUTING_KEYS])
+                self.worker.exchange.output_routing_keys[CREDITS_ROUTING_KEYS]
+            )
             positions_for_hasher = {
                 CREDITS_ROUTING_KEYS: join_movies_credits_positions,
             }
             self.batch_processor = CreditsProcessor(positions_for_hasher)
         elif type(self.batch_processor) == CreditsProcessor:
             joiin_movies_rating_positions = len(
-                self.worker.exchange.output_routing_keys[RATINGS_ROUTING_KEYS])
+                self.worker.exchange.output_routing_keys[RATINGS_ROUTING_KEYS]
+            )
             positions_for_hasher = {
                 RATINGS_ROUTING_KEYS: joiin_movies_rating_positions,
             }
@@ -115,15 +122,21 @@ class Client:
         """
         routing_keys = []
         if type(self.batch_processor) == MoviesProcessor:
-            routing_keys = self.worker.exchange.output_routing_keys[MOVIES_ROUTING_KEYS[0]] + \
-                self.worker.exchange.output_routing_keys[MOVIES_ROUTING_KEYS[1]] + \
-                self.worker.exchange.output_routing_keys[ML_ROUTING_KEYS]
+            routing_keys = (
+                self.worker.exchange.output_routing_keys[MOVIES_ROUTING_KEYS[0]]
+                + self.worker.exchange.output_routing_keys[MOVIES_ROUTING_KEYS[1]]
+                + self.worker.exchange.output_routing_keys[ML_ROUTING_KEYS]
+            )
             logging.info(f"Sending movies EOF for client {self.client_id}")
         elif type(self.batch_processor) == CreditsProcessor:
-            routing_keys = self.worker.exchange.output_routing_keys[CREDITS_ROUTING_KEYS]
+            routing_keys = self.worker.exchange.output_routing_keys[
+                CREDITS_ROUTING_KEYS
+            ]
             logging.info(f"Sending credits EOF for client {self.client_id}")
         elif type(self.batch_processor) == RatingsProcessor:
-            routing_keys = self.worker.exchange.output_routing_keys[RATINGS_ROUTING_KEYS]
+            routing_keys = self.worker.exchange.output_routing_keys[
+                RATINGS_ROUTING_KEYS
+            ]
             logging.info(f"Sending ratings EOF for client {self.client_id}")
         else:
             logging.error(
@@ -131,7 +144,9 @@ class Client:
             return
 
         for routing_key in routing_keys:
-            logging.info(f"Sending {type(self.batch_processor)} EOF for routing key {routing_key} for client {self.client_id}")
+            logging.info(
+                f"Sending {type(self.batch_processor)} EOF for routing key {routing_key} for client {self.client_id}"
+            )
             self.worker.send_message(EOF, routing_key, self.client_id)
 
     def send_all_eof(self):
@@ -150,16 +165,18 @@ class Client:
             raise ValueError("Client socket is not connected.")
         bytes_read, chunck_received = self.read()
         return self.batch_processor.process_first_batch(bytes_read, chunck_received)
-    
+
+
 class StaleClient(Client):
     """
     Stub class for handling clients that weren't properly closed.
     Only meant to sent EOFs to the message broker to clean up.
     """
+
     def __init__(self, client_id: str, config: WorkerConfig):
         super().__init__(None, config)
         self.client_id = client_id
         self.init_worker()
-        
+
     def close(self):
         self.worker.close_worker()

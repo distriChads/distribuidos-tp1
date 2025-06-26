@@ -6,6 +6,7 @@ import traceback
 
 logger = logging.getLogger(__name__)
 
+
 class Heartbeat:
     """
     Heartbeat server to monitor health of the service.
@@ -18,10 +19,10 @@ class Heartbeat:
         """
         self.port = port
         self._shutdown = threading.Event()
-        
+
         # Create UDP socket
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.bind(('', port))
+        self.sock.bind(("", port))
 
     def stop(self):
         """
@@ -29,11 +30,11 @@ class Heartbeat:
         """
         logger.info("HeartBeat server shutting down")
         self._shutdown.set()
-        self.sock.sendto(b'\0', ('localhost', self.port))
+        self.sock.sendto(b"\0", ("localhost", self.port))
         self.sock.close()
-        
+
         logger.info("HeartBeat server socket closed")
-        
+
     def run(self):
         """
         Main loop for the heartbeat server.
@@ -44,12 +45,12 @@ class Heartbeat:
         """
         try:
             logger.info(f"HeartBeat server listening on port {self.port}")
-            
+
             while not self._shutdown.is_set():
                 try:
                     # Receive data from socket
                     data, addr = self.sock.recvfrom(5)
-                    if data == b'\0' and addr == ('127.0.0.1', self.port):
+                    if data == b"\0" and addr == ("127.0.0.1", self.port):
                         logger.info("HeartBeat server received shutdown signal")
                         continue
                     if len(data) < 5:
@@ -58,11 +59,11 @@ class Heartbeat:
                     if data[4] != 0:
                         logger.warning(f"Invalid message from {addr}: {data}")
                         continue
-                    
+
                     # Print received message
-                    message = data[:-1].decode('utf-8') 
+                    message = data[:-1].decode("utf-8")
                     logger.debug(f"Received from {addr}: {message}")
-                    
+
                     # Send "OK" response back to the sender
                     response = b"PONG\0"
                     for i in range(3):
@@ -80,7 +81,7 @@ class Heartbeat:
                             if i == 2:
                                 logger.error("Failed to send response after 3 attempts")
                             time.sleep(2 + i * 1.2)
-                            
+
                 except socket.timeout:
                     # No data available, continue
                     continue
@@ -88,9 +89,11 @@ class Heartbeat:
                     logger.info("HeartBeat server socket closed")
                     continue
                 except Exception as e:
-                    logger.error(f"Error reading from UDP: {e}\nTraceback: {traceback.format_exc()}")
+                    logger.error(
+                        f"Error reading from UDP: {e}\nTraceback: {traceback.format_exc()}"
+                    )
                     continue
-                    
+
         except Exception as e:
             logger.critical(f"Error listening on UDP port: {e}")
             return

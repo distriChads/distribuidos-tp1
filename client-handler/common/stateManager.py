@@ -54,10 +54,12 @@ class StateManager:
         """
         with open(self.aux_state_file_path, "w") as f:
             json.dump(self.state, f)
-        
+
         try:
             os.rename(self.aux_state_file_path, self.state_file_path)
-            logger.debug(f"Committed state from {self.aux_state_file_path} to {self.state_file_path}")
+            logger.debug(
+                f"Committed state from {self.aux_state_file_path} to {self.state_file_path}"
+            )
         except Exception as e:
             logger.error(f"Error committing state: {e}")
             raise e
@@ -77,14 +79,14 @@ class StateManager:
         """
         self.state.pop(client_id, None)
         self.commit_state()
-        
+
     def get_all_clients(self):
         """
         Returns all clients in the state.
         :return: list of client ids
         """
         return list(self.state.keys())
-    
+
     def remove_all_clients(self):
         """
         Removes all clients from the state.

@@ -9,7 +9,7 @@ class Socket:
 
     def __init__(self, sock: socket.socket):
         self.sock = sock
-        self.decoder = codecs.getincrementaldecoder('utf-8')()
+        self.decoder = codecs.getincrementaldecoder("utf-8")()
 
     def close(self):
         """
@@ -25,8 +25,8 @@ class Socket:
         :param msg: message to write
         """
         # Encode the message to bytes
-        msg_encoded = msg.encode('utf-8')
-        self.sock.sendall(len(msg_encoded).to_bytes(4, 'big') + msg_encoded)
+        msg_encoded = msg.encode("utf-8")
+        self.sock.sendall(len(msg_encoded).to_bytes(4, "big") + msg_encoded)
 
     def read(self) -> tuple[int, str]:
         """
@@ -37,7 +37,7 @@ class Socket:
         """
         # Read the first 4 bytes to get the message length
         length_data = self._recv_exactly(4)
-        msg_len = int.from_bytes(length_data, 'big')
+        msg_len = int.from_bytes(length_data, "big")
 
         # Read the actual message
         message_data = self._recv_exactly(msg_len)
@@ -53,7 +53,6 @@ class Socket:
         while len(data) < num_bytes:
             chunk = self.sock.recv(num_bytes - len(data))
             if not chunk:  # Connection closed before receiving expected data
-                raise ConnectionError(
-                    "Socket closed before receiving full message.")
+                raise ConnectionError("Socket closed before receiving full message.")
             data += chunk
         return data

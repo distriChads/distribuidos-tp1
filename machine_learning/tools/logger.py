@@ -9,8 +9,8 @@ def init_log(logging_level: str = "DEBUG") -> None:
     compose logs the date when the log has arrived
     """
     logging.basicConfig(
-        format='%(asctime)s %(levelname)-8s %(message)s',
+        format="%(asctime)s %(levelname)-8s %(message)s",
         level=logging_level.upper(),
-        datefmt='%Y-%m-%d %H:%M:%S',
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
-    logging.getLogger("pika").setLevel(logging.WARNING) # Suppress pika logs
+    logging.getLogger("pika").setLevel(logging.WARNING)  # Suppress pika logs

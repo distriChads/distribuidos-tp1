@@ -87,12 +87,10 @@ class Worker:
 
         for i in range(max_retries):
             try:
-                conn = pika.BlockingConnection(
-                    pika.URLParameters(self.message_broker))
+                conn = pika.BlockingConnection(pika.URLParameters(self.message_broker))
                 return conn
             except Exception as e:
-                log.warning(
-                    f"Failed to connect to broker on attempt {i+1}: {e}")
+                log.warning(f"Failed to connect to broker on attempt {i+1}: {e}")
                 if i < max_retries - 1:
                     time.sleep(i * backoff_factor + retry_sleep)
 
@@ -111,7 +109,7 @@ class Worker:
             exchange=self.exchange.name,
             exchange_type=EXCHANGE_TYPE,
             durable=True,
-            auto_delete=False
+            auto_delete=False,
         )
 
         self.sender = Sender(conn, ch)
@@ -129,19 +127,19 @@ class Worker:
             exchange=self.exchange.name,
             exchange_type=EXCHANGE_TYPE,
             durable=True,
-            auto_delete=False
+            auto_delete=False,
         )
 
         result = ch.queue_declare(
-            queue=self.exchange.input_routing_keys[0], exclusive=False, auto_delete=False
+            queue=self.exchange.input_routing_keys[0],
+            exclusive=False,
+            auto_delete=False,
         )
         queue_name = result.method.queue
 
         for routing_key in self.exchange.input_routing_keys:
             ch.queue_bind(
-                exchange=self.exchange.name,
-                queue=queue_name,
-                routing_key=routing_key
+                exchange=self.exchange.name, queue=queue_name, routing_key=routing_key
             )
 
         messages = ch.consume(queue=queue_name, auto_ack=False)
@@ -165,10 +163,10 @@ class Worker:
             exchange=self.exchange.name,
             routing_key=routing_key,
             body=message,
-            properties=pika.BasicProperties(content_type="text/plain")
+            properties=pika.BasicProperties(content_type="text/plain"),
         )
 
-        log.debug(f"Sent message to routing_key {routing_key}: "f"{message}")
+        log.debug(f"Sent message to routing_key {routing_key}: " f"{message}")
 
     def send_ack(self, delivery_tag: int) -> None:
         """
@@ -181,7 +179,11 @@ class Worker:
             raise Exception("Receiver not initialized")
         self.receiver.ch.basic_ack(delivery_tag=delivery_tag, multiple=False)
 
-    def received_messages(self, shutdown_event: threading.Event) -> Generator[tuple[pika.spec.Basic.Deliver, pika.spec.BasicProperties, str], any, str]:
+    def received_messages(
+        self, shutdown_event: threading.Event
+    ) -> Generator[
+        tuple[pika.spec.Basic.Deliver, pika.spec.BasicProperties, str], any, str
+    ]:
         """
         Generator for received messages from the message broker.
         Finishes when the shutdown event is set or when the worker is shut down calling close_worker.
@@ -194,7 +196,7 @@ class Worker:
         while not shutdown_event.is_set():
             try:
                 for method_frame, _properties, result_encoded in self.receiver.messages:
-                    result = result_encoded.decode('utf-8')
+                    result = result_encoded.decode("utf-8")
                     yield method_frame, _properties, result
             except pika.exceptions.StreamLostError:
                 log.info("Receiving queue closed")

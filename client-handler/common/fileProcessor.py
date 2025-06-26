@@ -46,11 +46,11 @@ class Processor:
         :param bytes_received: number of bytes received
         :param chunck_received: chunk of data to process
         """
-        index_delimiter = chunck_received.find('|')
+        index_delimiter = chunck_received.find("|")
 
         file_size = int(chunck_received[:index_delimiter])
         self.read_until = file_size
-        chunck_received = chunck_received[index_delimiter+1:]
+        chunck_received = chunck_received[index_delimiter + 1 :]
 
         chunck_received = self.remove_header(chunck_received)
         self.process_batch(bytes_received, chunck_received)
@@ -71,7 +71,8 @@ class Processor:
                 if len(row) == 0 or len(row) != self.fields_count:
                     error_count += 1
                     logging.debug(
-                        f"Error processing line, Expected {self.fields_count} fields, got {len(row)}")
+                        f"Error processing line, Expected {self.fields_count} fields, got {len(row)}"
+                    )
                     continue
                 movie_id, line_processed = self._process_line(row)
                 successful_lines_count += 1
@@ -96,7 +97,7 @@ class Processor:
         :param csv_data: data to remove the header from
         :return: data without the header
         """
-        return csv_data[self.header_length:]
+        return csv_data[self.header_length :]
 
     def _process_line(self, line: list[str]) -> list[int, str]:
         """
@@ -104,8 +105,7 @@ class Processor:
         :param line: line of data to process
         :return: tuple of id and processed line
         """
-        raise NotImplementedError(
-            "Subclasses should implement this method")
+        raise NotImplementedError("Subclasses should implement this method")
 
     def _try_parse_python_structure(self, text: str):
         """
@@ -182,12 +182,14 @@ class MoviesProcessor(Processor):
         if not overview:
             raise EmptyFieldError("Missing overview")
 
-        countries = VALUE_SEPARATOR.join(
-            [c["iso_3166_1"] for c in prodCountries])
+        countries = VALUE_SEPARATOR.join([c["iso_3166_1"] for c in prodCountries])
         genres = VALUE_SEPARATOR.join([g["name"] for g in genres])
 
         movie_id = self.convert_movie_id_to_int(movie_id)
-        return movie_id, f"{movie_id}{FIELD_SEPARATOR}{title}{FIELD_SEPARATOR}{releaseDate}{FIELD_SEPARATOR}{countries}{FIELD_SEPARATOR}{genres}{FIELD_SEPARATOR}{budget}{FIELD_SEPARATOR}{overview}{FIELD_SEPARATOR}{revenue}{LINE_SEPARATOR}"
+        return (
+            movie_id,
+            f"{movie_id}{FIELD_SEPARATOR}{title}{FIELD_SEPARATOR}{releaseDate}{FIELD_SEPARATOR}{countries}{FIELD_SEPARATOR}{genres}{FIELD_SEPARATOR}{budget}{FIELD_SEPARATOR}{overview}{FIELD_SEPARATOR}{revenue}{LINE_SEPARATOR}",
+        )
 
 
 class CreditsProcessor(Processor):
@@ -211,7 +213,7 @@ class CreditsProcessor(Processor):
             index_delimiter = chunck_received.find("|")
             str_length = chunck_received[:index_delimiter]
             self.row_length = int(str_length)
-            chunck_received = chunck_received[index_delimiter+1:]
+            chunck_received = chunck_received[index_delimiter + 1 :]
             # 4 bytes for the row size + 1 byte for the delimiter
             bytes_received -= len(str_length) + 1
         self.row_buffer += chunck_received
@@ -267,4 +269,5 @@ class EmptyFieldError(Exception):
     """
     Exception raised when a required field is empty.
     """
+
     pass

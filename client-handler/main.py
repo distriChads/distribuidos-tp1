@@ -38,17 +38,16 @@ def main():
     logging.info(f"input_routing_keys: {routing_keys_input}")
     logging.info(f"output_routing_keys: {routing_keys_output}")
     logging.info(f"state_file_path: {state_file_path}")
-    
+
     exchange = ExchangeSpec(
         input_routing_keys=routing_keys_input,
         output_routing_keys=routing_keys_output,
-        queue_name="client_handler_queue"
+        queue_name="client_handler_queue",
     )
     message_broker = config["CLI_WORKER_BROKER"]
 
     client_handler_config = ClientHandlerConfig(
-        exchange=exchange,
-        message_broker=message_broker
+        exchange=exchange, message_broker=message_broker
     )
 
     try:
@@ -57,23 +56,26 @@ def main():
             listen_backlog=listen_backlog,
             client_handler_config=client_handler_config,
             eof_expected=eof_expected,
-            state_file_path=state_file_path
+            state_file_path=state_file_path,
         )
     except Exception as e:
-        logging.critical(f"Failed to initialize client handler: {e}\nTraceback: {traceback.format_exc()}")
+        logging.critical(
+            f"Failed to initialize client handler: {e}\nTraceback: {traceback.format_exc()}"
+        )
         raise e
 
     heartbeat_server = Heartbeat(heartbeat_port)
-    heartbeat_thread = threading.Thread(
-        target=heartbeat_server.run)
+    heartbeat_thread = threading.Thread(target=heartbeat_server.run)
 
     try:
         heartbeat_thread.start()
         client_handler.run()
     except StreamLostError:
-        pass # This is expected when the client handler is closed
+        pass  # This is expected when the client handler is closed
     except Exception as e:
-        logging.critical(f"Failed client handler: {e}\nTraceback: {traceback.format_exc()}")
+        logging.critical(
+            f"Failed client handler: {e}\nTraceback: {traceback.format_exc()}"
+        )
     finally:
         heartbeat_server.stop()
         heartbeat_thread.join()

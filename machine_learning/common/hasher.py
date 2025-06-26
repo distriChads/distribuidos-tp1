@@ -7,12 +7,12 @@ class HasherContainer:
         Initializes the object with buffers for each node type.
 
         Args:
-            dict_node_type_positions (dict[str, int]): 
+            dict_node_type_positions (dict[str, int]):
                 A dictionary mapping node types (as strings) to the number of positions (as integers) for each node type.
 
         Attributes:
-            buffers (dict[str, list[list]]): 
-                A dictionary where each key is a node type and each value is a list of empty lists, 
+            buffers (dict[str, list[list]]):
+                A dictionary where each key is a node type and each value is a list of empty lists,
                 with the number of lists corresponding to the number of positions specified for that node type.
         """
         self.buffers = {}

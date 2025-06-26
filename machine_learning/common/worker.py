@@ -55,12 +55,10 @@ class Worker:
 
         for i in range(max_retries):
             try:
-                conn = pika.BlockingConnection(
-                    pika.URLParameters(self.message_broker))
+                conn = pika.BlockingConnection(pika.URLParameters(self.message_broker))
                 return conn
             except Exception as e:
-                log.warning(
-                    f"Failed to connect to broker on attempt {i+1}: {e}")
+                log.warning(f"Failed to connect to broker on attempt {i+1}: {e}")
                 if i < max_retries - 1:
                     time.sleep(i * backoff_factor + retry_sleep)
 
@@ -75,7 +73,7 @@ class Worker:
             exchange=self.exchange.name,
             exchange_type=EXCHANGE_TYPE,
             durable=True,
-            auto_delete=False
+            auto_delete=False,
         )
 
         self.sender = Sender(conn, ch)
@@ -89,7 +87,7 @@ class Worker:
             exchange=self.exchange.name,
             exchange_type=EXCHANGE_TYPE,
             durable=True,
-            auto_delete=False
+            auto_delete=False,
         )
 
         result = ch.queue_declare(
@@ -118,10 +116,10 @@ class Worker:
             exchange=self.exchange.name,
             routing_key=routing_key,
             body=message,
-            properties=pika.BasicProperties(content_type="text/plain")
+            properties=pika.BasicProperties(content_type="text/plain"),
         )
 
-        log.debug(f"Sent message to routing_key {routing_key}: "f"{message}")
+        log.debug(f"Sent message to routing_key {routing_key}: " f"{message}")
 
     def received_messages(self):
         if not self.receiver:
