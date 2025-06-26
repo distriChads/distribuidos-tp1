@@ -12,6 +12,18 @@ import traceback
 logger = logging.getLogger(__name__)
 
 class HealthChecker:
+    """
+    Class for service health checker.
+    Sends pings to services and restarts unresponsive services.
+    
+    :param ping_interval: interval between pings in seconds
+    :param services: list of services (host:port) to check
+    :param max_concurrent_health_checks: maximum number of concurrent health checks
+    :param grace_period: grace period before starting health checks in seconds
+    :param max_retries: maximum number of ping retries before rebooting a service
+    :param skip_grace_period: whether to skip the grace period and start health checks immediately
+    """
+
     def __init__(self, ping_interval: int, services: list[str], max_concurrent_health_checks: int, grace_period: int, max_retries: int, skip_grace_period: bool):
         self.ping_interval = ping_interval
         self.services = services
@@ -28,6 +40,9 @@ class HealthChecker:
         signal.signal(signal.SIGTERM, self.__graceful_shutdown_handler)
 
     def __graceful_shutdown_handler(self, signum: Optional[int] = None, frame: Optional[FrameType] = None):
+        """
+        Handles graceful shutdown and resource cleanup of the health checker.
+        """
         for task in self.tasks:
             task.cancel()
         self._running = False
@@ -36,6 +51,10 @@ class HealthChecker:
                 sock.close()
                 
     async def __reboot_container(self, service: str):
+        """
+        Reboots a service container.
+        Assumes the container name is the same as the host name.
+        """
         addr, _ = service.split(":")
         logger.info(f"Rebooting container {addr}")
         while self._running:
@@ -47,6 +66,12 @@ class HealthChecker:
                 await asyncio.sleep(self.ping_interval)
         
     async def __health_check_task(self, service: str):
+        """
+        Task for checking the health of a service.
+        Sends a PING message to the service and waits for a PONG response.
+        If the service does not respond after a certain number of retries, it reboots the container.
+        If the service responds successfully, it waits until the next ping interval.
+        """
         try:
             while self._running:
                 sock = None
@@ -92,6 +117,10 @@ class HealthChecker:
             return
         
     async def run(self):
+        """
+        Main loop for the health checker.
+        Launches and awaits all health check tasks.
+        """
         if not self.skip_grace_period:
             logger.info(f"Sleeping for {self.grace_period} seconds before starting health checks")
             await asyncio.sleep(self.grace_period)

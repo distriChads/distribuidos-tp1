@@ -6,10 +6,15 @@ import logging
 logger = logging.getLogger(__name__)
 
 class Socket:
+    """
+    Wrapper class for socket communication.
+    Handles safely sending and receiving asynchronously.
+    """
+
     def __init__(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.port = self.sock.getsockname()[1]
         self.decoder = codecs.getincrementaldecoder('utf-8')()
-        self.sock.settimeout(5.0)
 
     def close(self):
         """
@@ -44,12 +49,12 @@ class Socket:
         """
         bytes, addr = await asyncio.to_thread(self.sock.recvfrom, 5)
         logger.debug(f"Read from {addr}: {bytes}")
-        if bytes[4] != 0:
-            logger.warning(f"Invalid message from {addr}: {bytes}")
-            raise ValueError(f"Invalid message from {addr}: {bytes}")
         if len(bytes) < 5:
             logger.warning(f"Short read from {addr}: {bytes}")
             raise IOError(f"Short read from {addr}: {bytes}")
+        if bytes[4] != 0:
+            logger.warning(f"Invalid message from {addr}: {bytes}")
+            raise ValueError(f"Invalid message from {addr}: {bytes}")
         msg = self.decoder.decode(bytes[:-1])
         logger.debug(f"Read message: {msg}")
         return msg

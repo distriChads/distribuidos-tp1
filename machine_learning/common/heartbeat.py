@@ -7,7 +7,16 @@ import traceback
 logger = logging.getLogger(__name__)
 
 class Heartbeat:
+    """
+    Heartbeat server to monitor health of the service.
+    """
+
     def __init__(self, port: int):
+        """
+        Initializes the heartbeat server.
+        :param port: port to listen on
+        """
+
         self.port = port
         self._shutdown = threading.Event()
         
@@ -16,6 +25,10 @@ class Heartbeat:
         self.sock.bind(('', port))
 
     def stop(self):
+        """
+        Shuts down the heartbeat server by setting the shutdown event and sending a shutdown signal to itself.
+        """
+
         logger.info("HeartBeat server shutting down")
         self._shutdown.set()
         self.sock.sendto(b'\0', ('localhost', self.port))
@@ -24,6 +37,14 @@ class Heartbeat:
         logger.info("HeartBeat server socket closed")
         
     def run(self):
+        """
+        Main loop for the heartbeat server.
+        Listens in the configured udp port.
+        Ignores every message except the null-terminated "PING" string and the shutdown signal.
+        Sends a null-terminated "PONG" response back to the sender with 3 retries.
+        Exits only after Heartbeat.stop is called.
+        """
+
         try:
             logger.info(f"HeartBeat server listening on port {self.port}")
             
