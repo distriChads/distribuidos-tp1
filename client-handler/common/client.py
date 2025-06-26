@@ -55,7 +55,6 @@ class Client:
         Closes the client socket and the message broker worker.
         """
         self.client_socket.close()
-        self.worker.close_worker()
 
     def read(self):
         """
@@ -119,16 +118,20 @@ class Client:
             routing_keys = self.worker.exchange.output_routing_keys[MOVIES_ROUTING_KEYS[0]] + \
                 self.worker.exchange.output_routing_keys[MOVIES_ROUTING_KEYS[1]] + \
                 self.worker.exchange.output_routing_keys[ML_ROUTING_KEYS]
+            logging.info(f"Sending movies EOF for client {self.client_id}")
         elif type(self.batch_processor) == CreditsProcessor:
             routing_keys = self.worker.exchange.output_routing_keys[CREDITS_ROUTING_KEYS]
+            logging.info(f"Sending credits EOF for client {self.client_id}")
         elif type(self.batch_processor) == RatingsProcessor:
             routing_keys = self.worker.exchange.output_routing_keys[RATINGS_ROUTING_KEYS]
+            logging.info(f"Sending ratings EOF for client {self.client_id}")
         else:
             logging.error(
                 f"Invalid batch processor: {type(self.batch_processor)}")
             return
 
         for routing_key in routing_keys:
+            logging.info(f"Sending {type(self.batch_processor)} EOF for routing key {routing_key} for client {self.client_id}")
             self.worker.send_message(EOF, routing_key, self.client_id)
 
     def send_all_eof(self):

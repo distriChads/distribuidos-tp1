@@ -72,6 +72,7 @@ class ClientHandler:
         self._shutdown.set()
         self.worker.close_worker()
         self._cli_hand_socket.close()
+        
 
     def __clean_stale_clients(self) -> None:
         """
@@ -116,6 +117,8 @@ class ClientHandler:
         logging.info("All client threads joined")
         results_thread.join()
         logging.info("Results thread joined")
+        self.state_manager.remove_all_clients()
+        logging.info("State cleaned")
         logging.info('Client handler thread finished')
 
     def __join_client(self, client_id: str) -> None:
