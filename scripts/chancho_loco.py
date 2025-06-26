@@ -70,7 +70,7 @@ class ContainerController:
         else:
             sad_print(container_name)
 
-    def kill_all_except_one_heartbeat(self):
+    def kill_all_except_one_heartbeat_and_client_handler(self):
         health_checker_skipped = False
         client_handler_skipped = False
         containers_to_kill = self.get_active_containers()
@@ -90,12 +90,33 @@ class ContainerController:
 
         self.kill_containers(containers_to_kill)
         print(
+            "Todos los contenedores han sido asesinados, excepto un heartbeat y el handler. 💣💣💣💥💥💥💣💣💣\n")
+        
+    def kill_all_except_one_heartbeat(self):
+        health_checker_skipped = False
+        containers_to_kill = self.get_active_containers()
+        print("Matando todos los contenedores en 3..2..1.. 💣💣💣💥💥💥💣💣💣")
+        time.sleep(1)
+
+        for container_name in self.containers:
+            if container_name.startswith("health-checker") and not health_checker_skipped:
+                print(f"Salvando health-checker: {container_name}")
+                containers_to_kill.remove(container_name)
+                health_checker_skipped = True
+            if health_checker_skipped:
+                break
+
+        self.kill_containers(containers_to_kill)
+        print(
             "Todos los contenedores han sido asesinados, excepto un heartbeat. 💣💣💣💥💥💥💣💣💣\n")
 
     def kill_with_prefix(self, prefix):
+        containers_to_kill = []
         for container_name in self.containers:
             if container_name.startswith(prefix):
-                self.kill_container(container_name)
+                containers_to_kill.append(container_name)
+                
+        self.kill_containers(containers_to_kill)
 
     def auto_kill(self, x, y):
         self.auto_running = True
@@ -146,7 +167,7 @@ class ContainerController:
             elif cmd == "stop":
                 self.stop_auto_kill()
             elif cmd == "bomba":
-                self.kill_all_except_one_heartbeat()
+                self.kill_all_except_one_heartbeat_and_client_handler()
             elif cmd.startswith("matar "):
                 _, container_name = cmd.split(maxsplit=1)
                 self.kill_container(container_name)
@@ -159,6 +180,8 @@ class ContainerController:
                 print(f"Contenedores corriendo: {running_containers}")
                 running_containers = [
                     c for c in running_containers if not c.startswith("rabbit")]
+            elif cmd == "bomba_atomica":
+                self.kill_all_except_one_heartbeat()
             else:
                 print("Comando inexistente")
 
