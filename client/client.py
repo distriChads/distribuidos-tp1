@@ -2,6 +2,7 @@ import logging
 import os
 import signal
 import socket
+import time
 import threading
 from types import FrameType
 from typing import Optional
@@ -26,6 +27,7 @@ class Client:
 
         self.running = True
         self.results_thread = None
+        self.client_id = None
         # Handle SIGINT (Ctrl+C) and SIGTERM (docker stop)
         signal.signal(signal.SIGINT, self.__graceful_shutdown_handler)
         signal.signal(signal.SIGTERM, self.__graceful_shutdown_handler)
@@ -43,8 +45,16 @@ class Client:
         logging.info("Client socket closed")
 
     def __connect(self):
-        self.client_socket.sock.connect(
-            (self.client_handler_address, self.client_handler_port))
+        attempts = 0
+        while attempts < 3 and self.running:
+            try:
+                self.client_socket.sock.connect(
+                    (self.client_handler_address, self.client_handler_port))
+                break
+            except Exception as e:
+                logging.error(f"Error connecting to client handler: {e}")
+                attempts += 1
+                time.sleep(attempts * 2 + 2)
         logging.info(f"Connected to client handler")
 
     def run(self):
@@ -61,10 +71,10 @@ class Client:
             logging.error(f"Error: {e}")
 
         self.results_thread.join()
+        self.order_queries_alphabetically()
         self.__graceful_shutdown_handler()
 
     def __wait_for_results(self):
-        client_id_logged = False
         while self.running:
             try:
                 self.client_socket.sock.settimeout(4)
@@ -79,11 +89,11 @@ class Client:
                 query_id = result.split("/")[1]
                 result = result.split("/")[2]
 
-                if not client_id_logged:
+                if not self.client_id:
                     print(f"\n-----------Client ID: {client_id}-----------\n")
-                    client_id_logged = True
+                    self.client_id = client_id
 
-                self.__write_down_in_file(client_id, query_id, result)
+                self.__write_down_in_file(client_id, f"{query_id}.txt", result)
             except socket.timeout:
                 if not self.running:
                     logging.info("Socket timeout, shutting down")
@@ -193,3 +203,32 @@ class Client:
                         f"\rSent {percent_bytes_sent}% of {file_name} to client handler", end="")
         print()
         logging.info(f"Sent {file_name} to client handler")
+        
+    def order_queries_alphabetically(self) -> None:
+        if not self.client_id:
+            logging.error("Client ID was never received")
+            return
+        if not os.path.exists(os.path.join("results", self.client_id)):
+            logging.error(f"No results found for client {self.client_id}")
+            return
+        
+        q1_path = os.path.join("results", self.client_id, "query1.txt")
+        with open(q1_path, "r") as file:
+            q1 = file.readlines()
+        q1 = [line.strip() for line in q1]
+        q1.sort()
+        q1_aux_path = os.path.join("results", self.client_id, "query1-aux.txt")
+        with open(q1_aux_path, "w") as file:
+            file.write("\n".join(q1) + "\n")
+        os.rename(q1_aux_path, q1_path)
+        
+        q5_path = os.path.join("results", self.client_id, "query5.txt")
+        with open(q5_path, "r") as file:
+            q5 = file.readlines()
+        q5 = [line.strip() for line in q5]
+        q5.sort(reverse=True) # postive first
+        q5_aux_path = os.path.join("results", self.client_id, "query5-aux.txt")
+        with open(q5_aux_path, "w") as file:
+            file.write("\n".join(q5) + "\n")
+        os.rename(q5_aux_path, q5_path)
+        
