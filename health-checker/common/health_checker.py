@@ -59,7 +59,7 @@ class HealthChecker:
         logger.info(f"Rebooting container {addr}")
         while self._running:
             try:
-                subprocess.run(["docker", "start", addr], check=True, env={"SKIP_GRACE_PERIOD": "true"})
+                subprocess.run(["docker", "start", addr], check=True, env={"SKIP_GRACE_PERIOD": "true", "TEST_CASE": "0"})
                 break
             except subprocess.CalledProcessError as e:
                 logger.warning(f"Error rebooting container {addr}: {e}")

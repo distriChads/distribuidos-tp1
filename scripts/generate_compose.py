@@ -163,6 +163,7 @@ def generic_worker_service(
         f"CLI_WORKER_BROKER={broker}",
         f"CLI_HEARTBEAT_PORT={spec.get('heartbeat_port', 4444)}",
         f"CLI_LOG_LEVEL={spec['log_level']}",
+        "CLI_TEST_CASE=0",
     ]
     if eof_counter > 0:
         env.append(f"EOF_COUNTER={eof_counter}")

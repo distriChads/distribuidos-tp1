@@ -155,12 +155,12 @@
         },
         {
             "name": "health-checker",
-            "replicas": 3,
+            "replicas": 0,
             "log_level": "info",
             "ping_interval": 1,
             "grace_period": 10,
             "heartbeat_port": 4444,
-            "max_concurrent_health_checks": 10,
+            "max_concurrent_health_checks": 5,
             "max_retries": 3
         }
     ]

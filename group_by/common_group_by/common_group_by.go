@@ -1,14 +1,24 @@
 package common_group_by
 
 import (
+	"distribuidos-tp1/common/utils"
 	"distribuidos-tp1/common/worker/worker"
 	"distribuidos-tp1/common_statefull_worker"
+
 	"slices"
 
 	"github.com/google/uuid"
 	"github.com/op/go-logging"
 	"github.com/rabbitmq/amqp091-go"
 )
+
+// ========================== Testing ==========================
+const (
+	TEST_DO_NOT_ACK                    = 3
+	TEST_CRASH_RIGHT_AFTER_SEND_RESULT = 4
+)
+
+// ========================== Testing ==========================
 
 var log = logging.MustGetLogger("common_group_by")
 
@@ -133,6 +143,13 @@ func (g *CommonGroupBy[T]) HandleEOF(client_id string, message_id string, lines 
 		if err != nil {
 			return err
 		}
+
+		// ========================== Testing ==========================
+		if utils.TestCase == TEST_CRASH_RIGHT_AFTER_SEND_RESULT {
+			panic("test do not ack")
+		}
+		// ========================== Testing ==========================
+
 		g.messages[client_id] = g.messages[client_id][:0]
 		delete(g.messages, client_id)
 		delete(g.Grouped_elements, client_id)
@@ -149,6 +166,13 @@ func (g *CommonGroupBy[T]) HandleEOF(client_id string, message_id string, lines 
 	if err != nil {
 		return err
 	}
+
+	// ========================== Testing ==========================
+	if utils.TestCase == TEST_DO_NOT_ACK {
+		panic("test do not ack")
+	}
+	// ========================== Testing ==========================
+
 	for _, message := range g.messages[client_id] {
 		message.Ack(false)
 	}
@@ -173,6 +197,7 @@ func NewCommonGroupBy[T any](config worker.WorkerConfig, messages_before_commit 
 		return nil
 	}
 	if need_to_update {
+		log.Warning("State update needed")
 		messages_id, _ = common_statefull_worker.GetIds(storage_base_dir)
 	}
 

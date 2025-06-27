@@ -51,6 +51,10 @@ func InitConfig() (*viper.Viper, error) {
 
 	// For testing resiliency
 	TestCase = v.GetInt("test.case")
+	if TestCase == 0 {
+		TestCase = v.GetInt("cli.test.case")
+	}
+	fmt.Println("TestCase:", TestCase)
 
 	// Print all settings loaded by Viper (including env vars)
 	// This is useful for debugging

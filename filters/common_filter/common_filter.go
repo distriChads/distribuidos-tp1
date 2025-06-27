@@ -12,8 +12,11 @@ var log = logging.MustGetLogger("common_filter")
 
 // ========================== Testing ==========================
 const (
-	TEST_SEND_MULTIPLE_EOF = 1
+	TEST_SEND_MULTIPLE_EOF     = 1
+	TEST_SEND_MULTIPLE_MESSAGE = 2
 )
+
+var sent_multiple_message = false
 
 // ========================== Testing ==========================
 
@@ -59,6 +62,20 @@ func (f *CommonFilter) SendMessage(client_id string, message_id string) error {
 				if err != nil {
 					return err
 				}
+
+				// ========================== Testing ==========================
+				if utils.TestCase == TEST_SEND_MULTIPLE_MESSAGE {
+					if sent_multiple_message {
+						continue
+					}
+					err = f.Worker.SendMessage(message, routing_key)
+					if err != nil {
+						return err
+					}
+					sent_multiple_message = true
+				}
+				// ========================== Testing ==========================
+
 				log.Debugf("Sent message to output exchange: %s", message)
 			}
 		}

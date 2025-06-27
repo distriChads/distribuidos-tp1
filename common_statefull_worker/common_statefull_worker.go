@@ -3,6 +3,7 @@ package common_statefull_worker
 import (
 	"bufio"
 	"context"
+	"distribuidos-tp1/common/utils"
 	worker "distribuidos-tp1/common/worker/worker"
 	"encoding/json"
 	"fmt"
@@ -14,6 +15,16 @@ import (
 	"github.com/op/go-logging"
 	"github.com/rabbitmq/amqp091-go"
 )
+
+// ========================== Testing ==========================
+const (
+	TEST_CRASH_MID_WRITE          = 1
+	TEST_CRASH_JUST_BEFORE_APPEND = 2
+)
+
+var writes_to_file = 0
+
+// ========================== Testing ==========================
 
 type StatefullWorker interface {
 	// Updates the internal in-memory state with the given lines for the specified client
@@ -110,7 +121,16 @@ func RunWorker(s StatefullWorker, ctx context.Context, w worker.Worker, starting
 
 // No short-write function
 func doWrite(data []byte, file *os.File) error {
+	// ========================== Testing ==========================
+	writes_to_file++
+	if utils.TestCase == TEST_CRASH_MID_WRITE && writes_to_file > 5 {
+		_, _ = file.Write(data[:len(data)/2])
+		panic("test crash mid write")
+	}
+	// ========================== Testing ==========================
+
 	data_written_so_far := 0
+
 	for data_written_so_far < len(data) {
 		data_written, err := file.Write(data[data_written_so_far:])
 		if err != nil {
@@ -174,6 +194,13 @@ func genericWriteToFile(storage_base_dir string, last_message_ids []string, clie
 
 // Append the ids given to the file
 func appendIds(storage_base_dir string, last_message_ids []string, client_id string) error {
+
+	// ========================== Testing ==========================
+	if utils.TestCase == TEST_CRASH_JUST_BEFORE_APPEND {
+		panic("test crash just before append")
+	}
+	// ========================== Testing ==========================
+
 	return genericWriteToFile(storage_base_dir, last_message_ids, client_id, "ids", os.O_APPEND|os.O_CREATE|os.O_WRONLY)
 }
 
